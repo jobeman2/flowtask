@@ -1,0 +1,15 @@
+{
+  "name": "@flowtask/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.24.1",
+    "@typescript-eslint/parser": "^8.24.1",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-import": "^2.31.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.20.1"
+  }
+}

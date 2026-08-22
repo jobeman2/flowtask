@@ -1,0 +1,18 @@
+export const APP_CONFIG = {
+  APP_NAME: 'FlowTask',
+  API_VERSION: 'v1',
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  DEFAULT_TIMEZONE: 'UTC',
+} as const;
+
+export const TASK_DEFAULTS = {
+  DEFAULT_STATUS: 'TODO',
+  DEFAULT_PRIORITY: 'MEDIUM',
+} as const;
+
+export const TELEGRAM_LIMITS = {
+  MAX_MESSAGE_LENGTH: 4096,
+  MAX_CAPTION_LENGTH: 1024,
+  MAX_CALLBACK_DATA_LENGTH: 64,
+} as const;
