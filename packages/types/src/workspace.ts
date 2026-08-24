@@ -1,5 +1,5 @@
-export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST';
-export type WorkspaceType = 'PERSONAL' | 'TEAM' | 'ENTERPRISE';
+export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'CLIENT' | 'GUEST';
+export type WorkspaceType = 'PERSONAL' | 'TEAM' | 'CLIENT_COLLABORATION' | 'ENTERPRISE';
 
 export interface Workspace {
   id: string;

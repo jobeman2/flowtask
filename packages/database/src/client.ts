@@ -15,6 +15,7 @@ try {
     private projects = new Map<string, any>();
     private labels = new Map<string, any>();
     private comments = new Map<string, any>();
+    private reminders = new Map<string, any>();
 
     user = {
       findUnique: async ({ where }: any) => {
@@ -44,7 +45,7 @@ try {
               ...user,
               workspaceMembers: members.map((m: any) => ({
                 ...m,
-                workspace: this.workspaces.get(m.workspaceId),
+                workspace: this.workspaces.get(m.workspaceId) || { id: m.workspaceId, name: 'Personal Workspace', type: 'PERSONAL' },
               })),
             },
           };
@@ -67,7 +68,7 @@ try {
     workspace = {
       create: async ({ data }: any) => {
         const id = data.id || `ws_${Date.now()}`;
-        const record = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
+        const record = { id, type: data.type || 'PERSONAL', createdAt: new Date(), updatedAt: new Date(), ...data };
         this.workspaces.set(id, record);
         if (data.members?.create) {
           const mId = `mem_${Date.now()}`;
@@ -81,14 +82,23 @@ try {
         return record;
       },
       findUnique: async ({ where }: any) => this.workspaces.get(where.id) || null,
-      findMany: async () => Array.from(this.workspaces.values()),
+      findMany: async ({ where }: any) => {
+        let list = Array.from(this.workspaces.values());
+        if (where?.members?.some?.userId) {
+          const wsIds = Array.from(this.workspaceMembers.values())
+            .filter((m: any) => m.userId === where.members.some.userId)
+            .map((m: any) => m.workspaceId);
+          list = list.filter((ws: any) => wsIds.includes(ws.id));
+        }
+        return list;
+      },
     };
 
     workspaceMember = {
       findMany: async ({ where }: any) => {
         return Array.from(this.workspaceMembers.values())
           .filter((m: any) => (where.userId ? m.userId === where.userId : true))
-          .map((m: any) => ({ ...m, workspace: this.workspaces.get(m.workspaceId) || { id: m.workspaceId, name: 'Personal Workspace', _count: { members: 1, tasks: 0, projects: 0 } } }));
+          .map((m: any) => ({ ...m, workspace: this.workspaces.get(m.workspaceId) || { id: m.workspaceId, name: 'Personal Workspace', type: 'PERSONAL', _count: { members: 1, tasks: 0, projects: 0 } } }));
       },
       findUnique: async () => null,
       create: async ({ data }: any) => {
@@ -101,32 +111,70 @@ try {
 
     task = {
       create: async ({ data }: any) => {
-        const id = data.id || `task_${Date.now()}`;
-        const record = { id, status: 'TODO', priority: 'MEDIUM', createdAt: new Date(), updatedAt: new Date(), ...data };
+        const id = data.id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const record = {
+          id,
+          status: data.status || 'TODO',
+          priority: data.priority || 'MEDIUM',
+          dueDate: data.dueDate || null,
+          isRecurring: data.isRecurring || false,
+          recurrenceRule: data.recurrenceRule || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ...data,
+        };
         this.tasks.set(id, record);
         return record;
       },
-      findMany: async ({ where }: any) => {
-        return Array.from(this.tasks.values()).filter((t: any) => !where?.workspaceId || t.workspaceId === where.workspaceId);
+      findMany: async ({ where, orderBy: _orderBy, take, skip }: any) => {
+        let items = Array.from(this.tasks.values());
+        if (where?.workspaceId) items = items.filter((t: any) => t.workspaceId === where.workspaceId);
+        if (where?.status) {
+          if (typeof where.status === 'string') items = items.filter((t: any) => t.status === where.status);
+          if (where.status.in) items = items.filter((t: any) => where.status.in.includes(t.status));
+          if (where.status.not) items = items.filter((t: any) => t.status !== where.status.not);
+        }
+        if (where?.dueDate) {
+          if (where.dueDate.gte) items = items.filter((t: any) => t.dueDate && new Date(t.dueDate) >= new Date(where.dueDate.gte));
+          if (where.dueDate.lte) items = items.filter((t: any) => t.dueDate && new Date(t.dueDate) <= new Date(where.dueDate.lte));
+          if (where.dueDate.lt) items = items.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date(where.dueDate.lt));
+          if (where.dueDate.not === null) items = items.filter((t: any) => t.dueDate !== null);
+        }
+        if (where?.priority) items = items.filter((t: any) => t.priority === where.priority);
+
+        if (skip) items = items.slice(skip);
+        if (take) items = items.slice(0, take);
+        return items;
       },
       findFirst: async ({ where }: any) => {
         return Array.from(this.tasks.values()).find((t: any) => t.id === where?.id) || null;
       },
-      count: async () => this.tasks.size,
+      count: async ({ where }: any) => {
+        const found = await this.task.findMany({ where });
+        return found.length;
+      },
       update: async ({ where, data }: any) => {
         const task = this.tasks.get(where.id);
-        if (task) Object.assign(task, data);
+        if (task) {
+          Object.assign(task, data, { updatedAt: new Date() });
+        }
         return task;
       },
       delete: async ({ where }: any) => {
+        const task = this.tasks.get(where.id);
         this.tasks.delete(where.id);
-        return { deleted: true };
+        return task || { deleted: true };
       },
     };
 
     project = {
       findMany: async () => Array.from(this.projects.values()),
-      findFirst: async () => null,
+      findFirst: async ({ where }: any) => {
+        if (where.name && where.workspaceId) {
+          return Array.from(this.projects.values()).find((p: any) => p.workspaceId === where.workspaceId && p.name.toLowerCase() === where.name.toLowerCase()) || null;
+        }
+        return null;
+      },
       create: async ({ data }: any) => {
         const id = `proj_${Date.now()}`;
         const record = { id, ...data };
@@ -139,7 +187,12 @@ try {
     label = {
       findMany: async () => Array.from(this.labels.values()),
       findUnique: async () => null,
-      findFirst: async () => null,
+      findFirst: async ({ where }: any) => {
+        if (where.name && where.workspaceId) {
+          return Array.from(this.labels.values()).find((l: any) => l.workspaceId === where.workspaceId && l.name.toLowerCase() === where.name.toLowerCase()) || null;
+        }
+        return null;
+      },
       create: async ({ data }: any) => {
         const id = `lbl_${Date.now()}`;
         const record = { id, ...data };
@@ -157,6 +210,26 @@ try {
         const record = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
         this.comments.set(id, record);
         return record;
+      },
+    };
+
+    reminder = {
+      create: async ({ data }: any) => {
+        const id = `rem_${Date.now()}`;
+        const record = { id, status: 'PENDING', snoozeCount: 0, createdAt: new Date(), updatedAt: new Date(), ...data };
+        this.reminders.set(id, record);
+        return record;
+      },
+      findMany: async ({ where }: any) => {
+        let list = Array.from(this.reminders.values());
+        if (where?.status) list = list.filter((r: any) => r.status === where.status);
+        if (where?.remindAt?.lte) list = list.filter((r: any) => new Date(r.remindAt) <= new Date(where.remindAt.lte));
+        return list;
+      },
+      update: async ({ where, data }: any) => {
+        const rem = this.reminders.get(where.id);
+        if (rem) Object.assign(rem, data, { updatedAt: new Date() });
+        return rem;
       },
     };
 
@@ -190,12 +263,14 @@ export enum WorkspaceRole {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
   MEMBER = 'MEMBER',
+  CLIENT = 'CLIENT',
   GUEST = 'GUEST',
 }
 
 export enum WorkspaceType {
   PERSONAL = 'PERSONAL',
   TEAM = 'TEAM',
+  CLIENT_COLLABORATION = 'CLIENT_COLLABORATION',
   ENTERPRISE = 'ENTERPRISE',
 }
 
@@ -214,4 +289,17 @@ export enum TaskPriority {
   MEDIUM = 'MEDIUM',
   LOW = 'LOW',
   NONE = 'NONE',
+}
+
+export enum ReminderType {
+  DUE_DATE = 'DUE_DATE',
+  CUSTOM = 'CUSTOM',
+  RECURRING = 'RECURRING',
+}
+
+export enum ReminderStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  CANCELLED = 'CANCELLED',
+  FAILED = 'FAILED',
 }

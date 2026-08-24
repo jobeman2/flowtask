@@ -10,12 +10,14 @@ enum WorkspaceRole {
   OWNER
   ADMIN
   MEMBER
+  CLIENT
   GUEST
 }
 
 enum WorkspaceType {
   PERSONAL
   TEAM
+  CLIENT_COLLABORATION
   ENTERPRISE
 }
 
@@ -182,6 +184,9 @@ model Task {
   creatorId   String
   assigneeId  String?
   dueDate     DateTime?
+  isRecurring Boolean      @default(false)
+  recurrenceRule String?
+  parentTaskId String?
   completedAt DateTime?
   archivedAt  DateTime?
   sourceMessageId String?
@@ -252,13 +257,15 @@ model Comment {
 }
 
 model Reminder {
-  id        String         @id @default(uuid())
-  taskId    String
-  remindAt  DateTime
-  type      ReminderType   @default(CUSTOM)
-  status    ReminderStatus @default(PENDING)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id           String         @id @default(uuid())
+  taskId       String
+  remindAt     DateTime
+  snoozedUntil DateTime?
+  snoozeCount  Int            @default(0)
+  type         ReminderType   @default(CUSTOM)
+  status       ReminderStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 

@@ -19,6 +19,9 @@ export interface Task {
   creatorId: string;
   assigneeId: string | null;
   dueDate: Date | null;
+  isRecurring: boolean;
+  recurrenceRule: string | null;
+  parentTaskId: string | null;
   completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -53,6 +56,8 @@ export interface Reminder {
   id: string;
   taskId: string;
   remindAt: Date;
+  snoozedUntil: Date | null;
+  snoozeCount: number;
   type: ReminderType;
   status: ReminderStatus;
   createdAt: Date;
