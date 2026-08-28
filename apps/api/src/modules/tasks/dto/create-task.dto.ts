@@ -2,16 +2,16 @@ import {
   IsNotEmpty,
   IsString,
   IsOptional,
-  IsUUID,
   IsEnum,
   IsDateString,
   IsArray,
+  IsBoolean,
 } from 'class-validator';
 import { TaskStatus, TaskPriority } from '@flowtask/database';
 
 export class CreateTaskDto {
   @IsNotEmpty()
-  @IsUUID()
+  @IsString()
   workspaceId: string;
 
   @IsNotEmpty()
@@ -23,7 +23,7 @@ export class CreateTaskDto {
   description?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   projectId?: string;
 
   @IsOptional()
@@ -35,7 +35,7 @@ export class CreateTaskDto {
   priority?: TaskPriority = TaskPriority.MEDIUM;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   assigneeId?: string;
 
   @IsOptional()
@@ -43,7 +43,15 @@ export class CreateTaskDto {
   dueDate?: string;
 
   @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  recurrenceRule?: string;
+
+  @IsOptional()
   @IsArray()
-  @IsUUID(4, { each: true })
+  @IsString({ each: true })
   labelIds?: string[];
 }

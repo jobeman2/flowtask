@@ -1,7 +1,12 @@
 import { Context, InlineKeyboard } from 'grammy';
 import { botConfig } from '../config/bot.config';
+import { handleBotAddedToGroup } from './group.handler';
 
 export async function handleStart(ctx: Context) {
+  if (ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup') {
+    return handleBotAddedToGroup(ctx);
+  }
+
   const user = ctx.from;
   if (!user) return;
 

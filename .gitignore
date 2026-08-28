@@ -41,4 +41,15 @@ Thumbs.db
 coverage
 .nyc_output
 
+# Local binaries and database files
+cloudflared.exe
+flowtask_db.json
+*.tsbuildinfo
+
+# Database src compilation artifacts
+packages/database/src/*.js
+packages/database/src/*.js.map
+packages/database/src/*.d.ts
+packages/database/src/*.d.ts.map
+
 # Prisma generated artifacts (managed via pnpm db:generate)

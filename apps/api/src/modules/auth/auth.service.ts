@@ -44,7 +44,7 @@ export class AuthService {
     const telegramIdStr = tgUser.id.toString();
     const displayName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || `User ${tgUser.id}`;
 
-    // Find existing telegram account or create user + workspace
+    // Find existing telegram account by telegramId
     let telegramAccount = await this.prisma.telegramAccount.findUnique({
       where: { telegramId: telegramIdStr },
       include: {
@@ -57,6 +57,44 @@ export class AuthService {
         },
       },
     });
+
+    // If not found by telegramId, check if pre-invited by username
+    if (!telegramAccount && tgUser.username) {
+      telegramAccount = await this.prisma.telegramAccount.findFirst({
+        where: { username: tgUser.username },
+        include: {
+          user: {
+            include: {
+              workspaceMembers: {
+                include: { workspace: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (telegramAccount) {
+        // Link real telegramId and sync profile
+        await this.prisma.telegramAccount.update({
+          where: { id: telegramAccount.id },
+          data: {
+            telegramId: telegramIdStr,
+            firstName: tgUser.first_name,
+            lastName: tgUser.last_name || null,
+            languageCode: tgUser.language_code || null,
+            authDate,
+          },
+        });
+        await this.prisma.user.update({
+          where: { id: telegramAccount.userId },
+          data: {
+            name: displayName,
+            avatarUrl: tgUser.photo_url || undefined,
+          },
+        });
+        this.logger.log(`Linked pre-invited username @${tgUser.username} to Telegram ID ${telegramIdStr}`);
+      }
+    }
 
     let userId: string;
     let defaultWorkspaceId: string | undefined;
@@ -118,9 +156,15 @@ export class AuthService {
           username: tgUser.username || null,
           firstName: tgUser.first_name,
           lastName: tgUser.last_name || null,
-          authDate: authDate,
+          authDate,
         },
       });
+      if (displayName) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { name: displayName },
+        });
+      }
     }
 
     const user = await this.prisma.user.findUniqueOrThrow({

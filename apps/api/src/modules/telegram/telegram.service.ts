@@ -15,8 +15,112 @@ export class TelegramService {
 
   async handleUpdate(update: any) {
     this.logger.log(`Received Telegram webhook update ID: ${update?.update_id}`);
-    // In Phase 1, acknowledge and log the webhook.
-    // In Phase 3, this invokes the Bot Dispatcher service.
     return { ok: true };
+  }
+
+  async sendTelegramMessage(
+    telegramId: string,
+    text: string,
+    options?: { reply_markup?: any; parse_mode?: string }
+  ) {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') {
+      this.logger.log(`[Mock Bot DM to ${telegramId}]: ${text}`);
+      return { ok: true, mock: true };
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: telegramId,
+          text,
+          parse_mode: options?.parse_mode || 'Markdown',
+          reply_markup: options?.reply_markup,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.ok) {
+        this.logger.warn(`Failed to send Telegram message to ${telegramId}: ${data.description}`);
+      } else {
+        this.logger.log(`Telegram DM sent successfully to ${telegramId}`);
+      }
+      return data;
+    } catch (err: any) {
+      this.logger.error(`Error sending Telegram message to ${telegramId}: ${err.message}`);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  async notifyWorkspaceInvite(data: {
+    targetTelegramId?: string;
+    workspaceName: string;
+    role: string;
+    inviterName: string;
+  }) {
+    if (!data.targetTelegramId) return;
+
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const text =
+      `👋 *You've been invited to a Team Workspace!*\n\n` +
+      `🏢 *Workspace:* *${data.workspaceName}*\n` +
+      `🛡️ *Role:* \`${data.role}\`\n` +
+      `👤 *Invited by:* *${data.inviterName}*\n\n` +
+      `You can now view, collaborate, and manage shared tasks in this workspace.`;
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '👥 Open Team in Mini App', web_app: { url: webAppUrl } }],
+        ],
+      },
+    });
+  }
+
+  async notifyTaskAssigned(data: {
+    targetTelegramId?: string;
+    taskId?: string;
+    taskTitle: string;
+    priority: string;
+    workspaceName: string;
+    assignerName: string;
+    dueDate?: string | null;
+  }) {
+    if (!data.targetTelegramId) return;
+
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const text =
+      `📬 *Telegram Inbox — Task Assigned to You!*\n\n` +
+      `📝 *Task:* *${data.taskTitle}*\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `🏢 *Workspace:* *${data.workspaceName}*\n` +
+      `👤 *Assigned by:* *${data.assignerName}*${dueInfo}\n\n` +
+      `_This task is now in your FlowTask Mini App and Telegram task list._`;
+
+    const inlineKeyboard: any[] = [
+      [{ text: '📱 Open in FlowTask Mini App', web_app: { url: webAppUrl } }],
+    ];
+
+    if (data.taskId) {
+      inlineKeyboard.push([
+        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
+        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
+      ]);
+    }
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
   }
 }

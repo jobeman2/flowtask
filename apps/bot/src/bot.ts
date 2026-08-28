@@ -16,6 +16,9 @@ import { handleTodayTasks } from './handlers/today.handler';
 import { handleOverdueTasks } from './handlers/overdue.handler';
 import { handleUpcomingTasks } from './handlers/upcoming.handler';
 import { handleWorkspaceCommand, handleWorkspaceSwitch, handleWorkspaceCreate } from './handlers/workspace.handler';
+import { handleTeamCommand } from './handlers/team.handler';
+import { handleAssignedTasks } from './handlers/assigned.handler';
+import { handleBotAddedToGroup, handleGroupInfo, handleGroupSummary } from './handlers/group.handler';
 import { ReminderScheduler } from './services/reminder-scheduler';
 import { prisma, TaskStatus, TaskPriority } from '@flowtask/database';
 
@@ -28,14 +31,21 @@ export function createBot() {
   const scheduler = new ReminderScheduler(bot);
   scheduler.start();
 
+  // --- GROUP EVENTS ---
+  bot.on(':new_chat_members', handleBotAddedToGroup);
+
   // --- COMMAND ROUTES ---
   bot.command('start', handleStart);
   bot.command('help', handleHelp);
-  bot.command(['task', 'create', 'add'], handleTaskCommand);
+  bot.command(['task', 'create', 'add', 'todo'], handleTaskCommand);
   bot.command('tasks', (ctx) => handleTasksList(ctx, 'PENDING', 1));
+  bot.command(['assigned', 'inbox', 'mytasks'], handleAssignedTasks);
+  bot.command(['group', 'board'], handleGroupInfo);
+  bot.command(['summary', 'standup'], handleGroupSummary);
   bot.command('today', handleTodayTasks);
   bot.command('overdue', handleOverdueTasks);
   bot.command('upcoming', handleUpcomingTasks);
+  bot.command('team', handleTeamCommand);
   bot.command(['workspace', 'workspaces', 'switch'], handleWorkspaceCommand);
 
   // Direct quick complete command: /done <id>
@@ -77,6 +87,11 @@ export function createBot() {
   bot.callbackQuery('action:workspace_menu', async (ctx) => {
     await ctx.answerCallbackQuery();
     await handleWorkspaceCommand(ctx);
+  });
+
+  bot.callbackQuery('action:group_summary', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await handleGroupSummary(ctx);
   });
 
   // 2. Task List Filtering & Pagination (tasks:filter:<filter>:<page> | tasks:page:<filter>:<page>)

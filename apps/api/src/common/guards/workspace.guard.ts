@@ -43,7 +43,7 @@ export class WorkspaceGuard implements CanActivate {
       throw new NotFoundException('Workspace not found');
     }
 
-    const membership = workspace.members[0];
+    const membership = workspace.members?.[0];
     if (!membership && workspace.ownerId !== user.id) {
       throw new ForbiddenException('You do not have access to this workspace');
     }

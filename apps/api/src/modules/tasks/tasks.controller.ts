@@ -32,6 +32,13 @@ export class TasksController {
     return this.tasksService.listTasks(workspaceId, user.id, query);
   }
 
+  @Get('stats/summary')
+  async getWorkspaceStats(
+    @Query('workspaceId') workspaceId: string
+  ) {
+    return this.tasksService.getWorkspaceStats(workspaceId);
+  }
+
   @Get(':id')
   async getTaskById(
     @Param('id') taskId: string,

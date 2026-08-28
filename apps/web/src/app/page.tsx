@@ -5,10 +5,10 @@ import { useAuth } from '../providers/telegram-provider';
 import { useTelegram } from '../hooks/use-telegram';
 import { WorkspaceSwitcher } from '../features/workspaces/components/workspace-switcher';
 import { TaskList } from '../features/tasks/components/task-list';
-import { CheckSquare, User as UserIcon } from 'lucide-react';
+import { CheckSquare } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, isLoading, error } = useAuth();
+  const { user, error } = useAuth();
   const { isInsideTelegram } = useTelegram();
 
   return (

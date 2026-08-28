@@ -3,9 +3,10 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import compression from 'compression';
-import cookieParser from 'cookie-parser';
+import * as compression from 'compression';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -17,13 +18,31 @@ async function bootstrap() {
     'http://localhost:3000',
   ];
 
-  // Security & standard HTTP middlewares
-  app.use(helmet());
+  // Security & standard HTTP middlewares (configured for Telegram Mini App iframes)
+  app.use(
+    helmet({
+      frameguard: false,
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
   app.use(compression());
   app.use(cookieParser());
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        corsOrigins.includes(origin) ||
+        origin.includes('trycloudflare.com') ||
+        origin.includes('telegram.org') ||
+        origin.includes('localhost')
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -44,7 +63,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transformOptions: {
         enableImplicitConversion: true,
       },

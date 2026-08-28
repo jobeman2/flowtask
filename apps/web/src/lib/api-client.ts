@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+
 
 class ApiClient {
   private token: string | null = null;
@@ -61,8 +62,61 @@ class ApiClient {
     return this.request<any[]>('/workspaces');
   }
 
-  async getTasks(workspaceId: string) {
-    return this.request<any[]>(`/tasks?workspaceId=${workspaceId}`);
+  async createWorkspace(name: string, type: string = 'TEAM') {
+    return this.request<any>('/workspaces', {
+      method: 'POST',
+      body: JSON.stringify({ name, type }),
+    });
+  }
+
+  async getWorkspaceMembers(workspaceId: string) {
+    return this.request<any[]>(`/workspaces/${workspaceId}/members`);
+  }
+
+  async inviteWorkspaceMember(
+    workspaceId: string,
+    data: { username?: string; email?: string; name?: string; role?: string }
+  ) {
+    return this.request<any>(`/workspaces/${workspaceId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeWorkspaceMember(workspaceId: string, memberId: string) {
+    return this.request<any>(`/workspaces/${workspaceId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getTaskStats(workspaceId: string) {
+    return this.request<{
+      totalActive: number;
+      completed: number;
+      overdue: number;
+      dueToday: number;
+      upcoming: number;
+      totalTasks: number;
+      byPriority: Record<string, number>;
+      byStatus: Record<string, number>;
+      projectsCount: number;
+      projectsSummary: Array<{ id: string; name: string; color: string; taskCount: number }>;
+    }>(`/tasks/stats/summary?workspaceId=${workspaceId}`);
+  }
+
+  async getTasks(workspaceId: string, params: Record<string, any> = {}) {
+    const query = new URLSearchParams({ workspaceId });
+    if (params.status) query.append('status', params.status);
+    if (params.projectId) query.append('projectId', params.projectId);
+    if (params.assigneeId) query.append('assigneeId', params.assigneeId);
+    if (params.search) query.append('search', params.search);
+    if (params.sortBy) query.append('sortBy', params.sortBy);
+    if (params.sortOrder) query.append('sortOrder', params.sortOrder);
+    return this.request<any[]>(`/tasks?${query.toString()}`);
+  }
+
+  async getTaskById(taskId: string, workspaceId: string) {
+    return this.request<any>(`/tasks/${taskId}?workspaceId=${workspaceId}`);
   }
 
   async createTask(data: any) {
@@ -72,10 +126,60 @@ class ApiClient {
     });
   }
 
+  async updateTask(taskId: string, workspaceId: string, data: any) {
+    return this.request<any>(`/tasks/${taskId}?workspaceId=${workspaceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async completeTask(taskId: string, workspaceId: string) {
     return this.request<any>(`/tasks/${taskId}/complete?workspaceId=${workspaceId}`, {
       method: 'POST',
     });
+  }
+
+  async deleteTask(taskId: string, workspaceId: string) {
+    return this.request<any>(`/tasks/${taskId}?workspaceId=${workspaceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getProjects(workspaceId: string) {
+    return this.request<any[]>(`/projects?workspaceId=${workspaceId}`);
+  }
+
+  async createProject(workspaceId: string, data: { name: string; description?: string; color?: string }) {
+    return this.request<any>('/projects', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, workspaceId }),
+    });
+  }
+
+  async getLabels(workspaceId: string) {
+    return this.request<any[]>(`/labels?workspaceId=${workspaceId}`);
+  }
+
+  async createLabel(workspaceId: string, data: { name: string; color?: string }) {
+    return this.request<any>('/labels', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, workspaceId }),
+    });
+  }
+
+  async getComments(taskId: string, workspaceId: string) {
+    return this.request<any[]>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`);
+  }
+
+  async addComment(taskId: string, workspaceId: string, content: string) {
+    return this.request<any>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async getActivity(workspaceId: string) {
+    return this.request<any[]>(`/activity?workspaceId=${workspaceId}`);
   }
 }
 

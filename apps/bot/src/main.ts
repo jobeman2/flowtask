@@ -10,8 +10,22 @@ async function bootstrap() {
   const bot = createBot();
   console.info('🤖 Starting FlowTask Telegram Bot runner in long-polling mode...');
   await bot.start({
-    onStart: (botInfo) => {
+    onStart: async (botInfo) => {
       console.info(`✅ FlowTask Bot @${botInfo.username} is active and listening!`);
+      if (botConfig.webAppUrl.startsWith('https://')) {
+        try {
+          await bot.api.setChatMenuButton({
+            menu_button: {
+              type: 'web_app',
+              text: '🚀 FlowTask App',
+              web_app: { url: botConfig.webAppUrl },
+            },
+          });
+          console.info(`🔗 Telegram Chat Menu Button configured with WebApp URL: ${botConfig.webAppUrl}`);
+        } catch (e) {
+          console.warn('Could not set chat menu button:', e);
+        }
+      }
     },
   });
 }

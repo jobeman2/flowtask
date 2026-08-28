@@ -2,14 +2,14 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
-  UseGuards,
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@flowtask/types';
-import { IsNotEmpty, IsString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
 import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
 
 class CreateWorkspaceDto {
@@ -19,17 +19,29 @@ class CreateWorkspaceDto {
 
   @IsOptional()
   @IsEnum(WorkspaceType)
-  type?: WorkspaceType;
+  type?: WorkspaceType = WorkspaceType.PERSONAL;
 }
 
 class AddMemberDto {
-  @IsNotEmpty()
-  @IsUUID()
-  userId: string;
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
 
   @IsOptional()
   @IsEnum(WorkspaceRole)
-  role?: WorkspaceRole;
+  role?: WorkspaceRole = WorkspaceRole.MEMBER;
 }
 
 @Controller('workspaces')
@@ -57,12 +69,29 @@ export class WorkspacesController {
     return this.workspacesService.getWorkspaceById(workspaceId, user.id);
   }
 
+  @Get(':id/members')
+  async listMembers(
+    @Param('id') workspaceId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.listMembers(workspaceId, user.id);
+  }
+
   @Post(':id/members')
   async addMember(
     @Param('id') workspaceId: string,
     @CurrentUser() user: User,
     @Body() dto: AddMemberDto
   ) {
-    return this.workspacesService.addMember(workspaceId, user.id, dto.userId, dto.role);
+    return this.workspacesService.addMember(workspaceId, user.id, dto);
+  }
+
+  @Delete(':id/members/:memberId')
+  async removeMember(
+    @Param('id') workspaceId: string,
+    @Param('memberId') memberId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.removeMember(workspaceId, user.id, memberId);
   }
 }

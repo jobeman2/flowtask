@@ -1,10 +1,10 @@
 import {
   IsOptional,
   IsString,
-  IsUUID,
   IsEnum,
   IsDateString,
   IsArray,
+  IsBoolean,
 } from 'class-validator';
 import { TaskStatus, TaskPriority } from '@flowtask/database';
 
@@ -18,7 +18,7 @@ export class UpdateTaskDto {
   description?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   projectId?: string;
 
   @IsOptional()
@@ -30,7 +30,7 @@ export class UpdateTaskDto {
   priority?: TaskPriority;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   assigneeId?: string;
 
   @IsOptional()
@@ -38,7 +38,15 @@ export class UpdateTaskDto {
   dueDate?: string;
 
   @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  recurrenceRule?: string;
+
+  @IsOptional()
   @IsArray()
-  @IsUUID(4, { each: true })
+  @IsString({ each: true })
   labelIds?: string[];
 }

@@ -37,7 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     return {
       ...user,
-      telegramAccount: user.telegramAccounts[0] || null,
+      telegramAccount: user.telegramAccounts?.[0] || null,
     };
   }
 }

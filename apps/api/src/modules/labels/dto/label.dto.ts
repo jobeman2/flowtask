@@ -2,7 +2,7 @@ import { IsNotEmpty, IsString, IsOptional, IsUUID, Matches } from 'class-validat
 
 export class CreateLabelDto {
   @IsNotEmpty()
-  @IsUUID()
+  @IsString()
   workspaceId: string;
 
   @IsNotEmpty()
