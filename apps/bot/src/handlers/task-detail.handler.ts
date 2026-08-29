@@ -24,12 +24,14 @@ export async function handleTaskDetail(ctx: Context, taskId: string) {
     : 'None';
 
   const recurStr = task.isRecurring ? (task.recurrenceRule || 'Active') : 'Off';
+  const imageStr = task.imageUrl ? `*Image:* [🖼️ View Attachment](${task.imageUrl})\n` : '';
 
   const message =
     `📌 *Task Details*\n\n` +
     `*Title:* ${task.title}\n` +
     `*Status:* \`${statusBadge}\`\n` +
     `*Priority:* \`${prioBadge}\`\n` +
+    `${imageStr}` +
     `*Due Date:* ${dueStr}\n` +
     `*Recurrence:* \`${recurStr}\`\n`;
 
@@ -40,6 +42,10 @@ export async function handleTaskDetail(ctx: Context, taskId: string) {
     keyboard.text('🔄 Reopen Task', `task:reopen:${task.id}`).row();
   } else {
     keyboard.text('✅ Mark as Completed', `task:done:${task.id}`).row();
+  }
+
+  if (task.imageUrl && !task.imageUrl.startsWith('data:')) {
+    keyboard.url('🖼️ Open Image', task.imageUrl).row();
   }
 
   // Setting submenus

@@ -206,6 +206,7 @@ export class TasksService {
           creatorName: creator?.name || 'A teammate',
           assigneeName: assigneeUser?.name || null,
           dueDate: dto.dueDate || null,
+          imageUrl: result.imageUrl || dto.imageUrl || null,
         });
       }
     } catch {

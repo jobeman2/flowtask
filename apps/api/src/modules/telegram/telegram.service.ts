@@ -54,6 +54,43 @@ export class TelegramService {
     }
   }
 
+  async sendTelegramPhoto(
+    chatId: string,
+    photoUrlOrFileId: string,
+    caption: string,
+    options?: { reply_markup?: any; parse_mode?: string }
+  ) {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') {
+      this.logger.log(`[Mock Bot Photo to ${chatId}]: ${caption}`);
+      return { ok: true, mock: true };
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          photo: photoUrlOrFileId,
+          caption,
+          parse_mode: options?.parse_mode || 'Markdown',
+          reply_markup: options?.reply_markup,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.ok) {
+        this.logger.warn(`Failed to send Telegram photo to ${chatId}: ${data.description}, falling back to text`);
+        return this.sendTelegramMessage(chatId, caption, options);
+      }
+      return data;
+    } catch (err: any) {
+      this.logger.error(`Error sending Telegram photo to ${chatId}: ${err.message}, falling back to text`);
+      return this.sendTelegramMessage(chatId, caption, options);
+    }
+  }
+
   async getChatAdministrators(chatId: string): Promise<any[]> {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token || token === 'mock_token_for_dev') {
@@ -250,6 +287,7 @@ export class TelegramService {
     creatorName: string;
     assigneeName?: string | null;
     dueDate?: string | null;
+    imageUrl?: string | null;
   }) {
     const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
     const dueInfo = data.dueDate
@@ -259,10 +297,12 @@ export class TelegramService {
     const priorityEmoji =
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
+    const imageInfo = data.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
+
     const text =
       `📌 *New Task Created in ${data.workspaceName}*\n\n` +
       `📝 *Task:* *${data.taskTitle}*\n` +
-      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`${imageInfo}\n` +
       `👤 *Assigned to:* ${data.assigneeName ? `*${data.assigneeName}*` : '_Unassigned_'}\n` +
       `👑 *Created by:* *${data.creatorName}*${dueInfo}\n\n` +
       `_This task has been synchronized to your team's group board._`;
@@ -274,6 +314,14 @@ export class TelegramService {
       ],
       [{ text: '📱 Open Group Board in Mini App', url: webAppUrl }],
     ];
+
+    if (data.imageUrl && !data.imageUrl.startsWith('data:')) {
+      return this.sendTelegramPhoto(data.groupChatId, data.imageUrl, text, {
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      });
+    }
 
     return this.sendTelegramMessage(data.groupChatId, text, {
       reply_markup: {
