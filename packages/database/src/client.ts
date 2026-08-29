@@ -106,7 +106,7 @@ export class MockPrismaClient {
         code: 'STANDARD',
         name: 'Standard (Team)',
         description: 'Ideal for growing teams and active Telegram group chats',
-        priceEtbMonth: 350,
+        priceEtbMonth: 10,
         maxMembers: 10,
         maxProjects: 10,
         maxTasks: 9999,

@@ -83,8 +83,8 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     {
       code: 'STANDARD',
       name: 'Standard (Team)',
-      price: '350 ETB',
-      period: '/ month',
+      price: '10 ETB',
+      period: '/ month (Test Promo)',
       description: 'Ideal for growing squads and active Telegram groups',
       popular: true,
       color: 'border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10',
