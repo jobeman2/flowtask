@@ -88,7 +88,12 @@ export async function handleTasksList(ctx: Context, filter: 'PENDING' | 'DONE' |
     InlineKeyboard.text(filter === 'ALL' ? '• All •' : 'All', `tasks:filter:ALL:1`)
   );
 
-  keyboard.row().webApp('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
+  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+  if (isGroup) {
+    keyboard.row().url('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
+  } else {
+    keyboard.row().webApp('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
+  }
 
   if (ctx.callbackQuery) {
     await ctx.editMessageText(message, {

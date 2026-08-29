@@ -225,7 +225,7 @@ export class TelegramService {
         { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
         { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
       ],
-      [{ text: '📱 Open Group Board in Mini App', web_app: { url: webAppUrl } }],
+      [{ text: '📱 Open Group Board in Mini App', url: webAppUrl }],
     ];
 
     return this.sendTelegramMessage(data.groupChatId, text, {
@@ -249,7 +249,7 @@ export class TelegramService {
     return this.sendTelegramMessage(data.groupChatId, text, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📱 Open Group Board', web_app: { url: webAppUrl } }],
+          [{ text: '📱 Open Group Board', url: webAppUrl }],
         ],
       },
     });

@@ -185,8 +185,13 @@ export async function handleTaskCommand(ctx: Context) {
     const keyboard = new InlineKeyboard()
       .text('✅ Mark Done', `task:done:${task.id}`)
       .text('🔍 Details', `task:view:${task.id}`)
-      .row()
-      .webApp('📱 Open Board in Mini App', botConfig.webAppUrl);
+      .row();
+
+    if (isGroup) {
+      keyboard.url('📱 Open Board in Mini App', botConfig.webAppUrl);
+    } else {
+      keyboard.webApp('📱 Open Board in Mini App', botConfig.webAppUrl);
+    }
 
     await ctx.reply(replyText, {
       parse_mode: 'Markdown',

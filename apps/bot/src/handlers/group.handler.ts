@@ -162,7 +162,7 @@ export async function handleBotAddedToGroup(ctx: Context) {
   const workspace = await resolveGroupWorkspace(ctx, tgUser);
 
   const keyboard = new InlineKeyboard()
-    .webApp('📱 Open Group Mini App', botConfig.webAppUrl)
+    .url('📱 Open Group Mini App', botConfig.webAppUrl)
     .row()
     .text('📋 Active Tasks', 'tasks:filter:PENDING:1')
     .text('📊 Team Summary', 'action:group_summary');
@@ -205,7 +205,7 @@ export async function handleGroupInfo(ctx: Context) {
   });
 
   const keyboard = new InlineKeyboard()
-    .webApp('📱 Open Group Mini App', botConfig.webAppUrl)
+    .url('📱 Open Group Mini App', botConfig.webAppUrl)
     .row()
     .text('📋 View Tasks', 'tasks:filter:PENDING:1');
 
@@ -243,7 +243,7 @@ export async function handleGroupSummary(ctx: Context) {
   });
 
   if (activeTasks.length === 0) {
-    const keyboard = new InlineKeyboard().webApp('📱 Open Mini App', botConfig.webAppUrl);
+    const keyboard = new InlineKeyboard().url('📱 Open Mini App', botConfig.webAppUrl);
     await ctx.reply(
       `📊 *Group Task Summary — ${escapeMarkdown(workspace.name)}*\n\n` +
       `🎉 *Zero pending tasks!* Everything is done.\n\n` +
@@ -271,7 +271,7 @@ export async function handleGroupSummary(ctx: Context) {
     }
   });
 
-  keyboard.row().webApp('📱 Open Group Board in Mini App', botConfig.webAppUrl);
+  keyboard.row().url('📱 Open Group Board in Mini App', botConfig.webAppUrl);
 
   await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
 }
