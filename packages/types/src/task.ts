@@ -23,6 +23,7 @@ export interface Task {
   recurrenceRule: string | null;
   parentTaskId: string | null;
   completedAt: Date | null;
+  imageUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
   archivedAt: Date | null;

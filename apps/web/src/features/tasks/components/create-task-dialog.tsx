@@ -6,7 +6,7 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { Button } from '@flowtask/ui';
-import { Calendar, Folder, RefreshCw, X, User } from 'lucide-react';
+import { Calendar, Folder, RefreshCw, X, User, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
 
 export function CreateTaskModal({
   isOpen,
@@ -21,6 +21,7 @@ export function CreateTaskModal({
   const [projectId, setProjectId] = useState<string>('');
   const [assigneeId, setAssigneeId] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState('');
   const { workspaceId } = useAuth();
@@ -75,6 +76,7 @@ export function CreateTaskModal({
         priority,
         projectId: projectId || undefined,
         assigneeId: assigneeId || undefined,
+        imageUrl: imageUrl.trim() || undefined,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         isRecurring,
         recurrenceRule: isRecurring ? recurrenceRule || 'FREQ=WEEKLY' : undefined,
@@ -91,6 +93,7 @@ export function CreateTaskModal({
       queryClient.invalidateQueries({ queryKey: ['task-stats'] });
       setTitle('');
       setDescription('');
+      setImageUrl('');
       setDueDate('');
       setProjectId('');
       setAssigneeId('');
@@ -105,6 +108,21 @@ export function CreateTaskModal({
     },
   });
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setFormError('Image size exceeds 5MB limit');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageUrl(reader.result as string);
+      triggerHaptic('light');
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -114,25 +132,25 @@ export function CreateTaskModal({
           <h3 className="font-bold text-lg text-slate-900 dark:text-white">Create New Task</h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        {formError && (
-          <div className="mt-3 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-medium">
-            {formError}
-          </div>
-        )}
 
         <form
           onSubmit={(e) => {
             e.preventDefault();
             createTaskMutation.mutate();
           }}
-          className="mt-4 space-y-4"
+          className="space-y-4 pt-4"
         >
+          {formError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+              {formError}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
               Task Title *
@@ -141,10 +159,10 @@ export function CreateTaskModal({
               type="text"
               required
               autoFocus
-              placeholder="e.g. Finalize quarterly client report"
+              placeholder="e.g. Design mobile login screen"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
             />
           </div>
 
@@ -159,6 +177,54 @@ export function CreateTaskModal({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
+          </div>
+
+          {/* Image Attachment Section */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+              Image Attachment (Optional)
+            </label>
+            
+            {imageUrl ? (
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-48 group bg-slate-50 dark:bg-slate-800/50">
+                <img
+                  src={imageUrl}
+                  alt="Attachment preview"
+                  className="w-full h-40 object-cover rounded-2xl"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-rose-600 transition-colors shadow-md"
+                  title="Remove image"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 transition-colors">
+                    <Upload className="w-4 h-4 text-blue-600" />
+                    <span>Upload Image / Screenshot</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <input
+                  type="url"
+                  placeholder="Or paste image URL (https://...)"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+                />
+              </div>
+            )}
           </div>
 
           {/* Quick Due Date Presets */}

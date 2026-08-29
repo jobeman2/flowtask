@@ -6,7 +6,7 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { Button } from '@flowtask/ui';
-import { X, Send, Calendar, MessageSquare, Trash2, Check, User } from 'lucide-react';
+import { X, Send, Calendar, MessageSquare, Trash2, Check, User, Image as ImageIcon, Maximize2 } from 'lucide-react';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -19,6 +19,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState('');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const { data: members = [] } = useQuery({
     queryKey: ['workspace-members', workspaceId],
@@ -193,6 +194,40 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 )}
               </div>
 
+              {/* Attached Image Preview */}
+              {task.imageUrl && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                      Attached Image
+                    </span>
+                    <button
+                      onClick={() => updateTaskMutation.mutate({ imageUrl: null })}
+                      className="text-rose-500 hover:text-rose-600 font-medium text-[11px]"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div
+                    onClick={() => setIsZoomed(true)}
+                    className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 group cursor-zoom-in bg-slate-950/5 shadow-xs"
+                  >
+                    <img
+                      src={task.imageUrl}
+                      alt="Task attachment"
+                      className="w-full max-h-64 object-cover rounded-2xl group-hover:scale-[1.01] transition-transform duration-200"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-3 py-1.5 bg-black/75 backdrop-blur-xs text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-lg">
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        Click to Zoom
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Task Metadata Chips */}
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <span
@@ -320,6 +355,29 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           </Button>
         </form>
       </div>
+
+      {/* Lightbox Zoom Modal */}
+      {isZoomed && task?.imageUrl && (
+        <div
+          onClick={() => setIsZoomed(false)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-4 animate-in fade-in cursor-zoom-out"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            <img
+              src={task.imageUrl}
+              alt="Zoomed Attachment"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+            />
+            <button
+              onClick={() => setIsZoomed(false)}
+              className="mt-3 px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 backdrop-blur-md"
+            >
+              <X className="w-4 h-4" />
+              Close Preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

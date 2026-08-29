@@ -54,4 +54,8 @@ export class CreateTaskDto {
   @IsArray()
   @IsString({ each: true })
   labelIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }

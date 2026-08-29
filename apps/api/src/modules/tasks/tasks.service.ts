@@ -121,6 +121,7 @@ export class TasksService {
           priority: taskData.priority,
           creatorId,
           assigneeId: taskData.assigneeId,
+          imageUrl: taskData.imageUrl || null,
           dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
           isRecurring: Boolean(taskData.isRecurring),
           recurrenceRule: taskData.isRecurring ? taskData.recurrenceRule || 'FREQ=WEEKLY' : null,

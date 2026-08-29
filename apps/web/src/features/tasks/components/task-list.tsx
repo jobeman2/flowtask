@@ -18,6 +18,7 @@ import {
   X,
   Filter,
   User,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { CreateTaskModal } from './create-task-dialog';
 import { TaskDetailModal } from './task-detail-modal';
@@ -431,6 +432,13 @@ export function TaskList() {
                               >
                                 <User className="w-2.5 h-2.5" />
                                 <span>{task.assigneeId === currentUser?.id ? '👤 Assigned to You' : task.assignee.name || 'Assigned'}</span>
+                              </span>
+                            )}
+
+                            {task.imageUrl && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+                                <ImageIcon className="w-3 h-3" />
+                                <span>Image</span>
                               </span>
                             )}
 

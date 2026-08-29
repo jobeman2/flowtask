@@ -5,26 +5,43 @@ import { resolveGroupWorkspace } from './group.handler';
 import { botConfig } from '../config/bot.config';
 
 export async function handleTaskCommand(ctx: Context) {
-  const messageText = ctx.message?.text || '';
+  const messageText = ctx.message?.text || ctx.message?.caption || '';
   let rawContent = messageText.replace(/^\/(task|create|add|todo)(@\w+)?\s*/i, '').trim();
 
   // If used as a reply to a message with no extra text, capture the replied message
   const replyTo = ctx.message?.reply_to_message;
   let replyAssigneeUsername: string | null = null;
+  let photoFileId: string | null = null;
 
-  if (!rawContent && replyTo && 'text' in replyTo && replyTo.text) {
-    rawContent = replyTo.text.slice(0, 150);
+  // Check if message itself has a photo
+  if (ctx.message?.photo && ctx.message.photo.length > 0) {
+    const photos = ctx.message.photo;
+    photoFileId = photos[photos.length - 1].file_id;
+  } else if (replyTo && 'photo' in replyTo && Array.isArray(replyTo.photo) && replyTo.photo.length > 0) {
+    const photos = replyTo.photo;
+    photoFileId = photos[photos.length - 1].file_id;
+  }
+
+  if (!rawContent && replyTo) {
+    if ('text' in replyTo && replyTo.text) {
+      rawContent = replyTo.text.slice(0, 150);
+    } else if ('caption' in replyTo && replyTo.caption) {
+      rawContent = replyTo.caption.slice(0, 150);
+    } else if (photoFileId) {
+      rawContent = 'Attached Image Task';
+    }
     if (replyTo.from?.username) {
       replyAssigneeUsername = replyTo.from.username;
     }
   }
 
-  if (!rawContent) {
+  if (!rawContent && !photoFileId) {
     await ctx.reply(
       `📝 *Quick Task Creator*\n\n` +
-      `You can type naturally with smart tags or reply to any message with \`/task\`:\n\n` +
+      `You can type naturally with smart tags, attach photos, or reply to any message/image with \`/task\`:\n\n` +
       `• \`/task Prepare pitch deck !urgent tomorrow 5pm\`\n` +
       `• \`/task Review design @samuel +Marketing #v1 due:tomorrow\`\n` +
+      `• \`[Send Photo with caption]\` \`/task Inspect mockup !high\`\n` +
       `• \`/task Weekly standup every monday 10am remind:15m\`\n\n` +
       `💡 *Tags:* \`!urgent\`, \`!high\`, \`@username\`, \`+Project\`, \`#Label\`, \`every monday\``,
       { parse_mode: 'Markdown' }
@@ -35,7 +52,20 @@ export async function handleTaskCommand(ctx: Context) {
   const tgUser = ctx.from;
   if (!tgUser) return;
 
-  const parsed = parseTaskMessage(rawContent, new Date());
+  // Resolve photo URL from Telegram API if photo is attached
+  let imageUrl: string | undefined;
+  if (photoFileId) {
+    try {
+      const file = await ctx.api.getFile(photoFileId);
+      if (file.file_path) {
+        imageUrl = `https://api.telegram.org/file/bot${botConfig.token}/${file.file_path}`;
+      }
+    } catch (err: any) {
+      console.warn('Could not resolve Telegram photo file:', err.message);
+    }
+  }
+
+  const parsed = parseTaskMessage(rawContent || 'Attached Image Task', new Date());
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
 
   try {
@@ -124,6 +154,7 @@ export async function handleTaskCommand(ctx: Context) {
         title: parsed.title,
         priority: parsed.priority,
         status: TaskStatus.TODO,
+        imageUrl: imageUrl || null,
         dueDate: parsed.dueDate,
         isRecurring: parsed.isRecurring,
         recurrenceRule: parsed.recurrenceRule,
@@ -167,6 +198,7 @@ export async function handleTaskCommand(ctx: Context) {
       ? `\n⏰ *Due:* ${new Date(task.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
       : '';
 
+    const imageStr = task.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
     const recurringStr = task.isRecurring ? `\n🔁 *Repeats:* \`${task.recurrenceRule}\`` : '';
     const projectStr = parsed.projectName ? `\n📁 *Project:* ${escapeMarkdown(parsed.projectName)}` : '';
     const assigneeStr = assigneeDisplayName ? `\n👤 *Assignee:* ${assigneeDisplayName}` : '';
@@ -177,6 +209,7 @@ export async function handleTaskCommand(ctx: Context) {
       `${workspaceHeader}` +
       `📝 *Title:* ${escapeMarkdown(task.title)}\n` +
       `${priorityIcon} *Priority:* \`${task.priority}\`` +
+      `${imageStr}` +
       `${assigneeStr}` +
       `${dueStr}` +
       `${projectStr}` +
