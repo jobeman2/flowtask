@@ -202,13 +202,13 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       {/* 2. Integrated Search Bar & Filter Button */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Search tasks, descriptions, tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9.5 pr-8 py-2.5 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl outline-none text-slate-900 dark:text-white focus:ring-2 focus:ring-flow-500 transition-all shadow-xs"
+            className="w-full pl-10 pr-8 py-2.5 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl outline-none text-slate-900 dark:text-white focus:ring-2 focus:ring-flow-500 transition-all shadow-xs"
           />
           {searchQuery && (
             <button
@@ -376,8 +376,8 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                     </div>
                   </div>
 
-                  {/* Right: Assignee Avatar + Priority Pill */}
-                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                  {/* Right: Priority Pill & Assignee Avatar */}
+                  <div className="shrink-0 flex flex-col items-end justify-between self-stretch gap-2">
                     <span
                       className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg border ${
                         task.priority === 'URGENT'
@@ -389,20 +389,20 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                           : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800'
                       }`}
                     >
-                      {task.priority}
+                      {task.priority || 'NORMAL'}
                     </span>
 
                     {task.assignee && (
-                      <div className="flex items-center gap-1">
+                      <div>
                         {task.assignee.avatarUrl ? (
                           <img
                             src={task.assignee.avatarUrl}
                             alt={task.assignee.name || 'Assignee'}
-                            className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
+                            className="w-6 h-6 rounded-full object-cover ring-1 ring-white dark:ring-slate-800 shadow-xs"
                           />
                         ) : (
-                          <div className="w-5 h-5 rounded-full bg-flow-100 text-flow-700 flex items-center justify-center text-[9px] font-bold">
-                            {task.assignee.name?.[0] || 'A'}
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-flow-700 via-flow-600 to-teal-400 text-white flex items-center justify-center text-[10px] font-black shadow-xs">
+                            {task.assignee.name?.[0]?.toUpperCase() || 'A'}
                           </div>
                         )}
                       </div>

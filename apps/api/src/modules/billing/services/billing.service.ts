@@ -66,6 +66,33 @@ export class BillingService {
           break;
         }
       }
+
+      // Also check if any workspace member has an active subscription
+      if (!sub || sub.status !== SubscriptionStatus.ACTIVE || sub.plan?.code === 'FREE') {
+        const members = await this.prisma.workspaceMember.findMany({
+          where: { workspaceId },
+        });
+
+        for (const member of members) {
+          const memberWorkspaces = await this.prisma.workspace.findMany({
+            where: { ownerId: member.userId },
+          });
+
+          for (const mw of memberWorkspaces) {
+            const memberSub = await this.prisma.subscription.findUnique({
+              where: { workspaceId: mw.id },
+              include: { plan: true },
+            });
+            if (memberSub && memberSub.status === SubscriptionStatus.ACTIVE && memberSub.plan?.code !== 'FREE') {
+              sub = memberSub;
+              break;
+            }
+          }
+          if (sub && sub.status === SubscriptionStatus.ACTIVE && sub.plan?.code !== 'FREE') {
+            break;
+          }
+        }
+      }
     }
 
     // If still no subscription, return Free plan

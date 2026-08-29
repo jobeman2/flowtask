@@ -11,10 +11,13 @@ import {
   RefreshCw,
   CheckCircle2,
   Clock,
+  PlusCircle,
+  MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 
 export function InboxView() {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
@@ -41,6 +44,30 @@ export function InboxView() {
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     },
   });
+
+  const formatAction = (action: string) => {
+    const raw = (action || '').toUpperCase();
+    if (raw.includes('CREATED')) return 'created';
+    if (raw.includes('COMPLETE') || raw.includes('DONE')) return 'completed';
+    if (raw.includes('STATUS')) return 'updated status on';
+    if (raw.includes('ASSIGN')) return 'assigned';
+    if (raw.includes('COMMENT')) return 'commented on';
+    return 'updated';
+  };
+
+  const getActionIcon = (action: string) => {
+    const raw = (action || '').toUpperCase();
+    if (raw.includes('COMPLETE') || raw.includes('DONE')) {
+      return <CheckCircle2 className="w-4 h-4 text-teal-500" />;
+    }
+    if (raw.includes('CREATED')) {
+      return <PlusCircle className="w-4 h-4 text-flow-600" />;
+    }
+    if (raw.includes('COMMENT')) {
+      return <MessageSquare className="w-4 h-4 text-blue-500" />;
+    }
+    return <Sparkles className="w-4 h-4 text-amber-500" />;
+  };
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in">
@@ -88,26 +115,48 @@ export function InboxView() {
           </div>
         ) : (
           <div className="space-y-2">
-            {activities.map((act: any) => (
-              <div
-                key={act.id}
-                className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-start gap-3"
-              >
-                <div className="w-8 h-8 rounded-xl bg-flow-50 dark:bg-flow-950/60 text-flow-600 flex items-center justify-center font-bold shrink-0 mt-0.5">
-                  <CheckCircle2 className="w-4 h-4" />
+            {activities.map((act: any) => {
+              const actorName =
+                act.user?.name ||
+                act.user?.username ||
+                (act.userId === user?.id ? 'You' : 'Teammate');
+
+              const taskTitle =
+                act.task?.title ||
+                act.details?.taskTitle ||
+                act.details?.title ||
+                'task';
+
+              return (
+                <div
+                  key={act.id}
+                  className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-start gap-3"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center font-bold shrink-0 mt-0.5 border border-slate-100 dark:border-slate-700">
+                    {getActionIcon(act.action)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-800 dark:text-slate-200 leading-snug">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {actorName}
+                      </span>{' '}
+                      <span className="text-slate-500">{formatAction(act.action)}</span>{' '}
+                      <span className="font-semibold text-flow-700 dark:text-flow-400">
+                        {taskTitle}
+                      </span>
+                    </p>
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      {new Date(act.createdAt).toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-800 dark:text-slate-200 leading-snug">
-                    <span className="font-bold text-slate-900 dark:text-white">{act.user?.name || 'Teammate'}</span>{' '}
-                    {act.action?.toLowerCase() || 'updated'}{' '}
-                    <span className="font-semibold text-flow-700 dark:text-flow-400">{act.task?.title || 'task'}</span>
-                  </p>
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    {new Date(act.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
