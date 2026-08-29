@@ -28,9 +28,10 @@ export class TelebirrMatcherService {
     // Patterns: "Trans. ID: 2B7D91X8", "Txn ID: 2B7D91X8", "Transaction No: 2B7D91X8", "Ref: 2B7D91X8", "TxID: 2B7D91X8", "with transaction ID 2B7D91X8"
     let txId: string | null = null;
     const txPatterns = [
-      /(?:trans(?:action)?\.?\s*(?:id|no\.?|num(?:ber)?)|txn\s*id|ref(?:erence)?\s*(?:no\.?|id)?|txid)\s*[:#\s-]*([a-zA-Z0-9]{5,20})/i,
+      /(?:your\s+)?transaction\s+(?:number|no\.?|id|code)?\s*(?:is|:|=)\s*([a-zA-Z0-9]{5,20})/i,
+      /(?:trans(?:action)?\.?\s*(?:id|no\.?|num(?:ber)?)|txn\s*id|ref(?:erence)?\s*(?:no\.?|id)?|txid)\s*(?:is|:|=)?\s*[:#\s-]*([a-zA-Z0-9]{5,20})/i,
       /(?:with transaction ID|with transaction no)\s*[:#\s-]*([a-zA-Z0-9]{5,20})/i,
-      /(?:የግብይት\s*ቁጥር|የደረሰኝ\s*ቁጥር)\s*[:#\s-]*([a-zA-Z0-9]{5,20})/i,
+      /(?:የግብይት\s*ቁጥር|የደረሰኝ\s*ቁጥር)\s*(?:ነው|:)?\s*[:#\s-]*([a-zA-Z0-9]{5,20})/i,
     ];
 
     for (const pattern of txPatterns) {
