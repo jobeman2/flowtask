@@ -15,15 +15,23 @@ export default function HomePage() {
     <div className="flex flex-col flex-1 space-y-4 pb-12">
       {/* Top Header */}
       <header className="flex items-center justify-between pt-2">
-        <div className="flex items-center space-x-2">
-          <div className="p-2 bg-blue-600 rounded-xl text-white shadow-sm">
-            <CheckSquare className="w-5 h-5" />
-          </div>
+        <div className="flex items-center space-x-2.5">
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name || 'User'}
+              className="w-9 h-9 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl text-white shadow-xs">
+              <CheckSquare className="w-5 h-5" />
+            </div>
+          )}
           <div>
-            <h1 className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
-              FlowTask
+            <h1 className="font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>FlowTask</span>
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 font-medium">
               {user ? `Hi, ${user.name}` : 'Telegram Task SaaS'}
             </p>
           </div>

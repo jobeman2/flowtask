@@ -91,6 +91,40 @@ export class TelegramService {
     }
   }
 
+  async getUserProfilePhotoUrl(telegramId: string): Promise<string | null> {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') return null;
+
+    try {
+      const parsedId = parseInt(telegramId, 10);
+      if (isNaN(parsedId)) return null;
+
+      const photosRes = await fetch(`https://api.telegram.org/bot${token}/getUserProfilePhotos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: parsedId, limit: 1 }),
+      });
+      const photosData = await photosRes.json();
+      if (photosData.ok && photosData.result?.total_count > 0 && photosData.result.photos?.[0]?.length > 0) {
+        const photoArr = photosData.result.photos[0];
+        const largestPhoto = photoArr[photoArr.length - 1];
+        const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_id: largestPhoto.file_id }),
+        });
+        const fileData = await fileRes.json();
+        if (fileData.ok && fileData.result?.file_path) {
+          return `https://api.telegram.org/file/bot${token}/${fileData.result.file_path}`;
+        }
+      }
+      return null;
+    } catch (err: any) {
+      this.logger.warn(`Could not fetch Telegram profile photo for ${telegramId}: ${err.message}`);
+      return null;
+    }
+  }
+
   async getChatAdministrators(chatId: string): Promise<any[]> {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token || token === 'mock_token_for_dev') {

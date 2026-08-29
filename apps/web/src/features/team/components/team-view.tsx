@@ -306,9 +306,17 @@ export function TeamView() {
                 className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all"
               >
                 <div className="flex items-center space-x-3 min-w-0">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                    {memberUser.name?.slice(0, 2).toUpperCase() || 'TM'}
-                  </div>
+                  {memberUser.avatarUrl ? (
+                    <img
+                      src={memberUser.avatarUrl}
+                      alt={memberUser.name || 'Member'}
+                      className="w-10 h-10 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                      {memberUser.name?.slice(0, 2).toUpperCase() || 'TM'}
+                    </div>
+                  )}
 
                   <div className="min-w-0">
                     <div className="flex items-center space-x-1.5">

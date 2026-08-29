@@ -378,10 +378,19 @@ export class WorkspacesService {
         });
       }
 
+      // Resolve member avatar from Telegram Bot API
+      let avatarUrl: string | null = null;
+      try {
+        avatarUrl = await this.telegramService.getUserProfilePhotoUrl(tgIdStr);
+      } catch {
+        // Non-blocking
+      }
+
       if (!account) {
         const newUser = await this.prisma.user.create({
           data: {
             name: displayName,
+            avatarUrl,
             timezone: 'UTC',
           },
         });
@@ -428,7 +437,10 @@ export class WorkspacesService {
         });
         await this.prisma.user.update({
           where: { id: userId },
-          data: { name: displayName },
+          data: {
+            name: displayName,
+            avatarUrl: avatarUrl || undefined,
+          },
         });
       }
 

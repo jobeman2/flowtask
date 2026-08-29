@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { validateTelegramWebAppData } from './telegram-auth.util';
 import { AuthSession } from '@flowtask/types';
 import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +14,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private telegramService: TelegramService
   ) {}
 
   async validateAndAuthenticateTelegramUser(initData: string): Promise<AuthSession> {
@@ -30,6 +32,7 @@ export class AuthService {
             first_name: 'Jovany',
             username: 'jobeman',
             language_code: 'en',
+            photo_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=jobeman',
           },
           authDate: new Date(),
         };
@@ -40,6 +43,7 @@ export class AuthService {
             first_name: 'Tumim',
             username: 'tuma124',
             language_code: 'en',
+            photo_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=tuma124',
           },
           authDate: new Date(),
         };
@@ -52,6 +56,7 @@ export class AuthService {
             last_name: 'Tester',
             username: `dev_user_${mockId}`,
             language_code: 'en',
+            photo_url: `https://api.dicebear.com/7.x/bottts/svg?seed=dev_${mockId}`,
           },
           authDate: new Date(),
         };

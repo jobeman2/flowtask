@@ -430,7 +430,15 @@ export function TaskList() {
                                     : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40'
                                 }`}
                               >
-                                <User className="w-2.5 h-2.5" />
+                                {task.assignee.avatarUrl ? (
+                                  <img
+                                    src={task.assignee.avatarUrl}
+                                    alt={task.assignee.name || 'Assignee'}
+                                    className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <User className="w-2.5 h-2.5" />
+                                )}
                                 <span>{task.assigneeId === currentUser?.id ? '👤 Assigned to You' : task.assignee.name || 'Assigned'}</span>
                               </span>
                             )}
