@@ -10,12 +10,15 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
 
   if (!tgUser) {
-    tgUser = ctx.from || (ctx as any).myChatMember?.from || (ctx as any).chatMember?.from || { id: 'admin', first_name: 'Admin' };
+    tgUser = ctx.from || (ctx as any).senderChat || (ctx as any).myChatMember?.from || (ctx as any).chatMember?.from || { id: 'admin', first_name: 'Admin' };
   }
+
+  const tgIdStr = (tgUser.id || ctx.chat?.id || 'admin').toString();
+  const displayName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.title || tgUser.username || (ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'User');
 
   // 1. Ensure user account exists
   let account = await prisma.telegramAccount.findUnique({
-    where: { telegramId: tgUser.id.toString() },
+    where: { telegramId: tgIdStr },
     include: {
       user: {
         include: {
@@ -30,15 +33,15 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
   if (!account) {
     const user = await prisma.user.create({
       data: {
-        name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'User',
+        name: displayName,
       },
     });
 
     account = await prisma.telegramAccount.create({
       data: {
-        telegramId: tgUser.id.toString(),
+        telegramId: tgIdStr,
         username: tgUser.username || null,
-        firstName: tgUser.first_name,
+        firstName: displayName,
         lastName: tgUser.last_name || null,
         userId: user.id,
       },
