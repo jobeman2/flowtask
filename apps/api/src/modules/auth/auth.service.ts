@@ -147,7 +147,33 @@ export class AuthService {
       this.logger.log(`Created new user from Telegram ID ${telegramIdStr}: User ${userId}`);
     } else {
       userId = telegramAccount.user.id;
-      defaultWorkspaceId = telegramAccount.user.workspaceMembers[0]?.workspaceId;
+
+      // Ensure user has and defaults to their own personal workspace
+      const personalMembership = telegramAccount.user.workspaceMembers.find(
+        (m: any) => m.workspace?.type === WorkspaceType.PERSONAL && m.role === WorkspaceRole.OWNER
+      );
+
+      if (personalMembership) {
+        defaultWorkspaceId = personalMembership.workspaceId;
+      } else {
+        // Provision personal workspace for this user if missing
+        const slug = `${tgUser.username || tgUser.first_name || 'workspace'}-${Date.now().toString(36)}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const newWorkspace = await this.prisma.workspace.create({
+          data: {
+            name: `${displayName}'s Workspace`,
+            slug,
+            ownerId: userId,
+            type: WorkspaceType.PERSONAL,
+            members: {
+              create: {
+                userId,
+                role: WorkspaceRole.OWNER,
+              },
+            },
+          },
+        });
+        defaultWorkspaceId = newWorkspace.id;
+      }
 
       // Update telegram metadata
       await this.prisma.telegramAccount.update({

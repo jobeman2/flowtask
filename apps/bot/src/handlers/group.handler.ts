@@ -6,8 +6,12 @@ import { botConfig } from '../config/bot.config';
  * Resolves or auto-provisions a Team Workspace for a Telegram Group.
  * If called in private chat, returns the user's primary workspace.
  */
-export async function resolveGroupWorkspace(ctx: Context, tgUser: any) {
+export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+
+  if (!tgUser) {
+    tgUser = ctx.from || (ctx as any).myChatMember?.from || (ctx as any).chatMember?.from || { id: 'admin', first_name: 'Admin' };
+  }
 
   // 1. Ensure user account exists
   let account = await prisma.telegramAccount.findUnique({
@@ -149,7 +153,7 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser: any) {
  * Greets the group when the bot is added or initialized.
  */
 export async function handleBotAddedToGroup(ctx: Context) {
-  const tgUser = ctx.from;
+  const tgUser = ctx.from || (ctx as any).myChatMember?.from || (ctx as any).chatMember?.from;
   if (!tgUser) return;
 
   const workspace = await resolveGroupWorkspace(ctx, tgUser);

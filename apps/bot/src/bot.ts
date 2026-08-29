@@ -32,7 +32,9 @@ export function createBot() {
   scheduler.start();
 
   // --- GROUP EVENTS ---
-  bot.on(':new_chat_members', handleBotAddedToGroup);
+  bot.on('message:new_chat_members', handleBotAddedToGroup);
+  bot.on('my_chat_member', handleBotAddedToGroup);
+  bot.on('chat_member', handleBotAddedToGroup);
 
   // --- COMMAND ROUTES ---
   bot.command('start', handleStart);
