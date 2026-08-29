@@ -9,7 +9,7 @@ import { Layers, Plus, Users, User, X, Building2 } from 'lucide-react';
 import { Button } from '@flowtask/ui';
 
 export function WorkspaceSwitcher() {
-  const { workspaceId, setWorkspaceId } = useAuth();
+  const { user, workspaceId, setWorkspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
@@ -18,11 +18,12 @@ export function WorkspaceSwitcher() {
   const [newWsType, setNewWsType] = useState<'TEAM' | 'PERSONAL'>('TEAM');
 
   const { data: workspaces = [] } = useQuery({
-    queryKey: ['workspaces'],
+    queryKey: ['workspaces', user?.id],
     queryFn: async () => {
       const res = await apiClient.getWorkspaces();
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
     },
+    enabled: !!user,
   });
 
   const createWsMutation = useMutation({
