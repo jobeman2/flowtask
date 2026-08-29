@@ -22,18 +22,40 @@ export class AuthService {
 
     // In development mode, allow mock / dev fallback if token is dummy
     let validated = validateTelegramWebAppData(initData, botToken);
-    if (!validated && nodeEnv === 'development' && initData.startsWith('dev_mock_')) {
-      const mockId = initData.replace('dev_mock_', '') || '10001';
-      validated = {
-        user: {
-          id: parseInt(mockId, 10),
-          first_name: 'Dev',
-          last_name: 'Tester',
-          username: `dev_user_${mockId}`,
-          language_code: 'en',
-        },
-        authDate: new Date(),
-      };
+    if (!validated && nodeEnv === 'development') {
+      if (initData.startsWith('dev_user_jovany') || initData.startsWith('dev_user_jobeman')) {
+        validated = {
+          user: {
+            id: 6854918950,
+            first_name: 'Jovany',
+            username: 'jobeman',
+            language_code: 'en',
+          },
+          authDate: new Date(),
+        };
+      } else if (initData.startsWith('dev_user_tumim') || initData.startsWith('dev_user_tuma')) {
+        validated = {
+          user: {
+            id: 8139244394,
+            first_name: 'Tumim',
+            username: 'tuma124',
+            language_code: 'en',
+          },
+          authDate: new Date(),
+        };
+      } else if (initData.startsWith('dev_mock_')) {
+        const mockId = initData.replace('dev_mock_', '') || '1001';
+        validated = {
+          user: {
+            id: parseInt(mockId, 10),
+            first_name: 'Dev',
+            last_name: 'Tester',
+            username: `dev_user_${mockId}`,
+            language_code: 'en',
+          },
+          authDate: new Date(),
+        };
+      }
     }
 
     if (!validated) {
