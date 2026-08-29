@@ -90,6 +90,37 @@ export class WorkspacesService {
   }
 
   async createWorkspace(userId: string, name: string, type: WorkspaceType = WorkspaceType.PERSONAL) {
+    // 1. Enforce subscription workspace limit
+    const userWorkspaces = await this.prisma.workspace.findMany({
+      where: { ownerId: userId },
+    });
+    const ownedCount = userWorkspaces.length;
+
+    let maxAllowedWorkspaces = 1; // Default Free Plan limit
+    for (const uw of userWorkspaces) {
+      const sub = await this.prisma.subscription.findUnique({
+        where: { workspaceId: uw.id },
+        include: { plan: true },
+      });
+      if (sub && sub.status === 'ACTIVE') {
+        if (sub.plan?.code === 'PRO') {
+          maxAllowedWorkspaces = 999;
+          break;
+        }
+        if (sub.plan?.code === 'STANDARD') {
+          maxAllowedWorkspaces = Math.max(maxAllowedWorkspaces, 5);
+        }
+      }
+    }
+
+    if (ownedCount >= maxAllowedWorkspaces) {
+      throw new ForbiddenException(
+        maxAllowedWorkspaces === 1
+          ? 'The Free plan is limited to 1 workspace. Upgrade to Standard or Pro with Telebirr to create more workspaces!'
+          : `Your current plan allows a maximum of ${maxAllowedWorkspaces} workspaces. Upgrade to Pro for unlimited workspaces!`
+      );
+    }
+
     const slug = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString(36)}`;
 
     return this.prisma.$transaction(async (tx) => {
