@@ -12,6 +12,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { HealthModule } from './modules/health/health.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -31,6 +32,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     CommentsModule,
     ActivityModule,
     TelegramModule,
+    BillingModule,
     HealthModule,
   ],
   providers: [

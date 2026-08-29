@@ -4,6 +4,7 @@ import React from 'react';
 import { useAuth } from '../providers/telegram-provider';
 import { useTelegram } from '../hooks/use-telegram';
 import { WorkspaceSwitcher } from '../features/workspaces/components/workspace-switcher';
+import { PlanBadge } from '../features/billing/components/plan-badge';
 import { TaskList } from '../features/tasks/components/task-list';
 import { CheckSquare } from 'lucide-react';
 
@@ -37,7 +38,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        <WorkspaceSwitcher />
+        <div className="flex items-center space-x-2">
+          <PlanBadge />
+          <WorkspaceSwitcher />
+        </div>
       </header>
 
       {/* Auth / Status Error Banner if any */}

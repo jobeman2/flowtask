@@ -70,12 +70,94 @@ export class MockPrismaClient {
   public telegramChats = new Map<string, any>();
   public plans = new Map<string, any>();
   public subscriptions = new Map<string, any>();
+  public paymentOrders = new Map<string, any>();
+  public telebirrSmsLogs = new Map<string, any>();
 
   constructor() {
     const loaded = this.loadFromDisk();
+    this.seedDefaultPlans();
     if (!loaded) {
       this.seedDemoData();
-      this.saveToDisk();
+    }
+    this.saveToDisk();
+  }
+
+  private seedDefaultPlans() {
+    const defaultPlans = [
+      {
+        id: 'plan_free',
+        code: 'FREE',
+        name: 'Starter (Free)',
+        description: 'Core task management for individuals and small chats',
+        priceEtbMonth: 0,
+        maxMembers: 3,
+        maxProjects: 2,
+        maxTasks: 25,
+        maxGroups: 1,
+        hasAiFeatures: false,
+        hasAttachments: false,
+        hasDailyDigest: false,
+        hasRecurring: false,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+      {
+        id: 'plan_standard',
+        code: 'STANDARD',
+        name: 'Standard (Team)',
+        description: 'Ideal for growing teams and active Telegram group chats',
+        priceEtbMonth: 350,
+        maxMembers: 10,
+        maxProjects: 10,
+        maxTasks: 9999,
+        maxGroups: 5,
+        hasAiFeatures: true,
+        hasAttachments: true,
+        hasDailyDigest: true,
+        hasRecurring: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+      {
+        id: 'plan_pro',
+        code: 'PRO',
+        name: 'Pro (Agency & Business)',
+        description: 'Unlimited capacity for companies and client teams',
+        priceEtbMonth: 950,
+        maxMembers: 9999,
+        maxProjects: 9999,
+        maxTasks: 9999,
+        maxGroups: 9999,
+        hasAiFeatures: true,
+        hasAttachments: true,
+        hasDailyDigest: true,
+        hasRecurring: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+      {
+        id: 'plan_enterprise',
+        code: 'ENTERPRISE',
+        name: 'Enterprise',
+        description: 'Dedicated SLA, custom bot branding, and external sync',
+        priceEtbMonth: 2500,
+        maxMembers: 9999,
+        maxProjects: 9999,
+        maxTasks: 9999,
+        maxGroups: 9999,
+        hasAiFeatures: true,
+        hasAttachments: true,
+        hasDailyDigest: true,
+        hasRecurring: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    ];
+
+    for (const p of defaultPlans) {
+      if (!this.plans.has(p.id)) {
+        this.plans.set(p.id, p);
+      }
     }
   }
 
@@ -112,6 +194,10 @@ export class MockPrismaClient {
           if (data.reminders) this.reminders = new Map(Object.entries(data.reminders));
           if (data.activityLogs) this.activityLogs = new Map(Object.entries(data.activityLogs));
           if (data.telegramChats) this.telegramChats = new Map(Object.entries(data.telegramChats));
+          if (data.plans) this.plans = new Map(Object.entries(data.plans));
+          if (data.subscriptions) this.subscriptions = new Map(Object.entries(data.subscriptions));
+          if (data.paymentOrders) this.paymentOrders = new Map(Object.entries(data.paymentOrders));
+          if (data.telebirrSmsLogs) this.telebirrSmsLogs = new Map(Object.entries(data.telebirrSmsLogs));
           return true;
         }
       }
@@ -137,6 +223,10 @@ export class MockPrismaClient {
         reminders: Object.fromEntries(this.reminders),
         activityLogs: Object.fromEntries(this.activityLogs),
         telegramChats: Object.fromEntries(this.telegramChats),
+        plans: Object.fromEntries(this.plans),
+        subscriptions: Object.fromEntries(this.subscriptions),
+        paymentOrders: Object.fromEntries(this.paymentOrders),
+        telebirrSmsLogs: Object.fromEntries(this.telebirrSmsLogs),
       };
       fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
     } catch {
@@ -1154,17 +1244,154 @@ export class MockPrismaClient {
   };
 
   subscription = {
-    findUnique: async ({ where }: any) => {
+    findUnique: async ({ where, include }: any) => {
       this.loadFromDisk();
-      return Array.from(this.subscriptions.values()).find((s: any) => s.workspaceId === where?.workspaceId) || null;
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.workspaceId === where?.workspaceId || s.id === where?.id) || null;
+      if (sub && include?.plan) {
+        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+      }
+      return sub;
     },
-    create: async ({ data }: any) => {
+    findFirst: async ({ where, include }: any = {}) => {
       this.loadFromDisk();
-      const id = `sub_${Date.now()}`;
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => {
+        if (where?.workspaceId && s.workspaceId !== where.workspaceId) return false;
+        if (where?.status && s.status !== where.status) return false;
+        return true;
+      }) || null;
+      if (sub && include?.plan) {
+        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+      }
+      return sub;
+    },
+    create: async ({ data, include }: any) => {
+      this.loadFromDisk();
+      const id = data.id || `sub_${Date.now()}`;
       const record = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
       this.subscriptions.set(id, record);
       this.saveToDisk();
+      if (include?.plan) {
+        return { ...record, plan: Array.from(this.plans.values()).find((p: any) => p.id === record.planId || p.code === record.planId) || null };
+      }
       return record;
+    },
+    update: async ({ where, data, include }: any) => {
+      this.loadFromDisk();
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.id === where?.id || s.workspaceId === where?.workspaceId);
+      if (sub) {
+        Object.assign(sub, data, { updatedAt: new Date() });
+        this.saveToDisk();
+      }
+      if (sub && include?.plan) {
+        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+      }
+      return sub || null;
+    },
+    upsert: async ({ where, update, create, include }: any) => {
+      this.loadFromDisk();
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.workspaceId === where?.workspaceId);
+      if (sub) {
+        Object.assign(sub, update, { updatedAt: new Date() });
+        this.saveToDisk();
+      } else {
+        const id = `sub_${Date.now()}`;
+        sub = { id, createdAt: new Date(), updatedAt: new Date(), ...create };
+        this.subscriptions.set(id, sub);
+        this.saveToDisk();
+      }
+      if (sub && include?.plan) {
+        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+      }
+      return sub;
+    },
+  };
+
+  paymentOrder = {
+    findUnique: async ({ where }: any) => {
+      this.loadFromDisk();
+      if (where?.id) return this.paymentOrders.get(where.id) || null;
+      if (where?.orderCode) return Array.from(this.paymentOrders.values()).find((o: any) => o.orderCode === where.orderCode) || null;
+      return null;
+    },
+    findFirst: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      return Array.from(this.paymentOrders.values()).find((o: any) => {
+        if (where?.id && o.id !== where.id) return false;
+        if (where?.orderCode && o.orderCode !== where.orderCode) return false;
+        if (where?.workspaceId && o.workspaceId !== where.workspaceId) return false;
+        if (where?.transactionId && o.transactionId?.toUpperCase() !== where.transactionId?.toUpperCase()) return false;
+        if (where?.status && o.status !== where.status) return false;
+        return true;
+      }) || null;
+    },
+    findMany: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.paymentOrders.values());
+      if (where?.workspaceId) list = list.filter((o: any) => o.workspaceId === where.workspaceId);
+      if (where?.userId) list = list.filter((o: any) => o.userId === where.userId);
+      if (where?.status) list = list.filter((o: any) => o.status === where.status);
+      return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    },
+    create: async ({ data }: any) => {
+      this.loadFromDisk();
+      const id = data.id || `order_${Date.now()}`;
+      const record = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
+      this.paymentOrders.set(id, record);
+      this.saveToDisk();
+      return record;
+    },
+    update: async ({ where, data }: any) => {
+      this.loadFromDisk();
+      const order = this.paymentOrders.get(where.id) || Array.from(this.paymentOrders.values()).find((o: any) => o.orderCode === where?.orderCode);
+      if (order) {
+        Object.assign(order, data, { updatedAt: new Date() });
+        this.saveToDisk();
+      }
+      return order;
+    },
+  };
+
+  telebirrSmsLog = {
+    findUnique: async ({ where }: any) => {
+      this.loadFromDisk();
+      if (where?.id) return this.telebirrSmsLogs.get(where.id) || null;
+      if (where?.extractedTxId) {
+        return Array.from(this.telebirrSmsLogs.values()).find(
+          (l: any) => l.extractedTxId?.toUpperCase() === where.extractedTxId?.toUpperCase()
+        ) || null;
+      }
+      return null;
+    },
+    findFirst: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      return Array.from(this.telebirrSmsLogs.values()).find((l: any) => {
+        if (where?.extractedTxId && l.extractedTxId?.toUpperCase() !== where.extractedTxId?.toUpperCase()) return false;
+        if (where?.isMatched !== undefined && l.isMatched !== where.isMatched) return false;
+        return true;
+      }) || null;
+    },
+    findMany: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.telebirrSmsLogs.values());
+      if (where?.isMatched !== undefined) list = list.filter((l: any) => l.isMatched === where.isMatched);
+      return list.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+    },
+    create: async ({ data }: any) => {
+      this.loadFromDisk();
+      const id = data.id || `sms_${Date.now()}`;
+      const record = { id, receivedAt: new Date(), ...data };
+      this.telebirrSmsLogs.set(id, record);
+      this.saveToDisk();
+      return record;
+    },
+    update: async ({ where, data }: any) => {
+      this.loadFromDisk();
+      const log = this.telebirrSmsLogs.get(where.id);
+      if (log) {
+        Object.assign(log, data);
+        this.saveToDisk();
+      }
+      return log;
     },
   };
 

@@ -193,6 +193,29 @@ class ApiClient {
   async getActivity(workspaceId: string) {
     return this.request<any[]>(`/activity?workspaceId=${workspaceId}`);
   }
+
+  // Billing & Telebirr endpoints
+  async getPlans() {
+    return this.request<any[]>('/billing/plans');
+  }
+
+  async getWorkspaceSubscription(workspaceId: string) {
+    return this.request<any>(`/billing/workspace/${workspaceId}`);
+  }
+
+  async createPaymentOrder(data: { workspaceId: string; planCode: string; durationDays?: number }) {
+    return this.request<any>('/billing/orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async verifyPaymentOrder(data: { orderId: string; transactionId: string; receiptImageUrl?: string }) {
+    return this.request<any>('/billing/verify-order', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();
