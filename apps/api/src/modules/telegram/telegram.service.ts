@@ -123,4 +123,135 @@ export class TelegramService {
       },
     });
   }
+
+  async notifyTaskCreatedForCreator(data: {
+    targetTelegramId?: string;
+    taskId?: string;
+    taskTitle: string;
+    priority: string;
+    workspaceName: string;
+    assigneeName?: string | null;
+    dueDate?: string | null;
+  }) {
+    if (!data.targetTelegramId) return;
+
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const text =
+      `✅ *Task Created Confirmation*\n\n` +
+      `📝 *Task:* *${data.taskTitle}*\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `🏢 *Workspace:* *${data.workspaceName}*\n` +
+      `👤 *Assigned to:* *${data.assigneeName || 'You (Personal)'}*${dueInfo}\n\n` +
+      `_You will receive updates here when this task is completed._`;
+
+    const inlineKeyboard: any[] = [
+      [{ text: '📱 View in FlowTask Mini App', web_app: { url: webAppUrl } }],
+    ];
+
+    if (data.taskId) {
+      inlineKeyboard.push([
+        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
+        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
+      ]);
+    }
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async notifyTaskCompleted(data: {
+    targetTelegramId?: string;
+    taskTitle: string;
+    workspaceName: string;
+    completedByName: string;
+  }) {
+    if (!data.targetTelegramId) return;
+
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const text =
+      `🎉 *Task Completed!*\n\n` +
+      `📝 *Task:* *${data.taskTitle}*\n` +
+      `🏢 *Workspace:* *${data.workspaceName}*\n` +
+      `✅ *Completed by:* *${data.completedByName}*\n\n` +
+      `Great job! The task is now archived as done.`;
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📱 Open Mini App Board', web_app: { url: webAppUrl } }],
+        ],
+      },
+    });
+  }
+
+  async notifyGroupTaskCreated(data: {
+    groupChatId: string;
+    taskId: string;
+    taskTitle: string;
+    priority: string;
+    workspaceName: string;
+    creatorName: string;
+    assigneeName?: string | null;
+    dueDate?: string | null;
+  }) {
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const text =
+      `📌 *New Task Created in ${data.workspaceName}*\n\n` +
+      `📝 *Task:* *${data.taskTitle}*\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `👤 *Assigned to:* ${data.assigneeName ? `*${data.assigneeName}*` : '_Unassigned_'}\n` +
+      `👑 *Created by:* *${data.creatorName}*${dueInfo}\n\n` +
+      `_This task has been synchronized to your team's group board._`;
+
+    const inlineKeyboard: any[] = [
+      [
+        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
+        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
+      ],
+      [{ text: '📱 Open Group Board in Mini App', web_app: { url: webAppUrl } }],
+    ];
+
+    return this.sendTelegramMessage(data.groupChatId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async notifyGroupTaskCompleted(data: {
+    groupChatId: string;
+    taskTitle: string;
+    workspaceName: string;
+    completedByName: string;
+  }) {
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const text =
+      `🎉 *Task Completed in ${data.workspaceName}!*\n\n` +
+      `✅ *${data.completedByName}* completed: *"${data.taskTitle}"*`;
+
+    return this.sendTelegramMessage(data.groupChatId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📱 Open Group Board', web_app: { url: webAppUrl } }],
+        ],
+      },
+    });
+  }
 }

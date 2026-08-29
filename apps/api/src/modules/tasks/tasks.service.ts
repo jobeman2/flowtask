@@ -152,26 +152,63 @@ export class TasksService {
       return task;
     });
 
-    // Send Telegram Notification to the assignee if assigned to someone else
-    if (dto.assigneeId && dto.assigneeId !== creatorId) {
-      try {
-        const creator = await this.prisma.user.findUnique({ where: { id: creatorId } });
-        const workspace = await this.prisma.workspace.findUnique({ where: { id: dto.workspaceId } });
-        const targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
-        if (targetTg?.telegramId) {
-          await this.telegramService.notifyTaskAssigned({
-            targetTelegramId: targetTg.telegramId,
-            taskId: result.id,
-            taskTitle: dto.title,
-            priority: dto.priority || 'MEDIUM',
-            workspaceName: workspace?.name || 'Team Workspace',
-            assignerName: creator?.name || 'A teammate',
-            dueDate: dto.dueDate || null,
-          });
-        }
-      } catch {
-        // Non-blocking notification
+    // Dispatch notifications asynchronously (non-blocking)
+    try {
+      const creator = await this.prisma.user.findUnique({ where: { id: creatorId } });
+      const workspace = await this.prisma.workspace.findUnique({ where: { id: dto.workspaceId } });
+      const creatorTg = await this.prisma.telegramAccount.findFirst({ where: { userId: creatorId } });
+      const targetTg = dto.assigneeId
+        ? await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } })
+        : null;
+      const assigneeUser = dto.assigneeId
+        ? await this.prisma.user.findUnique({ where: { id: dto.assigneeId } })
+        : null;
+
+      // 1. Send DM to the assignee (if assigned to someone else)
+      if (targetTg?.telegramId && dto.assigneeId !== creatorId) {
+        await this.telegramService.notifyTaskAssigned({
+          targetTelegramId: targetTg.telegramId,
+          taskId: result.id,
+          taskTitle: dto.title,
+          priority: dto.priority || 'MEDIUM',
+          workspaceName: workspace?.name || 'Team Workspace',
+          assignerName: creator?.name || 'A teammate',
+          dueDate: dto.dueDate || null,
+        });
       }
+
+      // 2. Send DM confirmation to the creator
+      if (creatorTg?.telegramId) {
+        await this.telegramService.notifyTaskCreatedForCreator({
+          targetTelegramId: creatorTg.telegramId,
+          taskId: result.id,
+          taskTitle: dto.title,
+          priority: dto.priority || 'MEDIUM',
+          workspaceName: workspace?.name || 'Team Workspace',
+          assigneeName: assigneeUser?.name || (dto.assigneeId === creatorId ? 'You' : null),
+          dueDate: dto.dueDate || null,
+        });
+      }
+
+      // 3. If workspace is linked to a Telegram Group, broadcast to the group chat
+      const groupChat = await this.prisma.telegramChat.findFirst({
+        where: { workspaceId: dto.workspaceId },
+      });
+
+      if (groupChat?.chatId) {
+        await this.telegramService.notifyGroupTaskCreated({
+          groupChatId: groupChat.chatId,
+          taskId: result.id,
+          taskTitle: dto.title,
+          priority: dto.priority || 'MEDIUM',
+          workspaceName: workspace?.name || groupChat.title || 'Group Board',
+          creatorName: creator?.name || 'A teammate',
+          assigneeName: assigneeUser?.name || null,
+          dueDate: dto.dueDate || null,
+        });
+      }
+    } catch {
+      // Non-blocking notification
     }
 
     return result;
@@ -247,6 +284,43 @@ export class TasksService {
             workspaceName: workspace?.name || 'Team Workspace',
             assignerName: updater?.name || 'A teammate',
             dueDate: updated.dueDate ? new Date(updated.dueDate).toISOString() : null,
+          });
+        }
+      } catch {
+        // Non-blocking notification
+      }
+    }
+
+    // If task was marked as DONE, notify creator and group
+    if (updateFields.status === 'DONE' && existing.status !== 'DONE') {
+      try {
+        const completer = await this.prisma.user.findUnique({ where: { id: userId } });
+        const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
+        const creatorTg = existing.creatorId
+          ? await this.prisma.telegramAccount.findFirst({ where: { userId: existing.creatorId } })
+          : null;
+
+        // 1. Notify creator if completed by someone else
+        if (creatorTg?.telegramId && existing.creatorId !== userId) {
+          await this.telegramService.notifyTaskCompleted({
+            targetTelegramId: creatorTg.telegramId,
+            taskTitle: updated.title,
+            workspaceName: workspace?.name || 'Team Workspace',
+            completedByName: completer?.name || 'A teammate',
+          });
+        }
+
+        // 2. Broadcast completion to group chat if connected
+        const groupChat = await this.prisma.telegramChat.findFirst({
+          where: { workspaceId },
+        });
+
+        if (groupChat?.chatId) {
+          await this.telegramService.notifyGroupTaskCompleted({
+            groupChatId: groupChat.chatId,
+            taskTitle: updated.title,
+            workspaceName: workspace?.name || groupChat.title || 'Group Board',
+            completedByName: completer?.name || 'A teammate',
           });
         }
       } catch {
