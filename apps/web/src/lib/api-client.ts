@@ -89,6 +89,18 @@ class ApiClient {
     });
   }
 
+  async syncTelegramGroup(workspaceId: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+      groupTitle: string;
+      memberCount: number;
+      imported: any[];
+    }>(`/workspaces/${workspaceId}/sync-telegram-group`, {
+      method: 'POST',
+    });
+  }
+
   async getTaskStats(workspaceId: string) {
     return this.request<{
       totalActive: number;

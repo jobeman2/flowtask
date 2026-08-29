@@ -54,6 +54,53 @@ export class TelegramService {
     }
   }
 
+  async getChatAdministrators(chatId: string): Promise<any[]> {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') {
+      return [];
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getChatAdministrators`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId }),
+      });
+      const data = await response.json();
+      if (data.ok && Array.isArray(data.result)) {
+        return data.result;
+      }
+      this.logger.warn(`Failed to get chat administrators for ${chatId}: ${data.description}`);
+      return [];
+    } catch (err: any) {
+      this.logger.error(`Error fetching chat administrators for ${chatId}: ${err.message}`);
+      return [];
+    }
+  }
+
+  async getChatInfo(chatId: string): Promise<any> {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId }),
+      });
+      const data = await response.json();
+      if (data.ok && data.result) {
+        return data.result;
+      }
+      return null;
+    } catch (err: any) {
+      this.logger.error(`Error fetching chat info for ${chatId}: ${err.message}`);
+      return null;
+    }
+  }
+
   async notifyWorkspaceInvite(data: {
     targetTelegramId?: string;
     workspaceName: string;

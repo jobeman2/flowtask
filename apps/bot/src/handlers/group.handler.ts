@@ -149,6 +149,51 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
     });
   }
 
+  // 4. Auto-import group administrators from Telegram
+  try {
+    const admins = await ctx.api.getChatAdministrators(ctx.chat!.id);
+    for (const admin of admins) {
+      if (admin.user.is_bot) continue;
+      const adminTgId = admin.user.id.toString();
+      const adminName = [admin.user.first_name, admin.user.last_name].filter(Boolean).join(' ') || admin.user.username || 'Team Member';
+
+      let adminAcc = await prisma.telegramAccount.findUnique({
+        where: { telegramId: adminTgId },
+        include: { user: true },
+      });
+
+      if (!adminAcc) {
+        const u = await prisma.user.create({ data: { name: adminName } });
+        adminAcc = await prisma.telegramAccount.create({
+          data: {
+            telegramId: adminTgId,
+            username: admin.user.username || null,
+            firstName: admin.user.first_name,
+            lastName: admin.user.last_name || null,
+            userId: u.id,
+          },
+          include: { user: true },
+        });
+      }
+
+      const existingMem = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: groupWorkspace.id, userId: adminAcc.userId },
+      });
+
+      if (!existingMem) {
+        await prisma.workspaceMember.create({
+          data: {
+            workspaceId: groupWorkspace.id,
+            userId: adminAcc.userId,
+            role: admin.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN,
+          },
+        });
+      }
+    }
+  } catch (err: any) {
+    console.warn('Could not auto-fetch group admins:', err.message);
+  }
+
   return groupWorkspace;
 }
 

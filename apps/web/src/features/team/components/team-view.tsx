@@ -31,6 +31,18 @@ export function TeamView() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Fetch all user workspaces to detect connected Telegram Groups
+  const { data: workspaces = [] } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: async () => {
+      const res = await apiClient.getWorkspaces();
+      return Array.isArray(res.data) ? res.data : [];
+    },
+  });
+
+  const activeWorkspace = workspaces.find((w: any) => w.id === workspaceId);
+  const isTelegramGroupWorkspace = activeWorkspace?.telegramChat || activeWorkspace?.type === 'TEAM';
+
   // Fetch Workspace Members
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['workspace-members', workspaceId],
@@ -40,6 +52,29 @@ export function TeamView() {
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
     },
     enabled: !!workspaceId,
+  });
+
+  // Sync Telegram Group Members Mutation
+  const syncTelegramMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspaceId) return;
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      const res = await apiClient.syncTelegramGroup(workspaceId);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      setSuccessMsg(data?.message || 'Telegram group members synchronized!');
+      setTimeout(() => setSuccessMsg(null), 3000);
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.message || 'Failed to sync group members from Telegram');
+      triggerHaptic('heavy');
+    },
   });
 
   // Invite Member Mutation
@@ -99,6 +134,35 @@ export function TeamView() {
 
   return (
     <div className="space-y-4 animate-in fade-in">
+      {/* Telegram Group Sync Banner */}
+      {isTelegramGroupWorkspace && (
+        <div className="p-3.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between shadow-xs">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+              📱
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                {activeWorkspace?.telegramChat?.title || activeWorkspace?.name || 'Telegram Group'}
+              </h4>
+              <p className="text-[10px] text-slate-500 truncate">
+                Auto-sync group members & task delegate permissions
+              </p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            disabled={syncTelegramMutation.isPending}
+            onClick={() => syncTelegramMutation.mutate()}
+            className="rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-xs shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{syncTelegramMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
