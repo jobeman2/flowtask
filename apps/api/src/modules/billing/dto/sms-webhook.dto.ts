@@ -1,9 +1,29 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class TelebirrSmsWebhookDto {
   @IsString()
-  @IsNotEmpty()
-  message!: string;
+  @IsOptional()
+  message?: string;
+
+  @IsString()
+  @IsOptional()
+  text?: string;
+
+  @IsString()
+  @IsOptional()
+  body?: string;
+
+  @IsString()
+  @IsOptional()
+  msg?: string;
+
+  @IsString()
+  @IsOptional()
+  content?: string;
+
+  @IsString()
+  @IsOptional()
+  subject?: string;
 
   @IsString()
   @IsOptional()
@@ -11,5 +31,10 @@ export class TelebirrSmsWebhookDto {
 
   @IsString()
   @IsOptional()
+  from?: string;
+
+  @IsString()
+  @IsOptional()
   secretToken?: string;
 }
+
