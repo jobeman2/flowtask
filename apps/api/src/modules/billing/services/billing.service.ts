@@ -44,12 +44,31 @@ export class BillingService {
       throw new NotFoundException('Workspace not found');
     }
 
-    const sub = await this.prisma.subscription.findUnique({
+    let sub = await this.prisma.subscription.findUnique({
       where: { workspaceId },
       include: { plan: true },
     });
 
-    // If no explicit subscription, return Free plan
+    // If no direct subscription on this workspace, inherit from workspace owner's active subscription
+    if (!sub || sub.status !== SubscriptionStatus.ACTIVE || sub.plan?.code === 'FREE') {
+      const ownerWorkspaces = await this.prisma.workspace.findMany({
+        where: { ownerId: workspace.ownerId },
+      });
+
+      for (const ow of ownerWorkspaces) {
+        if (ow.id === workspaceId) continue;
+        const ownerSub = await this.prisma.subscription.findUnique({
+          where: { workspaceId: ow.id },
+          include: { plan: true },
+        });
+        if (ownerSub && ownerSub.status === SubscriptionStatus.ACTIVE && ownerSub.plan?.code !== 'FREE') {
+          sub = ownerSub;
+          break;
+        }
+      }
+    }
+
+    // If still no subscription, return Free plan
     if (!sub || sub.status !== SubscriptionStatus.ACTIVE) {
       const freePlan = await this.prisma.plan.findUnique({ where: { code: 'FREE' } }) || {
         code: 'FREE',
