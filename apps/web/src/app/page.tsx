@@ -22,30 +22,30 @@ export default function HomePage() {
   return (
     <div className="flex flex-col flex-1 space-y-3 pb-16 min-h-screen">
       {/* 1. Modern Top Header */}
-      <header className="flex items-center justify-between pt-1 pb-2">
-        <div className="flex items-center space-x-2.5">
+      <header className="flex items-center justify-between pt-1 pb-2 gap-2">
+        <div className="flex items-center space-x-2 min-w-0">
           {user?.avatarUrl ? (
             <img
               src={user.avatarUrl}
               alt={user.name || 'User'}
-              className="w-10 h-10 rounded-2xl object-cover border-2 border-white dark:border-slate-800 shadow-flow-sm shrink-0 ring-2 ring-flow-500/20"
+              className="w-9 h-9 rounded-2xl object-cover border-2 border-white dark:border-slate-800 shadow-flow-sm shrink-0 ring-1 ring-flow-500/20"
             />
           ) : (
-            <div className="w-10 h-10 bg-gradient-to-tr from-flow-700 via-flow-600 to-teal-400 rounded-2xl text-white flex items-center justify-center font-black shadow-flow-sm">
-              <CheckSquare className="w-5 h-5" />
+            <div className="w-9 h-9 bg-gradient-to-tr from-flow-700 via-flow-600 to-teal-400 rounded-2xl text-white flex items-center justify-center font-black shadow-flow-sm shrink-0">
+              <CheckSquare className="w-4.5 h-4.5" />
             </div>
           )}
-          <div>
-            <h1 className="font-black text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5 leading-tight">
-              <span>FlowTask</span>
+          <div className="min-w-0">
+            <h1 className="font-black text-sm tracking-tight text-slate-900 dark:text-white truncate leading-tight">
+              FlowTask
             </h1>
-            <p className="text-[11px] text-slate-400 font-semibold">
-              {user ? user.name : 'Telegram Native SaaS'}
+            <p className="text-[10px] text-slate-400 font-semibold truncate">
+              {user ? user.name : 'Telegram Native'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1.5 shrink-0">
           <PlanBadge />
           <WorkspaceSwitcher />
         </div>

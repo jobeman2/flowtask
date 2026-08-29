@@ -82,7 +82,7 @@ export function ProjectsView({ onSelectProject, selectedProjectId }: ProjectsVie
         <Button
           size="sm"
           onClick={() => setIsCreating(true)}
-          className="rounded-xl text-xs flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm"
+          className="rounded-xl text-xs flex items-center gap-1 bg-flow-600 hover:bg-flow-700 text-white font-bold shadow-flow-sm"
         >
           <Plus className="w-4 h-4" />
           <span>New Project</span>

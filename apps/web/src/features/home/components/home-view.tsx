@@ -173,7 +173,7 @@ export function HomeView({
             </button>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 pt-1 no-scrollbar -mx-4 px-4 snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto pb-3 pt-1 no-scrollbar -mx-4 px-4 snap-x snap-mandatory">
             {focusTasks.map((task: any, index: number) => {
               const isFirst = index === 0;
               const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
@@ -185,10 +185,10 @@ export function HomeView({
                     triggerHaptic('light');
                     onSelectTask(task.id);
                   }}
-                  className={`min-w-[260px] sm:min-w-[280px] snap-center p-4.5 rounded-3xl cursor-pointer transition-all active:scale-[0.98] relative overflow-hidden flex flex-col justify-between ${
+                  className={`w-[84vw] max-w-[310px] shrink-0 snap-center p-4 rounded-3xl cursor-pointer transition-all active:scale-[0.98] relative overflow-hidden flex flex-col justify-between min-h-[145px] ${
                     isFirst
                       ? 'bg-gradient-to-br from-flow-700 via-flow-600 to-teal-500 text-white shadow-flow-md'
-                      : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white dark:bg-slate-900 dark:border dark:border-slate-800 shadow-md'
+                      : 'bg-slate-900 text-white dark:bg-slate-900 border border-slate-800 shadow-md'
                   }`}
                 >
                   {/* Decorative Background Pattern */}

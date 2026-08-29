@@ -48,12 +48,12 @@ export function WorkspaceSwitcher() {
 
   return (
     <>
-      <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-        <div className="flex items-center space-x-1.5 px-2 py-0.5">
+      <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800/90 p-0.5 px-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+        <div className="flex items-center space-x-1">
           {currentWorkspace?.type === 'TEAM' ? (
-            <Building2 className="w-4 h-4 text-blue-600" />
+            <Building2 className="w-3.5 h-3.5 text-flow-600 shrink-0" />
           ) : (
-            <Layers className="w-4 h-4 text-slate-500" />
+            <Layers className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           )}
           <select
             value={workspaceId || ''}
@@ -65,14 +65,14 @@ export function WorkspaceSwitcher() {
                 setWorkspaceId(e.target.value);
               }
             }}
-            className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer max-w-[130px] truncate"
+            className="bg-transparent text-[11px] font-bold text-slate-800 dark:text-slate-200 outline-none cursor-pointer max-w-[85px] sm:max-w-[120px] truncate"
           >
             {workspaces.map((ws: any) => (
               <option key={ws.id} value={ws.id} className="bg-white dark:bg-slate-900 text-xs">
                 {ws.name} ({ws.type === 'TEAM' ? 'Team' : 'Personal'})
               </option>
             ))}
-            <option value="__NEW__" className="bg-white dark:bg-slate-900 text-blue-600 font-bold">
+            <option value="__NEW__" className="bg-white dark:bg-slate-900 text-flow-600 font-bold">
               + New Workspace...
             </option>
           </select>
@@ -80,10 +80,10 @@ export function WorkspaceSwitcher() {
 
         <button
           onClick={() => setIsCreating(true)}
-          className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 transition-colors"
+          className="p-0.5 rounded text-slate-400 hover:text-flow-600 transition-colors shrink-0"
           title="Create New Team Workspace"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3 h-3" />
         </button>
       </div>
 

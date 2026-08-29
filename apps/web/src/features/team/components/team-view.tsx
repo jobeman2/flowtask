@@ -136,9 +136,9 @@ export function TeamView() {
     <div className="space-y-4 animate-in fade-in">
       {/* Telegram Group Sync Banner */}
       {isTelegramGroupWorkspace && (
-        <div className="p-3.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between shadow-xs">
+        <div className="p-3.5 bg-gradient-to-r from-flow-500/10 via-teal-500/10 to-indigo-500/10 border border-flow-500/20 rounded-2xl flex items-center justify-between shadow-xs">
           <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-flow-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
               📱
             </div>
             <div className="min-w-0">
@@ -155,7 +155,7 @@ export function TeamView() {
             size="sm"
             disabled={syncTelegramMutation.isPending}
             onClick={() => syncTelegramMutation.mutate()}
-            className="rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 shadow-xs shrink-0"
+            className="rounded-xl text-xs bg-flow-600 hover:bg-flow-700 text-white font-bold flex items-center gap-1.5 shadow-flow-sm shrink-0"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>{syncTelegramMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
@@ -167,7 +167,7 @@ export function TeamView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" />
+            <Users className="w-5 h-5 text-flow-600" />
             <span>Team Workspace Members</span>
           </h2>
           <p className="text-xs text-slate-500">
@@ -181,7 +181,7 @@ export function TeamView() {
             triggerHaptic('light');
             setIsInviteOpen(true);
           }}
-          className="rounded-xl text-xs flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm"
+          className="rounded-xl text-xs flex items-center gap-1.5 bg-flow-600 hover:bg-flow-700 text-white font-bold shadow-flow-sm"
         >
           <UserPlus className="w-4 h-4" />
           <span>Add Member</span>
