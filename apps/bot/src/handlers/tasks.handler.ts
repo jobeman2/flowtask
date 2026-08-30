@@ -10,11 +10,30 @@ export async function handleTasksList(ctx: Context, filter: 'PENDING' | 'DONE' |
   const pageSize = 5;
   const skip = (page - 1) * pageSize;
 
+  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
   const workspace = await resolveGroupWorkspace(ctx, tgUser);
   const workspaceId = workspace.id;
 
+  const account = await prisma.telegramAccount.findUnique({
+    where: { telegramId: tgUser.id.toString() },
+  });
+
+  const member = account
+    ? await prisma.workspaceMember.findFirst({
+        where: { workspaceId, userId: account.userId },
+      })
+    : null;
+
+  const isOwnerOrAdmin = member?.role === 'OWNER' || member?.role === 'ADMIN' || workspace.ownerId === account?.userId;
+
   // Build where filter
   const where: any = { workspaceId, archivedAt: null };
+
+  // If in group and not admin, restrict view strictly to tasks assigned to this user
+  if (isGroup && !isOwnerOrAdmin && account?.userId) {
+    where.assigneeId = account.userId;
+  }
+
   if (filter === 'PENDING') {
     where.status = { not: TaskStatus.DONE };
   } else if (filter === 'DONE') {
@@ -36,8 +55,10 @@ export async function handleTasksList(ctx: Context, filter: 'PENDING' | 'DONE' |
 
   // Build response message
   const filterTitle = filter === 'PENDING' ? '⏳ Active Tasks' : filter === 'DONE' ? '✅ Completed Tasks' : '📝 All Tasks';
+  const privacyNotice = isGroup && !isOwnerOrAdmin ? `🔒 _Personal View \\(Only tasks assigned to you\\)_\n` : '';
   let message = `📋 *${filterTitle}* \\(Page ${page}/${totalPages}\\)\n` +
-    `🏢 Workspace: _${escapeMarkdown(workspace.name)}_\n\n`;
+    `🏢 Workspace: _${escapeMarkdown(workspace.name)}_\n` +
+    `${privacyNotice}\n`;
 
   if (tasks.length === 0) {
     message += `_No tasks found in this view\\._\n\n💡 Use \`/task <title>\` to add a new task\\.`;
@@ -88,7 +109,6 @@ export async function handleTasksList(ctx: Context, filter: 'PENDING' | 'DONE' |
     InlineKeyboard.text(filter === 'ALL' ? '• All •' : 'All', `tasks:filter:ALL:1`)
   );
 
-  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
   if (isGroup) {
     keyboard.row().url('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
   } else {

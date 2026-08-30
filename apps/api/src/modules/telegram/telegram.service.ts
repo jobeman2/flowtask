@@ -209,6 +209,7 @@ export class TelegramService {
     targetTelegramId?: string;
     taskId?: string;
     taskTitle: string;
+    description?: string | null;
     priority: string;
     workspaceName: string;
     assignerName: string;
@@ -224,9 +225,11 @@ export class TelegramService {
     const priorityEmoji =
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
+    const descInfo = data.description ? `\n📄 *Description:* _${data.description}_` : '';
+
     const text =
       `📬 *Telegram Inbox — Task Assigned to You!*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*\n` +
+      `📝 *Task:* *${data.taskTitle}*${descInfo}\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
       `🏢 *Workspace:* *${data.workspaceName}*\n` +
       `👤 *Assigned by:* *${data.assignerName}*${dueInfo}\n\n` +
@@ -324,6 +327,7 @@ export class TelegramService {
     groupChatId: string;
     taskId: string;
     taskTitle: string;
+    description?: string | null;
     priority: string;
     workspaceName: string;
     creatorName: string;
@@ -340,10 +344,11 @@ export class TelegramService {
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
     const imageInfo = data.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
+    const descInfo = data.description ? `\n📄 *Description:* _${data.description}_` : '';
 
     const text =
       `📌 *New Task Created in ${data.workspaceName}*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*\n` +
+      `📝 *Task:* *${data.taskTitle}*${descInfo}\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`${imageInfo}\n` +
       `👤 *Assigned to:* ${data.assigneeName ? `*${data.assigneeName}*` : '_Unassigned_'}\n` +
       `👑 *Created by:* *${data.creatorName}*${dueInfo}\n\n` +

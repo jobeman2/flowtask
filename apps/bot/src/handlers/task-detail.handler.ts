@@ -12,6 +12,35 @@ export async function handleTaskDetail(ctx: Context, taskId: string) {
     return;
   }
 
+  const tgUser = ctx.from;
+  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+
+  if (tgUser && isGroup) {
+    const account = await prisma.telegramAccount.findUnique({
+      where: { telegramId: tgUser.id.toString() },
+    });
+    const userId = account?.userId;
+
+    if (userId) {
+      const member = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: task.workspaceId, userId },
+      });
+      const isOwnerOrAdmin = member?.role === 'OWNER' || member?.role === 'ADMIN';
+      const isAssignee = task.assigneeId === userId;
+      const isCreator = task.creatorId === userId;
+
+      if (!isOwnerOrAdmin && !isAssignee && !isCreator) {
+        if (ctx.callbackQuery) {
+          await ctx.answerCallbackQuery({
+            text: '🔒 Only the assigned member, task creator, or workspace admin can view this task.',
+            show_alert: true,
+          });
+        }
+        return;
+      }
+    }
+  }
+
   const isDone = task.status === TaskStatus.DONE;
   const statusBadge = isDone ? '✅ DONE' : '⏳ IN PROGRESS';
   const prioBadge =
@@ -25,10 +54,12 @@ export async function handleTaskDetail(ctx: Context, taskId: string) {
 
   const recurStr = task.isRecurring ? (task.recurrenceRule || 'Active') : 'Off';
   const imageStr = task.imageUrl ? `*Image:* [🖼️ View Attachment](${task.imageUrl})\n` : '';
+  const descStr = task.description ? `*Description:* _${task.description}_\n` : '';
 
   const message =
     `📌 *Task Details*\n\n` +
     `*Title:* ${task.title}\n` +
+    `${descStr}` +
     `*Status:* \`${statusBadge}\`\n` +
     `*Priority:* \`${prioBadge}\`\n` +
     `${imageStr}` +

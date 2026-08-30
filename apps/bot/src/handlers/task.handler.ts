@@ -199,6 +199,7 @@ export async function handleTaskCommand(ctx: Context) {
       : '';
 
     const imageStr = task.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
+    const descStr = task.description ? `\n📄 *Description:* _${escapeMarkdown(task.description)}_` : '';
     const recurringStr = task.isRecurring ? `\n🔁 *Repeats:* \`${task.recurrenceRule}\`` : '';
     const projectStr = parsed.projectName ? `\n📁 *Project:* ${escapeMarkdown(parsed.projectName)}` : '';
     const assigneeStr = assigneeDisplayName ? `\n👤 *Assignee:* ${assigneeDisplayName}` : '';
@@ -207,7 +208,8 @@ export async function handleTaskCommand(ctx: Context) {
     const replyText =
       `✅ *Task Created!*\n\n` +
       `${workspaceHeader}` +
-      `📝 *Title:* ${escapeMarkdown(task.title)}\n` +
+      `📝 *Title:* ${escapeMarkdown(task.title)}` +
+      `${descStr}\n` +
       `${priorityIcon} *Priority:* \`${task.priority}\`` +
       `${imageStr}` +
       `${assigneeStr}` +
