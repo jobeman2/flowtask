@@ -22,7 +22,7 @@ export default function HomePage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
-  // Fetch Subscription for subtle profile badge
+  // Fetch Subscription for subtle badge
   const { data: subscription } = useQuery({
     queryKey: ['workspace-subscription', workspaceId],
     queryFn: async () => {
@@ -38,35 +38,14 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col flex-1 space-y-4 pb-20 min-h-screen font-sans">
-      {/* 1. Bespoke Top Header with Official FLOW Branding */}
-      <header className="flex items-center justify-between pt-1.5 pb-2 px-1 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md">
-        <div className="flex items-center space-x-2.5 min-w-0">
-          {/* Official FLOW Brand Logo */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <img
-              src="/flow-logo.png"
-              alt="FLOW"
-              className="h-6 w-auto object-contain"
-            />
-            {isUpgraded && (
-              <span
-                onClick={() => setIsPricingOpen(true)}
-                className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 cursor-pointer tracking-wider flex items-center gap-1"
-              >
-                <Sparkles className="w-2.5 h-2.5 fill-blue-600" />
-                {planCode}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Right side: Workspace Switcher & User Avatar */}
-        <div className="flex items-center gap-2 shrink-0">
-          <WorkspaceSwitcher />
-
+      {/* 1. Header: Account & Workspace on Left, Status/Upgrade on Right */}
+      <header className="flex items-center justify-between pt-2 pb-2.5 px-1.5 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60">
+        {/* Left Side: Account Avatar, Name & Workspace Switcher */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* User Avatar */}
           <div
             onClick={() => setActiveNav('PROFILE')}
-            className="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs border border-blue-200/50 dark:border-blue-700/50 cursor-pointer overflow-hidden ring-2 ring-transparent hover:ring-blue-500/30 transition-all"
+            className="w-9 h-9 rounded-full bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-extrabold text-xs border border-blue-200/60 dark:border-blue-700/60 cursor-pointer overflow-hidden ring-2 ring-transparent hover:ring-blue-500/30 transition-all shrink-0 shadow-2xs"
           >
             {user?.avatarUrl ? (
               <img
@@ -78,6 +57,39 @@ export default function HomePage() {
               <span>{user?.name?.[0]?.toUpperCase() || 'U'}</span>
             )}
           </div>
+
+          {/* Account Name & Workspace Switcher */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              onClick={() => setActiveNav('PROFILE')}
+              className="cursor-pointer min-w-0"
+            >
+              <h2 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+                {user?.name || 'My Account'}
+              </h2>
+            </div>
+
+            <div className="h-3 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+            {/* Workspace Switcher attached on Left */}
+            <WorkspaceSwitcher />
+          </div>
+        </div>
+
+        {/* Right Side: Plan Badge */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsPricingOpen(true)}
+            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border transition-all flex items-center gap-1 shadow-2xs ${
+              isUpgraded
+                ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 fill-amber-400 text-amber-500" />
+            <span>{isUpgraded ? planCode : 'Free Plan'}</span>
+          </button>
         </div>
       </header>
 
@@ -110,7 +122,14 @@ export default function HomePage() {
         {activeNav === 'PROFILE' && <MoreView />}
       </main>
 
-      {/* 3. Reusable Task Modals */}
+      {/* 3. Floating Bottom Navigation Island */}
+      <BottomNav
+        activeTab={activeNav}
+        onTabChange={(tab) => setActiveNav(tab)}
+        onOpenCreate={() => setIsCreateOpen(true)}
+      />
+
+      {/* 4. Global Modals & Sheets */}
       <CreateTaskSheet
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -124,13 +143,6 @@ export default function HomePage() {
       <PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
-      />
-
-      {/* 4. Sleek Floating Island Navigation Dock */}
-      <BottomNav
-        activeTab={activeNav}
-        onTabChange={(tab) => setActiveNav(tab)}
-        onOpenCreate={() => setIsCreateOpen(true)}
       />
     </div>
   );
