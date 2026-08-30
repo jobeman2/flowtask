@@ -10,6 +10,7 @@ import {
   Calendar,
   Flag,
   User,
+  Folder,
 } from 'lucide-react';
 
 interface CreateTaskSheetProps {
@@ -27,6 +28,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Fetch Team Members
@@ -36,6 +38,17 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       if (!workspaceId) return [];
       const res = await apiClient.getWorkspaceMembers(workspaceId);
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  // Fetch Projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getProjects(workspaceId);
+      return Array.isArray(res.data) ? res.data : [];
     },
     enabled: Boolean(workspaceId),
   });
@@ -54,6 +67,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         priority,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         assigneeId: assigneeId || undefined,
+        projectId: projectId || undefined,
       });
 
       if (res.error) throw new Error(res.error);
@@ -63,12 +77,14 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
 
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
       setDueDate('');
       setAssigneeId('');
+      setProjectId('');
       setErrorMsg(null);
       onClose();
     },
@@ -81,7 +97,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
         {/* Top Bar */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -134,6 +150,26 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               rows={3}
               className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium resize-none transition-colors"
             />
+          </div>
+
+          {/* Project Selector */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Folder className="w-3.5 h-3.5 text-blue-500" />
+              Project / Category
+            </label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors cursor-pointer"
+            >
+              <option value="">Select Project (General / Default)</option>
+              {projects.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Due Date & Time */}
