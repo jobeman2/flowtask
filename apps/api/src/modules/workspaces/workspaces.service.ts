@@ -300,9 +300,11 @@ export class WorkspacesService {
       if (targetTg?.telegramId) {
         await this.telegramService.notifyWorkspaceInvite({
           targetTelegramId: targetTg.telegramId,
+          workspaceId,
           workspaceName: workspace?.name || 'Team Workspace',
           role: createdMember.role,
           inviterName: inviter?.name || 'A teammate',
+          memberId: createdMember.id,
         });
       }
     } catch {

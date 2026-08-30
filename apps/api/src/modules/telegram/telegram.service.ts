@@ -174,25 +174,33 @@ export class TelegramService {
 
   async notifyWorkspaceInvite(data: {
     targetTelegramId?: string;
+    workspaceId: string;
     workspaceName: string;
     role: string;
     inviterName: string;
+    memberId?: string;
   }) {
     if (!data.targetTelegramId) return;
 
     const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
     const text =
-      `👋 *You've been invited to a Team Workspace!*\n\n` +
+      `👋 *Workspace Team Invitation!*\n\n` +
       `🏢 *Workspace:* *${data.workspaceName}*\n` +
       `🛡️ *Role:* \`${data.role}\`\n` +
       `👤 *Invited by:* *${data.inviterName}*\n\n` +
-      `You can now view, collaborate, and manage shared tasks in this workspace.`;
+      `Would you like to join this workspace to collaborate and receive assigned tasks?`;
+
+    const inlineKeyboard: any[] = [
+      [
+        { text: '✅ Accept Invite', callback_data: `invite:accept:${data.workspaceId}:${data.memberId || 'new'}` },
+        { text: '❌ Decline', callback_data: `invite:decline:${data.workspaceId}:${data.memberId || 'new'}` },
+      ],
+      [{ text: '📱 View in FlowTask Mini App', web_app: { url: webAppUrl } }],
+    ];
 
     return this.sendTelegramMessage(data.targetTelegramId, text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: '👥 Open Team in Mini App', web_app: { url: webAppUrl } }],
-        ],
+        inline_keyboard: inlineKeyboard,
       },
     });
   }

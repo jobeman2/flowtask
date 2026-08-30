@@ -311,6 +311,82 @@ export function createBot() {
     );
   });
 
+  // 14. Accept Workspace Invite (invite:accept:<workspaceId>:<memberId>)
+  bot.callbackQuery(/^invite:accept:(.+):(.+)$/, async (ctx) => {
+    const workspaceId = ctx.match[1];
+    const memberId = ctx.match[2];
+
+    const ws = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!ws) {
+      await ctx.answerCallbackQuery({ text: 'Workspace no longer exists.' });
+      return;
+    }
+
+    const fromTgId = String(ctx.from?.id);
+    const tgAcc = await prisma.telegramAccount.findFirst({ where: { telegramId: fromTgId } });
+    
+    if (memberId && memberId !== 'new') {
+      try {
+        await (prisma as any).workspaceMember.update({
+          where: { id: memberId },
+          data: { role: 'MEMBER' },
+        });
+      } catch {
+        // Fallback
+      }
+    } else if (tgAcc?.userId) {
+      try {
+        await prisma.workspaceMember.create({
+          data: {
+            workspaceId,
+            userId: tgAcc.userId,
+            role: 'MEMBER',
+          },
+        });
+      } catch {
+        // Fallback
+      }
+    }
+
+    await ctx.answerCallbackQuery({ text: '🎉 Invitation accepted!' });
+    const webAppUrl = botConfig.webAppUrl || 'http://localhost:3000';
+    await ctx.editMessageText(
+      `🎉 *Invitation Accepted!*\n\nYou are now an active member of *${ws.name}*.\nYou can now view, collaborate, and manage tasks together!`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🚀 Open in FlowTask Mini App', web_app: { url: webAppUrl } }],
+          ],
+        },
+      }
+    );
+  });
+
+  // 15. Decline Workspace Invite (invite:decline:<workspaceId>:<memberId>)
+  bot.callbackQuery(/^invite:decline:(.+):(.+)$/, async (ctx) => {
+    const workspaceId = ctx.match[1];
+    const memberId = ctx.match[2];
+
+    const ws = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+
+    if (memberId && memberId !== 'new') {
+      try {
+        await (prisma as any).workspaceMember.delete({
+          where: { id: memberId },
+        });
+      } catch {
+        // Fallback
+      }
+    }
+
+    await ctx.answerCallbackQuery({ text: 'Invitation declined.' });
+    await ctx.editMessageText(
+      `❌ *Invitation Declined*\n\nYou declined the invitation to join *${ws?.name || 'the workspace'}*.`,
+      { parse_mode: 'Markdown' }
+    );
+  });
+
   // Global Error Handler
   bot.catch((err) => {
     console.error('Error in Telegram bot execution:', err);
