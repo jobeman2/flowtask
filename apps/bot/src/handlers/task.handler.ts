@@ -12,14 +12,28 @@ export async function handleTaskCommand(ctx: Context) {
   const replyTo = ctx.message?.reply_to_message;
   let replyAssigneeUsername: string | null = null;
   let photoFileId: string | null = null;
+  let docFileName: string | null = null;
+  let isVoiceNote = false;
 
-  // Check if message itself has a photo
+  // 1. Check if message itself has a photo
   if (ctx.message?.photo && ctx.message.photo.length > 0) {
     const photos = ctx.message.photo;
     photoFileId = photos[photos.length - 1].file_id;
   } else if (replyTo && 'photo' in replyTo && Array.isArray(replyTo.photo) && replyTo.photo.length > 0) {
     const photos = replyTo.photo;
     photoFileId = photos[photos.length - 1].file_id;
+  }
+
+  // 2. Check if message has document
+  if (ctx.message?.document) {
+    docFileName = ctx.message.document.file_name || 'Attached Document';
+  } else if (replyTo && 'document' in replyTo && replyTo.document) {
+    docFileName = replyTo.document.file_name || 'Attached Document';
+  }
+
+  // 3. Check if message has voice note
+  if (ctx.message?.voice || (replyTo && 'voice' in replyTo && replyTo.voice)) {
+    isVoiceNote = true;
   }
 
   if (!rawContent && replyTo) {
@@ -29,19 +43,24 @@ export async function handleTaskCommand(ctx: Context) {
       rawContent = replyTo.caption.slice(0, 150);
     } else if (photoFileId) {
       rawContent = 'Attached Image Task';
+    } else if (docFileName) {
+      rawContent = `Review: ${docFileName}`;
+    } else if (isVoiceNote) {
+      rawContent = 'Voice Memo Task';
     }
     if (replyTo.from?.username) {
       replyAssigneeUsername = replyTo.from.username;
     }
   }
 
-  if (!rawContent && !photoFileId) {
+  if (!rawContent && !photoFileId && !docFileName && !isVoiceNote) {
     await ctx.reply(
-      `📝 *Quick Task Creator*\n\n` +
-      `You can type naturally with smart tags, attach photos, or reply to any message/image with \`/task\`:\n\n` +
+      `📝 *Quick Task Creator & Media Attachments*\n\n` +
+      `You can type naturally with smart tags, attach photos/files, or reply to any Telegram file with \`/task\`:\n\n` +
       `• \`/task Prepare pitch deck !urgent tomorrow 5pm\`\n` +
       `• \`/task Review design @samuel +Marketing #v1 due:tomorrow\`\n` +
       `• \`[Send Photo with caption]\` \`/task Inspect mockup !high\`\n` +
+      `• \`[Send PDF/Document]\` \`/task Review agreement @legal\`\n` +
       `• \`/task Weekly standup every monday 10am remind:15m\`\n\n` +
       `💡 *Tags:* \`!urgent\`, \`!high\`, \`@username\`, \`+Project\`, \`#Label\`, \`every monday\``,
       { parse_mode: 'Markdown' }
@@ -65,7 +84,7 @@ export async function handleTaskCommand(ctx: Context) {
     }
   }
 
-  const parsed = parseTaskMessage(rawContent || 'Attached Image Task', new Date());
+  const parsed = parseTaskMessage(rawContent || 'Attached Media Task', new Date());
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
 
   try {
@@ -199,6 +218,8 @@ export async function handleTaskCommand(ctx: Context) {
       : '';
 
     const imageStr = task.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
+    const docStr = docFileName ? `\n📎 *Document:* \`${escapeMarkdown(docFileName)}\`` : '';
+    const voiceStr = isVoiceNote ? `\n🎙️ *Voice Memo:* _Attached_` : '';
     const descStr = task.description ? `\n📄 *Description:* _${escapeMarkdown(task.description)}_` : '';
     const recurringStr = task.isRecurring ? `\n🔁 *Repeats:* \`${task.recurrenceRule}\`` : '';
     const projectStr = parsed.projectName ? `\n📁 *Project:* ${escapeMarkdown(parsed.projectName)}` : '';
@@ -212,6 +233,8 @@ export async function handleTaskCommand(ctx: Context) {
       `${descStr}\n` +
       `${priorityIcon} *Priority:* \`${task.priority}\`` +
       `${imageStr}` +
+      `${docStr}` +
+      `${voiceStr}` +
       `${assigneeStr}` +
       `${dueStr}` +
       `${projectStr}` +

@@ -11,6 +11,9 @@ import {
   Flag,
   User,
   Folder,
+  Paperclip,
+  Trash2,
+  FileText,
 } from 'lucide-react';
 
 interface CreateTaskSheetProps {
@@ -29,6 +32,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [dueDate, setDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState<string>('');
   const [projectId, setProjectId] = useState<string>('');
+  const [attachments, setAttachments] = useState<Array<{ name: string; url: string; isImage: boolean }>>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Fetch Team Members
@@ -85,6 +89,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       setDueDate('');
       setAssigneeId('');
       setProjectId('');
+      setAttachments([]);
       setErrorMsg(null);
       onClose();
     },
@@ -93,6 +98,21 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       setErrorMsg(err.message || 'Failed to create task');
     },
   });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    triggerHaptic('medium');
+    const file = files[0];
+    const isImage = file.type.startsWith('image/');
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachments([...attachments, { name: file.name, url: reader.result as string, isImage }]);
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen) return null;
 
@@ -234,6 +254,54 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* 📎 Attachments & Media Upload */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-blue-500" />
+                Attach File or Photo
+              </span>
+              <label className="cursor-pointer text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline">
+                + Browse
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  accept="image/*,application/pdf,.doc,.docx"
+                />
+              </label>
+            </label>
+
+            {attachments.length > 0 && (
+              <div className="space-y-1">
+                {attachments.map((att, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {att.isImage ? (
+                        <img src={att.url} alt="thumbnail" className="w-6 h-6 rounded-md object-cover" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                      )}
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        {att.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                      className="text-slate-400 hover:text-rose-600 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}
