@@ -18,6 +18,7 @@ import { handleUpcomingTasks } from './handlers/upcoming.handler';
 import { handleWorkspaceCommand, handleWorkspaceSwitch, handleWorkspaceCreate } from './handlers/workspace.handler';
 import { handleTeamCommand } from './handlers/team.handler';
 import { handleAssignedTasks } from './handlers/assigned.handler';
+import { handleInlineQuery } from './handlers/inline.handler';
 import {
   handleBotAddedToGroup,
   handleGroupInfo,
@@ -460,6 +461,9 @@ export function createBot() {
       { parse_mode: 'Markdown' }
     );
   });
+
+  // 16. Inline Query Handler (@flowtaskmanager_bot <query>)
+  bot.on('inline_query', handleInlineQuery);
 
   // Global Error Handler
   bot.catch((err) => {
