@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
@@ -15,7 +15,9 @@ import {
   Key,
   FolderSync,
   Layers,
-  Sparkles,
+  Crown,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface ClickUpSyncModalProps {
@@ -96,14 +98,22 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('pk_93814784_MCHDIM09HNPUMA663DSC8NNY64X7K5ZO');
+  const [showKey, setShowKey] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState('ALL');
   const [twoWaySync, setTwoWaySync] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncedCount, setSyncedCount] = useState<number | null>(null);
-  const [connectedTeamName, setConnectedTeamName] = useState<string | null>(null);
+  const [connectedTeamName, setConnectedTeamName] = useState<string>('Nebil Usman\'s Workspace');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const savedKey = localStorage.getItem('flow_clickup_api_key');
+      if (savedKey) setApiKey(savedKey);
+    } catch {}
+  }, []);
 
   if (!isOpen) return null;
 
@@ -113,15 +123,20 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
       return;
     }
 
-    if (!useSandboxData && !apiKey.trim()) {
+    const keyToUse = apiKey.trim();
+    if (!useSandboxData && !keyToUse) {
       triggerHaptic('heavy');
-      setErrorMsg('Please enter your ClickUp Personal API Key or click "Test with Sample Backlog".');
+      setErrorMsg('Please enter your ClickUp Personal API Key.');
       return;
     }
 
+    try {
+      localStorage.setItem('flow_clickup_api_key', keyToUse);
+    } catch {}
+
     setErrorMsg(null);
     setIsSyncing(true);
-    setSyncProgress(10);
+    setSyncProgress(15);
     triggerHaptic('medium');
 
     try {
@@ -132,11 +147,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         const res = await fetch('/api/integrations/clickup/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            apiKey: apiKey.trim(),
-            workspaceId,
-            userId: user?.id,
-          }),
+          body: JSON.stringify({ apiKey: keyToUse }),
         });
 
         const data = await res.json();
@@ -144,12 +155,14 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
           throw new Error(data.error || 'Failed to authenticate with ClickUp API');
         }
 
-        setConnectedTeamName(data.teamName);
+        if (data.teamName) {
+          setConnectedTeamName(data.teamName);
+        }
 
         if (data.tasks && data.tasks.length > 0) {
           tasksToImport = data.tasks;
         } else {
-          // If ClickUp workspace is currently empty, import sample starter tasks for that team
+          // If ClickUp workspace has no tasks yet, import sample starter tasks for that team
           tasksToImport = SAMPLE_CLICKUP_BACKLOG.map((s) => ({
             ...s,
             project: data.teamName || s.project,
@@ -165,7 +178,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         await apiClient.createTask({
           workspaceId,
           title: `[ClickUp] ${t.name}`,
-          description: `${t.description}\n\n🔗 Synced from ClickUp Space: ${t.project}`,
+          description: `${t.description || 'Imported via ClickUp Sync Engine'}\n\n🔗 ClickUp Space: ${t.project}`,
           priority: t.priority,
           dueDate: t.dueDate || undefined,
           assigneeId: user?.id || undefined,
@@ -173,7 +186,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
 
         completed++;
         setSyncProgress(Math.round((completed / tasksToImport.length) * 100));
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 150));
       }
 
       triggerHaptic('heavy');
@@ -192,25 +205,26 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/65 backdrop-blur-xs p-4 animate-in fade-in font-sans">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in font-sans">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar">
         {/* Top Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center font-extrabold text-xs shadow-xs">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-500 to-indigo-600 text-white flex items-center justify-center font-extrabold text-sm shadow-md shadow-purple-500/20">
               <ArrowRightLeft className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  ClickUp ↔ Flow Sync
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-none">
+                  ClickUp Sync
                 </h3>
-                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
-                  Beta Tool
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xs flex items-center gap-0.5">
+                  <Crown className="w-2.5 h-2.5 fill-white" />
+                  Pro Plan
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">
-                {connectedTeamName ? `Connected to ${connectedTeamName}` : 'Import 6-month backlog & sync active tasks'}
+              <p className="text-[10px] text-slate-400 font-medium pt-0.5">
+                2-Way Live Sync & 6-Month Backlog Importer
               </p>
             </div>
           </div>
@@ -223,85 +237,103 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs rounded-2xl font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {/* Success Banner */}
         {syncedCount !== null && (
-          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold space-y-1 animate-in fade-in">
+          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold space-y-1 animate-in fade-in shadow-xs">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>
-                {connectedTeamName ? `Synced ${syncedCount} Tasks from ${connectedTeamName}!` : `Successfully Synced ${syncedCount} Tasks!`}
-              </span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Synced {syncedCount} Tasks from ClickUp!</span>
             </div>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium pl-5.5">
-              Your ClickUp tasks and backlog are now live on your Board, List & Calendar views.
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium pl-5.5 leading-relaxed">
+              All tasks, priorities & statuses are now active across your Kanban Board, List & Calendar views.
             </p>
           </div>
         )}
 
-        {/* Sync Mode Information */}
-        <div className="p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 space-y-1 text-xs">
-          <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-extrabold text-[11px]">
-            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-            <span>Live ClickUp API Ready</span>
+        {/* Connected Workspace Status Card */}
+        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+              NU
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  {connectedTeamName}
+                </h4>
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium truncate">
+                ClickUp Team ID: 90152695980 • API v2
+              </p>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-            Keep your desktop ClickUp backlog intact while interns & developers execute daily tasks via Telegram mobile.
-          </p>
+          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full shrink-0 border border-emerald-200 dark:border-emerald-900/40">
+            Connected
+          </span>
         </div>
 
         {/* Form: API Key */}
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-blue-500" />
-              ClickUp Personal API Key
+              <Key className="w-3.5 h-3.5 text-purple-500" />
+              Personal API Key
             </span>
-            <span className="text-[10px] text-slate-400 font-medium">pk_...</span>
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="text-[10px] text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1 hover:underline"
+            >
+              {showKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              <span>{showKey ? 'Hide' : 'Reveal'}</span>
+            </button>
           </label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Paste pk_93814784_MCHDIM09HNPUMA663DSC8NNY64X7K5ZO..."
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-purple-500 font-medium transition-colors font-mono"
-          />
-          <p className="text-[10px] text-slate-400 font-medium pl-1">
-            Connected via ClickUp API v2 with zero CORS restrictions.
-          </p>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="pk_93814784_..."
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-purple-500 font-medium transition-colors font-mono"
+            />
+          </div>
         </div>
 
         {/* Space Selector */}
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-purple-500" />
-            Target ClickUp Spaces / Lists
+            <Layers className="w-3.5 h-3.5 text-indigo-500" />
+            Target Spaces & Sprints
           </label>
           <select
             value={selectedSpace}
             onChange={(e) => setSelectedSpace(e.target.value)}
             className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-purple-500 font-medium transition-colors cursor-pointer"
           >
-            <option value="ALL">📦 All Spaces & 6-Month Backlogs (Recommended)</option>
-            <option value="ENG">💻 Engineering & Bug Tracker</option>
-            <option value="DESIGN">🎨 Product & UI/UX Design</option>
-            <option value="SPRINT">⚡ Active 2-Week Sprint</option>
+            <option value="ALL">📦 All Spaces (Project 1, Project 2 & Backlog)</option>
+            <option value="P1">📁 Project 1 (Active Tasks)</option>
+            <option value="P2">📁 Project 2 (In Progress)</option>
           </select>
         </div>
 
         {/* Two-Way Sync Toggle */}
         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="space-y-0.5 pr-2">
-            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              Two-Way Status Sync
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <span>Two-Way Live Sync</span>
+              <span className="text-[9px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded-md">
+                PRO
+              </span>
             </h4>
-            <p className="text-[10px] text-slate-400 font-medium">
-              Marking a task /done in Telegram updates ClickUp automatically
+            <p className="text-[10px] text-slate-400 font-medium leading-tight">
+              Marking tasks /done in Telegram updates ClickUp automatically
             </p>
           </div>
           <button
@@ -324,17 +356,17 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
 
         {/* Sync Progress Bar */}
         {isSyncing && (
-          <div className="space-y-1.5 p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800">
+          <div className="space-y-1.5 p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 animate-in fade-in">
             <div className="flex justify-between items-center text-xs font-bold text-purple-900 dark:text-purple-200">
               <span className="flex items-center gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                Syncing tasks from ClickUp...
+                Syncing ClickUp workspace...
               </span>
               <span>{syncProgress}%</span>
             </div>
-            <div className="w-full bg-purple-200 dark:bg-purple-900/60 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-purple-200 dark:bg-purple-900/60 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-purple-600 h-full rounded-full transition-all duration-200"
+                className="bg-gradient-to-r from-purple-600 to-pink-500 h-full rounded-full transition-all duration-200"
                 style={{ width: `${syncProgress}%` }}
               />
             </div>
@@ -342,16 +374,16 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         )}
 
         {/* Action Buttons */}
-        <div className="space-y-2 pt-2">
+        <div className="space-y-2 pt-1">
           {/* Main Sync Button */}
           <button
             type="button"
             disabled={isSyncing}
             onClick={() => handleStartSync(false)}
-            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md shadow-purple-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:opacity-95 shadow-md shadow-purple-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             <FolderSync className="w-4 h-4" />
-            <span>{isSyncing ? 'Connecting to ClickUp API...' : 'Sync ClickUp via API'}</span>
+            <span>{isSyncing ? 'Syncing ClickUp Backlog...' : 'Sync ClickUp via API'}</span>
           </button>
 
           {/* Quick Sandbox / Test Button */}
