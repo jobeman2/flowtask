@@ -18,7 +18,12 @@ import { handleUpcomingTasks } from './handlers/upcoming.handler';
 import { handleWorkspaceCommand, handleWorkspaceSwitch, handleWorkspaceCreate } from './handlers/workspace.handler';
 import { handleTeamCommand } from './handlers/team.handler';
 import { handleAssignedTasks } from './handlers/assigned.handler';
-import { handleBotAddedToGroup, handleGroupInfo, handleGroupSummary } from './handlers/group.handler';
+import {
+  handleBotAddedToGroup,
+  handleGroupInfo,
+  handleGroupSummary,
+  resolveGroupWorkspace,
+} from './handlers/group.handler';
 import { ReminderScheduler } from './services/reminder-scheduler';
 import { prisma, TaskStatus, TaskPriority } from '@flowtask/database';
 
@@ -35,6 +40,21 @@ export function createBot() {
   bot.on('message:new_chat_members', handleBotAddedToGroup);
   bot.on('my_chat_member', handleBotAddedToGroup);
   bot.on('chat_member', handleBotAddedToGroup);
+
+  // Auto-sync any group sender as a team member
+  bot.use(async (ctx, next) => {
+    if (ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup') {
+      const tgUser = ctx.from;
+      if (tgUser && !tgUser.is_bot) {
+        try {
+          await resolveGroupWorkspace(ctx, tgUser);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+    await next();
+  });
 
   // --- COMMAND ROUTES ---
   bot.command('start', handleStart);

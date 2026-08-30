@@ -17,11 +17,55 @@ export class TasksService {
     private telegramService: TelegramService
   ) {}
 
+  private async checkTaskPermission(
+    workspaceId: string,
+    userId: string,
+    task?: any,
+    action: 'VIEW' | 'CREATE' | 'UPDATE' | 'DELETE' | 'COMPLETE' = 'VIEW'
+  ) {
+    const member = await this.prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId },
+    });
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+
+    if (!member && workspace?.ownerId !== userId) {
+      throw new ForbiddenException('You do not have access to this workspace');
+    }
+
+    if (action === 'VIEW' || action === 'CREATE') return;
+
+    const isOwnerOrAdmin =
+      workspace?.ownerId === userId || member?.role === 'OWNER' || member?.role === 'ADMIN';
+
+    if (task) {
+      const isCreator = task.creatorId === userId;
+      const isAssignee = task.assigneeId === userId;
+
+      if (action === 'DELETE') {
+        if (!isOwnerOrAdmin && !isCreator) {
+          throw new ForbiddenException('Only the task creator or a workspace admin can delete this task.');
+        }
+      }
+
+      if (action === 'COMPLETE' || action === 'UPDATE') {
+        if (!isOwnerOrAdmin && !isCreator && !isAssignee) {
+          throw new ForbiddenException(
+            'Only the task assignee, creator, or workspace admin can modify or complete this task.'
+          );
+        }
+      }
+    }
+  }
+
   async listTasks(
     workspaceId: string,
     userId: string,
     query: PaginationDto & { status?: TaskStatus; projectId?: string; assigneeId?: string }
   ) {
+    await this.checkTaskPermission(workspaceId, userId, null, 'VIEW');
+
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -84,7 +128,11 @@ export class TasksService {
     };
   }
 
-  async getTaskById(taskId: string, workspaceId: string) {
+  async getTaskById(taskId: string, workspaceId: string, userId?: string) {
+    if (userId) {
+      await this.checkTaskPermission(workspaceId, userId, null, 'VIEW');
+    }
+
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, workspaceId },
       include: {
@@ -108,6 +156,8 @@ export class TasksService {
   }
 
   async createTask(dto: CreateTaskDto, creatorId: string) {
+    await this.checkTaskPermission(dto.workspaceId, creatorId, null, 'CREATE');
+
     const { labelIds, ...taskData } = dto;
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -224,6 +274,13 @@ export class TasksService {
     if (!existing) {
       throw new NotFoundException('Task not found');
     }
+
+    await this.checkTaskPermission(
+      workspaceId,
+      userId,
+      existing,
+      dto.status === 'DONE' ? 'COMPLETE' : 'UPDATE'
+    );
 
     const { labelIds, ...updateFields } = dto;
 
@@ -350,6 +407,8 @@ export class TasksService {
     if (!task) {
       throw new NotFoundException('Task not found');
     }
+
+    await this.checkTaskPermission(workspaceId, userId, task, 'DELETE');
 
     await this.prisma.task.delete({ where: { id: taskId } });
 

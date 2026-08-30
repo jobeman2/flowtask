@@ -298,7 +298,18 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        !isDone && completeMutation.mutate(task.id);
+                        if (isDone) return;
+                        const currentMember = members.find((m: any) => m.userId === currentUser?.id);
+                        const isOwnerOrAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
+                        const canComplete = isOwnerOrAdmin || task.creatorId === currentUser?.id || task.assigneeId === currentUser?.id;
+
+                        if (!canComplete) {
+                          triggerHaptic('heavy');
+                          alert('Only the task assignee, creator, or workspace admin can complete this task.');
+                          return;
+                        }
+
+                        completeMutation.mutate(task.id);
                       }}
                       className="mt-0.5 text-slate-400 hover:text-flow-600 transition-colors shrink-0"
                     >
