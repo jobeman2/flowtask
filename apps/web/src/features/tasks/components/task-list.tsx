@@ -19,6 +19,7 @@ import {
   Filter,
   User,
   Image as ImageIcon,
+  Bot,
 } from 'lucide-react';
 import { CreateTaskModal } from './create-task-dialog';
 import { TaskDetailModal } from './task-detail-modal';
@@ -393,6 +394,13 @@ export function TaskList() {
                           )}
 
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {(task.description?.includes('🤖') || task.description?.includes('AI Project Manager') || task.title?.includes('[AI]')) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 shadow-2xs">
+                                <Bot className="w-3 h-3" />
+                                <span>Flow AI</span>
+                              </span>
+                            )}
+
                             {task.project && (
                               <span
                                 className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-xs"

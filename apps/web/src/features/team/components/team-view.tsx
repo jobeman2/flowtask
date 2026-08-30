@@ -9,6 +9,8 @@ import {
   Search,
   UserPlus,
   X,
+  Bot,
+  Sparkles,
 } from 'lucide-react';
 
 export function TeamView() {
@@ -63,22 +65,40 @@ export function TeamView() {
     if (!searchQuery.trim()) return members;
     const q = searchQuery.toLowerCase();
     return members.filter((m: any) => {
-      const nameMatch = m.user?.name?.toLowerCase().includes(q);
-      const emailMatch = m.user?.email?.toLowerCase().includes(q);
-      const roleMatch = m.role?.toLowerCase().includes(q);
-      return nameMatch || emailMatch || roleMatch;
+      const name = m.user?.name?.toLowerCase() || '';
+      const username = m.user?.telegramAccount?.username?.toLowerCase() || '';
+      return name.includes(q) || username.includes(q);
     });
   }, [members, searchQuery]);
 
   return (
-    <div className="space-y-4 pb-24 animate-in fade-in duration-300">
-      {/* 1. Header */}
-      <div className="flex items-center justify-between pt-1">
-        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Team
-        </h2>
+    <div className="space-y-4 pb-24 font-sans animate-in fade-in duration-300">
+      {/* 1. Header with Invite Action */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+            Workspace Team
+          </h3>
+          <p className="text-xs text-slate-400 font-medium">
+            Manage teammates, roles & AI copilot
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            setIsInviteOpen(true);
+          }}
+          className="p-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>Invite</span>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between px-1">
         <span className="text-xs font-semibold text-slate-400">
-          {members.length} members
+          {members.length + 1} active members
         </span>
       </div>
 
@@ -96,6 +116,37 @@ export function TeamView() {
 
       {/* 3. Members List */}
       <div className="space-y-2.5">
+        {/* 🤖 Permanent Virtual AI Copilot Member */}
+        <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-pink-50/50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center font-bold shadow-md shadow-purple-500/20">
+                <Bot className="w-5 h-5" />
+              </div>
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                  Flow AI
+                </h4>
+                <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
+              </div>
+              <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 truncate">
+                @flowtaskmanager_bot • Autonomous PM
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs">
+              AI Copilot
+            </span>
+          </div>
+        </div>
+
+        {/* Human Team Members */}
         {filteredMembers.map((member: any) => {
           const isOwner = member.role === 'OWNER';
           const isAdmin = member.role === 'ADMIN';
@@ -158,86 +209,84 @@ export function TeamView() {
         )}
       </div>
 
-      {/* 4. Bottom Invite Action Button */}
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('medium');
-            setIsInviteOpen(true);
-          }}
-          className="w-full py-3.5 rounded-2xl font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 flex items-center justify-center gap-2 transition-all active:scale-98"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>+ Invite Member</span>
-        </button>
-      </div>
-
-      {/* Invite Modal */}
+      {/* 4. Invite Member Bottom Sheet */}
       {isInviteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Invite Teammate</h3>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Invite Teammate
+                </h3>
+              </div>
               <button
                 onClick={() => setIsInviteOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {inviteError && (
-              <div className="p-2.5 bg-rose-50 text-rose-700 text-xs rounded-xl font-semibold">
+              <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-semibold">
                 {inviteError}
               </div>
             )}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                inviteMutation.mutate();
-              }}
-              className="space-y-3"
-            >
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Telegram Username or Phone
-                </label>
-                <input
-                  type="text"
-                  value={inviteIdentifier}
-                  onChange={(e) => setInviteIdentifier(e.target.value)}
-                  placeholder="@username or phone"
-                  required
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                Telegram @username or Email
+              </label>
+              <input
+                type="text"
+                value={inviteIdentifier}
+                onChange={(e) => setInviteIdentifier(e.target.value)}
+                placeholder="@username (e.g. @john_doe)"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium"
+              />
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Role
-                </label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as any)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium cursor-pointer"
-                >
-                  <option value="MEMBER">Member</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </div>
-
-              <div className="pt-2">
+            <div className="space-y-1">
+              <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                Member Role
+              </label>
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  type="submit"
-                  disabled={inviteMutation.isPending}
-                  className="w-full py-3 rounded-2xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all"
+                  type="button"
+                  onClick={() => setInviteRole('MEMBER')}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                    inviteRole === 'MEMBER'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
                 >
-                  {inviteMutation.isPending ? 'Sending Invite...' : 'Send Invitation'}
+                  Member
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInviteRole('ADMIN')}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                    inviteRole === 'ADMIN'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Admin
                 </button>
               </div>
-            </form>
+            </div>
+
+            <button
+              type="button"
+              disabled={inviteMutation.isPending || !inviteIdentifier.trim()}
+              onClick={() => inviteMutation.mutate()}
+              className="w-full py-3 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {inviteMutation.isPending ? 'Sending Invite...' : 'Send Telegram Invite'}
+            </button>
           </div>
         </div>
       )}
