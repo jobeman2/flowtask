@@ -9,6 +9,7 @@ import { PricingModal } from '../../billing/components/pricing-modal';
 import { HelpSupportModal } from '../../help/components/help-support-modal';
 import { NotificationsModal } from '../../settings/components/notifications-modal';
 import { SettingsModal } from '../../settings/components/settings-modal';
+import { ClickUpSyncModal } from '../../settings/components/clickup-sync-modal';
 import {
   Bell,
   Sliders,
@@ -19,6 +20,7 @@ import {
   Info,
   ChevronRight,
   Sparkles,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 export function MoreView() {
@@ -28,6 +30,7 @@ export function MoreView() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Subscription
@@ -108,6 +111,30 @@ export function MoreView() {
 
       {/* 3. Settings List */}
       <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+        {/* ClickUp Sync & Migration Tool */}
+        <div
+          onClick={() => {
+            triggerHaptic('medium');
+            setIsClickUpSyncOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+              ClickUp ↔ Flow Sync
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-extrabold text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
+              Test Tool
+            </span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
         {/* Notifications Modal trigger */}
         <div
           onClick={() => {
@@ -201,38 +228,40 @@ export function MoreView() {
           </div>
         </div>
 
-        {/* About Flow */}
-        <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
+        {/* About FLOW */}
+        <div className="flex items-center justify-between p-3.5 text-slate-400">
           <div className="flex items-center gap-3">
-            <Info className="w-4 h-4 text-slate-400" />
-            <span className="font-semibold text-slate-800 dark:text-slate-200">About Flow</span>
+            <Info className="w-4 h-4" />
+            <span className="font-semibold text-slate-600 dark:text-slate-400">Version</span>
           </div>
-          <span className="font-bold text-[11px] text-slate-400">v2.5.0</span>
+          <span className="font-bold text-[11px]">v2.4.0 (Agile Pro)</span>
         </div>
       </div>
 
-      {/* Pricing Modal */}
+      {/* Modals */}
       <PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
       />
 
-      {/* Help & Support Center Modal */}
       <HelpSupportModal
         isOpen={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
       />
 
-      {/* Notifications Modal */}
       <NotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
       />
 
-      {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      <ClickUpSyncModal
+        isOpen={isClickUpSyncOpen}
+        onClose={() => setIsClickUpSyncOpen(false)}
       />
     </div>
   );
