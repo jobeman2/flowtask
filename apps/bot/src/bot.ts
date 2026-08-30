@@ -19,6 +19,7 @@ import { handleWorkspaceCommand, handleWorkspaceSwitch, handleWorkspaceCreate } 
 import { handleTeamCommand } from './handlers/team.handler';
 import { handleAssignedTasks } from './handlers/assigned.handler';
 import { handleInlineQuery } from './handlers/inline.handler';
+import { handleLeaderboard, handleStats } from './handlers/leaderboard.handler';
 import {
   handleBotAddedToGroup,
   handleGroupInfo,
@@ -69,6 +70,8 @@ export function createBot() {
   bot.command('overdue', handleOverdueTasks);
   bot.command('upcoming', handleUpcomingTasks);
   bot.command('team', handleTeamCommand);
+  bot.command(['leaderboard', 'leaders', 'top'], handleLeaderboard);
+  bot.command(['stats', 'analytics'], handleStats);
   bot.command(['workspace', 'workspaces', 'switch'], handleWorkspaceCommand);
 
   // Direct quick complete command: /done <id>
