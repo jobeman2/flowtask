@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 
 interface HomeViewProps {
   onSelectTask: (taskId: string) => void;
@@ -99,9 +99,9 @@ export function HomeView({
 
   // Priority Dot Color
   const getPriorityDot = (priority: string) => {
-    if (priority === 'URGENT' || priority === 'HIGH') return 'bg-rose-500';
-    if (priority === 'MEDIUM') return 'bg-amber-500';
-    return 'bg-blue-500';
+    if (priority === 'URGENT' || priority === 'HIGH') return 'bg-rose-500 ring-rose-500/20';
+    if (priority === 'MEDIUM') return 'bg-amber-500 ring-amber-500/20';
+    return 'bg-blue-500 ring-blue-500/20';
   };
 
   // Format Due Date
@@ -112,99 +112,135 @@ export function HomeView({
     const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Due Tomorrow';
+    if (diffDays === 1) return 'Tomorrow';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const totalAll = metrics.myTasks + metrics.completed;
+  const progressPercent = totalAll > 0 ? Math.round((metrics.completed / totalAll) * 100) : 0;
+
   return (
-    <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* 1. Header Greeting */}
-      <div className="space-y-0.5 pt-1">
-        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-          <span>{greeting}, {firstName}</span>
-          <span>👋</span>
-        </h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-          Let&apos;s get things done today.
-        </p>
-      </div>
+    <div className="space-y-6 pb-20 animate-in fade-in duration-300">
+      {/* 1. Bespoke Hero Greeting Card */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-3xl p-5 text-white shadow-xl shadow-blue-500/15 border border-blue-400/20">
+        {/* Subtle background glow */}
+        <div className="absolute -top-12 -right-12 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-      {/* 2. KPI Metrics Grid (3 columns x 2 rows) */}
-      <div className="grid grid-cols-3 gap-2.5">
-        {/* Box 1: My Tasks */}
-        <div className="bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100/80 dark:border-blue-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
-            {metrics.myTasks}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            My Tasks
-          </span>
-        </div>
+        <div className="relative z-10 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-blue-200">
+                Workspace Dashboard
+              </span>
+              <h2 className="text-xl font-extrabold tracking-tight">
+                {greeting}, {firstName} 👋
+              </h2>
+            </div>
+            <div className="px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[11px] font-bold tracking-tight text-white border border-white/20">
+              {progressPercent}% Done
+            </div>
+          </div>
 
-        {/* Box 2: In Progress */}
-        <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-100/80 dark:border-amber-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-amber-500 dark:text-amber-400 tracking-tight">
-            {metrics.inProgress}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            In Progress
-          </span>
-        </div>
-
-        {/* Box 3: Completed */}
-        <div className="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-100/80 dark:border-emerald-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {metrics.completed}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            Completed
-          </span>
-        </div>
-
-        {/* Box 4: Overdue */}
-        <div className="bg-rose-50/80 dark:bg-rose-950/30 border border-rose-100/80 dark:border-rose-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-rose-500 dark:text-rose-400 tracking-tight">
-            {metrics.overdue}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            Overdue
-          </span>
-        </div>
-
-        {/* Box 5: Due Today */}
-        <div className="bg-purple-50/80 dark:bg-purple-950/30 border border-purple-100/80 dark:border-purple-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-purple-600 dark:text-purple-400 tracking-tight">
-            {metrics.dueToday}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            Due Today
-          </span>
-        </div>
-
-        {/* Box 6: Upcoming */}
-        <div className="bg-sky-50/80 dark:bg-sky-950/30 border border-sky-100/80 dark:border-sky-900/40 rounded-2xl p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-2xl font-black text-sky-600 dark:text-sky-400 tracking-tight">
-            {metrics.upcoming}
-          </span>
-          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 mt-1">
-            Upcoming
-          </span>
+          {/* Progress Bar */}
+          <div className="space-y-1.5 pt-1">
+            <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden p-0.5 backdrop-blur-xs">
+              <div
+                className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-blue-100 font-medium">
+              <span>{metrics.completed} completed</span>
+              <span>{metrics.myTasks} pending</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 3. My Tasks Section Header */}
-      <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            My Tasks
+      {/* 2. Bespoke 6 KPI Metric Grid */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Overview
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2.5">
+          {/* Card 1: My Tasks */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-blue-200 transition-all">
+            <span className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight">
+              {metrics.myTasks}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              My Tasks
+            </span>
+          </div>
+
+          {/* Card 2: In Progress */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-amber-200 transition-all">
+            <span className="text-2xl font-black text-amber-500 dark:text-amber-400 tracking-tight">
+              {metrics.inProgress}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              In Progress
+            </span>
+          </div>
+
+          {/* Card 3: Completed */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-emerald-200 transition-all">
+            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+              {metrics.completed}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              Completed
+            </span>
+          </div>
+
+          {/* Card 4: Overdue */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-rose-200 transition-all">
+            <span className="text-2xl font-black text-rose-500 dark:text-rose-400 tracking-tight">
+              {metrics.overdue}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              Overdue
+            </span>
+          </div>
+
+          {/* Card 5: Due Today */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-purple-200 transition-all">
+            <span className="text-2xl font-black text-purple-600 dark:text-purple-400 tracking-tight">
+              {metrics.dueToday}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              Due Today
+            </span>
+          </div>
+
+          {/* Card 6: Upcoming */}
+          <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] flex flex-col justify-between hover:border-sky-200 transition-all">
+            <span className="text-2xl font-black text-sky-500 dark:text-sky-400 tracking-tight">
+              {metrics.upcoming}
+            </span>
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-1">
+              Upcoming
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. My Tasks Priority Feed */}
+      <div className="space-y-3 pt-1">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Recent Tasks
           </h3>
           <button
             type="button"
             onClick={onNavigateTasks}
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-0.5 transition-colors"
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-0.5 transition-colors"
           >
-            <span>See all</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <span>View All</span>
+            <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
           </button>
         </div>
 
@@ -219,10 +255,10 @@ export function HomeView({
               <div
                 key={task.id}
                 onClick={() => onSelectTask(task.id)}
-                className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3 hover:border-blue-200 dark:hover:border-blue-900/50 transition-all cursor-pointer group"
+                className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] flex items-center justify-between gap-3.5 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-md transition-all cursor-pointer group"
               >
                 {/* Left side: Circular Checkbox + Title & Tag */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -237,8 +273,8 @@ export function HomeView({
                     }}
                     className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       isDone
-                        ? 'bg-blue-600 text-white'
-                        : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
                     }`}
                   >
                     {isDone && <Check className="w-3 h-3 stroke-[3]" />}
@@ -246,17 +282,17 @@ export function HomeView({
 
                   <div className="min-w-0 flex-1">
                     <h4
-                      className={`text-[13px] font-semibold truncate leading-snug ${
+                      className={`text-[13px] font-bold truncate leading-snug tracking-tight ${
                         isDone
                           ? 'line-through text-slate-400 dark:text-slate-500'
-                          : 'text-slate-900 dark:text-slate-100'
+                          : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
                       }`}
                     >
                       {task.title}
                     </h4>
 
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/60 border border-blue-100/50 dark:border-blue-900/50 px-2 py-0.5 rounded-md">
                         {projectTag}
                       </span>
                     </div>
@@ -264,27 +300,28 @@ export function HomeView({
                 </div>
 
                 {/* Right side: Relative Due Date & Priority Dot */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {dueText && (
-                    <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                    <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                       {dueText}
                     </span>
                   )}
-                  <span className={`w-2 h-2 rounded-full ${getPriorityDot(task.priority)}`} />
+                  <span className={`w-2 h-2 rounded-full ring-2 ${getPriorityDot(task.priority)}`} />
                 </div>
               </div>
             );
           })}
 
           {tasks.length === 0 && (
-            <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
-              <p className="text-xs font-semibold text-slate-500">No tasks created yet.</p>
+            <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2.5">
+              <p className="text-xs font-bold text-slate-500">No tasks on your board yet.</p>
               <button
                 type="button"
                 onClick={onOpenCreate}
-                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-500/25 hover:bg-blue-700 transition-all active:scale-95"
               >
-                + Create your first task
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Create First Task</span>
               </button>
             </div>
           )}

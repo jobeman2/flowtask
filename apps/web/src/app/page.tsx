@@ -37,76 +37,59 @@ export default function HomePage() {
   const isUpgraded = planCode !== 'FREE';
 
   return (
-    <div className="flex flex-col flex-1 space-y-3 pb-16 min-h-screen">
-      {/* 1. Modern Top Header */}
-      <header className="flex items-center justify-between pt-1 pb-2 gap-2">
-        <div className="flex items-center space-x-2 min-w-0">
-          {/* Profile Avatar with subtle Plan Badge */}
+    <div className="flex flex-col flex-1 space-y-4 pb-20 min-h-screen font-sans">
+      {/* 1. Bespoke Top Header with Official FLOW Branding */}
+      <header className="flex items-center justify-between pt-1.5 pb-2 px-1 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          {/* Official FLOW Brand Logo */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <img
+              src="/flow-logo.png"
+              alt="FLOW"
+              className="h-6 w-auto object-contain"
+            />
+            {isUpgraded && (
+              <span
+                onClick={() => setIsPricingOpen(true)}
+                className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 cursor-pointer tracking-wider flex items-center gap-1"
+              >
+                <Sparkles className="w-2.5 h-2.5 fill-blue-600" />
+                {planCode}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right side: Workspace Switcher & User Avatar */}
+        <div className="flex items-center gap-2 shrink-0">
+          <WorkspaceSwitcher />
+
           <div
-            onClick={() => isUpgraded && setIsPricingOpen(true)}
-            className="relative shrink-0 cursor-pointer group"
+            onClick={() => setActiveNav('PROFILE')}
+            className="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs border border-blue-200/50 dark:border-blue-700/50 cursor-pointer overflow-hidden ring-2 ring-transparent hover:ring-blue-500/30 transition-all"
           >
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.name || 'User'}
-                className="w-9 h-9 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-xs ring-1 ring-blue-500/20"
+                className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-9 h-9 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                {user?.name?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-
-            {/* Small badge attached directly to avatar */}
-            {isUpgraded && (
-              <div
-                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-slate-900 border-2 border-white dark:border-slate-950 flex items-center justify-center shadow-xs"
-                title={`${planCode} Plan`}
-              >
-                <Sparkles className="w-2 h-2 fill-slate-900" />
-              </div>
+              <span>{user?.name?.[0]?.toUpperCase() || 'U'}</span>
             )}
           </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className="font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate leading-tight">
-                TaskFlow
-              </h1>
-              <span className="text-[9px] font-medium text-slate-400">
-                mini app
-              </span>
-              {isUpgraded && (
-                <span
-                  onClick={() => setIsPricingOpen(true)}
-                  className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300/40 cursor-pointer leading-tight tracking-wider"
-                >
-                  {planCode}
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-400 font-semibold truncate">
-              {user ? user.name : 'Telegram Native'}
-            </p>
-          </div>
-        </div>
-
-        {/* Right side: Clean Workspace Switcher only */}
-        <div className="flex items-center shrink-0">
-          <WorkspaceSwitcher />
         </div>
       </header>
 
       {/* Auth Error Banner if any */}
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl">
+        <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs rounded-2xl font-medium">
           {error}
         </div>
       )}
 
       {/* 2. Main Screen Area (Switched by Bottom Nav) */}
-      <main className="flex-1">
+      <main className="flex-1 px-1">
         {activeNav === 'HOME' && (
           <HomeView
             onSelectTask={(id) => setSelectedTaskId(id)}
@@ -143,7 +126,7 @@ export default function HomePage() {
         onClose={() => setIsPricingOpen(false)}
       />
 
-      {/* 4. Fixed Modern Mobile Bottom Navigation Dock */}
+      {/* 4. Sleek Floating Island Navigation Dock */}
       <BottomNav
         activeTab={activeNav}
         onTabChange={(tab) => setActiveNav(tab)}

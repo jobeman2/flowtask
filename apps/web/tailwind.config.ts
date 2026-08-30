@@ -37,6 +37,9 @@ const config: Config = {
           secondaryBg: 'var(--tg-theme-secondary-bg-color, #f8fafc)',
         },
       },
+      fontFamily: {
+        sans: ['var(--font-dm-sans)', 'DM Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
       borderRadius: {
         '2xl': '1rem',
         '3xl': '1.5rem',
