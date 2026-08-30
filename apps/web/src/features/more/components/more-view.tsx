@@ -7,8 +7,11 @@ import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { PricingModal } from '../../billing/components/pricing-modal';
 import { HelpSupportModal } from '../../help/components/help-support-modal';
+import { NotificationsModal } from '../../settings/components/notifications-modal';
+import { SettingsModal } from '../../settings/components/settings-modal';
 import {
   Bell,
+  Sliders,
   Moon,
   Sun,
   Globe,
@@ -23,6 +26,8 @@ export function MoreView() {
   const { triggerHaptic } = useTelegram();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Subscription
@@ -103,19 +108,47 @@ export function MoreView() {
 
       {/* 3. Settings List */}
       <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-        {/* Notifications */}
-        <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
+        {/* Notifications Modal trigger */}
+        <div
+          onClick={() => {
+            triggerHaptic('light');
+            setIsNotificationsOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+        >
           <div className="flex items-center gap-3">
-            <Bell className="w-4 h-4 text-blue-500" />
-            <span className="font-semibold text-slate-800 dark:text-slate-200">Notifications</span>
+            <Bell className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              Notifications & Alarms
+            </span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
-            <span className="font-medium text-[11px]">Telegram DMs</span>
+            <span className="font-medium text-[11px]">DMs & Due Alarms</span>
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
 
-        {/* Appearance / Dark Mode */}
+        {/* General App Settings & Preferences */}
+        <div
+          onClick={() => {
+            triggerHaptic('light');
+            setIsSettingsOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <Sliders className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              App Preferences & Views
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-medium text-[11px]">Theme, Views & Haptics</span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Appearance Quick Toggle */}
         <div
           onClick={toggleDarkMode}
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
@@ -126,7 +159,7 @@ export function MoreView() {
             ) : (
               <Sun className="w-4 h-4 text-amber-500" />
             )}
-            <span className="font-semibold text-slate-800 dark:text-slate-200">Appearance</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">Quick Theme</span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
             <span className="font-medium text-[11px]">{isDarkMode ? 'Dark' : 'Light'}</span>
@@ -188,6 +221,18 @@ export function MoreView() {
       <HelpSupportModal
         isOpen={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
+      />
+
+      {/* Notifications Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );
