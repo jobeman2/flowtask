@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+import { Bot, InlineKeyboard } from 'grammy';
 import { botConfig } from './config/bot.config';
 import { handleStart } from './handlers/start.handler';
 import { handleHelp } from './handlers/help.handler';
@@ -139,6 +139,48 @@ export function createBot() {
       return;
     }
 
+    const tgUser = ctx.from;
+    if (tgUser) {
+      let account = await prisma.telegramAccount.findUnique({
+        where: { telegramId: tgUser.id.toString() },
+      });
+
+      if (!account && tgUser.username) {
+        account = await prisma.telegramAccount.findFirst({
+          where: { username: tgUser.username },
+        });
+      }
+
+      const userId = account?.userId;
+
+      if (userId) {
+        const member = await prisma.workspaceMember.findFirst({
+          where: { workspaceId: task.workspaceId, userId },
+        });
+        const workspace = await prisma.workspace.findUnique({
+          where: { id: task.workspaceId },
+        });
+
+        const isOwnerOrAdmin =
+          workspace?.ownerId === userId || member?.role === 'OWNER' || member?.role === 'ADMIN';
+        const isAssignee = task.assigneeId === userId;
+        const isCreator = task.creatorId === userId;
+
+        if (!isOwnerOrAdmin && !isAssignee && !isCreator) {
+          await ctx.answerCallbackQuery({
+            text: '🚫 Only the assigned teammate, task creator, or workspace admin can mark this task as done.',
+            show_alert: true,
+          });
+          return;
+        }
+      }
+    }
+
+    if (task.status === TaskStatus.DONE) {
+      await ctx.answerCallbackQuery({ text: 'This task is already completed.' });
+      return;
+    }
+
     await prisma.task.update({
       where: { id: taskId },
       data: { status: TaskStatus.DONE, completedAt: new Date() },
@@ -176,8 +218,24 @@ export function createBot() {
       }
     }
 
+    const completerName = tgUser?.first_name || tgUser?.username || 'Teammate';
     await ctx.answerCallbackQuery({ text: '✅ Task completed!' });
-    await handleTaskDetail(ctx, taskId);
+
+    const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+    if (isGroup) {
+      try {
+        await ctx.editMessageReplyMarkup({
+          reply_markup: new InlineKeyboard()
+            .text(`✅ Completed by ${completerName}`, `task:done_info:${taskId}`)
+            .row()
+            .url('📱 Open in FlowTask Mini App', botConfig.webAppUrl),
+        });
+      } catch {
+        // Ignore edit markup error
+      }
+    } else {
+      await handleTaskDetail(ctx, taskId);
+    }
   });
 
   // 5. Reopen Task (task:reopen:<id>)

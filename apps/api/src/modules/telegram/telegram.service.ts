@@ -373,11 +373,8 @@ export class TelegramService {
       `${privacyFootnote}`;
 
     const inlineKeyboard: any[] = [
-      [
-        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
-        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
-      ],
-      [{ text: '📱 Open Group Board in Mini App', url: webAppUrl }],
+      [{ text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` }],
+      [{ text: '📱 Open in FlowTask Mini App', url: webAppUrl }],
     ];
 
     if (data.imageUrl && !data.imageUrl.startsWith('data:')) {
