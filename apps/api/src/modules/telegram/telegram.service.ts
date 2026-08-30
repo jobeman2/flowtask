@@ -344,15 +344,21 @@ export class TelegramService {
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
     const imageInfo = data.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
-    const descInfo = data.description ? `\n📄 *Description:* _${data.description}_` : '';
+
+    // If assigned to a specific person, keep description in their private DM
+    const isAssignedToUser = Boolean(data.assigneeName && data.assigneeName !== 'You (Personal)');
+    const descInfo = !isAssignedToUser && data.description ? `\n📄 *Description:* _${data.description}_` : '';
+    const privacyFootnote = isAssignedToUser
+      ? `\n\n🔒 _Details & description sent privately to ${data.assigneeName} via DM\\._`
+      : `\n\n_This task has been synchronized to your team's group board._`;
 
     const text =
       `📌 *New Task Created in ${data.workspaceName}*\n\n` +
       `📝 *Task:* *${data.taskTitle}*${descInfo}\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`${imageInfo}\n` +
       `👤 *Assigned to:* ${data.assigneeName ? `*${data.assigneeName}*` : '_Unassigned_'}\n` +
-      `👑 *Created by:* *${data.creatorName}*${dueInfo}\n\n` +
-      `_This task has been synchronized to your team's group board._`;
+      `👑 *Created by:* *${data.creatorName}*${dueInfo}` +
+      `${privacyFootnote}`;
 
     const inlineKeyboard: any[] = [
       [
