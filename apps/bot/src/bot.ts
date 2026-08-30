@@ -21,6 +21,7 @@ import { handleAssignedTasks } from './handlers/assigned.handler';
 import { handleInlineQuery } from './handlers/inline.handler';
 import { handleLeaderboard, handleStats } from './handlers/leaderboard.handler';
 import { handleMeetingCommand } from './handlers/meeting.handler';
+import { handleAiPlanCommand } from './handlers/ai-plan.handler';
 import { handleBoardCommand, handleProjectsList } from './handlers/board.handler';
 import {
   handleBotAddedToGroup,
@@ -75,6 +76,7 @@ export function createBot() {
   bot.command('upcoming', handleUpcomingTasks);
   bot.command('team', handleTeamCommand);
   bot.command(['meeting', 'meet', 'call', 'schedule_call'], handleMeetingCommand);
+  bot.command(['ai', 'plan', 'copilot', 'pm'], handleAiPlanCommand);
   bot.command(['leaderboard', 'leaders', 'top'], handleLeaderboard);
   bot.command(['stats', 'analytics'], handleStats);
   bot.command(['workspace', 'workspaces', 'switch'], handleWorkspaceCommand);

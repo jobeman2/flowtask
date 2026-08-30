@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { ClickUpSyncModal } from './clickup-sync-modal';
+import { AiProjectManagerModal } from '../../ai/components/ai-project-manager-modal';
 import {
   X,
   Settings,
@@ -18,6 +19,7 @@ import {
   ArrowRightLeft,
   ChevronRight,
   FlaskConical,
+  Bot,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -35,6 +37,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [clearedSuccess, setClearedSuccess] = useState(false);
   const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
+  const [isAiPmOpen, setIsAiPmOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -242,7 +245,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* 🧪 Developer & Test Tools (ClickUp Sync) */}
+          {/* 🧪 Developer & Test Tools */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-1.5">
               <FlaskConical className="w-3.5 h-3.5 text-purple-500" />
@@ -251,15 +254,45 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </h4>
             </div>
 
+            {/* AI Project Manager Tool */}
+            <div
+              onClick={() => {
+                triggerHaptic('medium');
+                setIsAiPmOpen(true);
+              }}
+              className="p-3 rounded-2xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/40 dark:to-pink-950/20 border border-purple-100 dark:border-purple-900/40 flex items-center justify-between cursor-pointer hover:border-purple-300 transition-all group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center shadow-xs">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                      AI Project Manager
+                    </span>
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                      Test Tool
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    Idea prompts to classified tickets & team assignments
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+
+            {/* ClickUp Sync Tool */}
             <div
               onClick={() => {
                 triggerHaptic('medium');
                 setIsClickUpSyncOpen(true);
               }}
-              className="p-3 rounded-2xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/40 dark:to-pink-950/20 border border-purple-100 dark:border-purple-900/40 flex items-center justify-between cursor-pointer hover:border-purple-300 transition-all group"
+              className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
                   <ArrowRightLeft className="w-4 h-4" />
                 </div>
                 <div className="space-y-0.5">
@@ -267,8 +300,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <span className="text-xs font-extrabold text-slate-900 dark:text-white">
                       ClickUp ↔ Flow Sync
                     </span>
-                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
-                      Test Tool
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                      PRO
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
@@ -276,7 +309,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
             </div>
           </div>
 
@@ -320,6 +353,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
         </div>
       </div>
+
+      {/* AI Project Manager Modal */}
+      <AiProjectManagerModal
+        isOpen={isAiPmOpen}
+        onClose={() => setIsAiPmOpen(false)}
+      />
 
       {/* ClickUp Sync & Migration Modal */}
       <ClickUpSyncModal

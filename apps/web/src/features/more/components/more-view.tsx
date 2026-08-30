@@ -11,6 +11,7 @@ import { NotificationsModal } from '../../settings/components/notifications-moda
 import { SettingsModal } from '../../settings/components/settings-modal';
 import { ClickUpSyncModal } from '../../settings/components/clickup-sync-modal';
 import { CreateMeetingModal } from '../../meetings/components/create-meeting-modal';
+import { AiProjectManagerModal } from '../../ai/components/ai-project-manager-modal';
 import {
   Bell,
   Sliders,
@@ -23,6 +24,7 @@ import {
   Sparkles,
   ArrowRightLeft,
   Video,
+  Bot,
 } from 'lucide-react';
 
 export function MoreView() {
@@ -34,6 +36,7 @@ export function MoreView() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
   const [isCreateMeetingOpen, setIsCreateMeetingOpen] = useState(false);
+  const [isAiPmOpen, setIsAiPmOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Subscription
@@ -114,6 +117,35 @@ export function MoreView() {
 
       {/* 3. Settings & Tools List */}
       <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:border-slate-800/80 text-xs">
+        {/* 🤖 AI Project Manager (Copilot) */}
+        <div
+          onClick={() => {
+            triggerHaptic('medium');
+            setIsAiPmOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group bg-gradient-to-r from-purple-50/50 via-pink-50/30 to-indigo-50/40 dark:from-purple-950/20 dark:via-pink-950/10 dark:to-indigo-950/20"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center shadow-xs">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <span className="font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                AI Project Manager
+              </span>
+              <p className="text-[10px] text-slate-400 font-medium">
+                Idea to classified tasks & auto-assignments
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-black text-[9px] uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs">
+              Test Tool
+            </span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
         {/* Meetings & Standups Scheduler */}
         <div
           onClick={() => {
@@ -269,11 +301,16 @@ export function MoreView() {
             </div>
             <span className="font-semibold text-slate-600 dark:text-slate-400">Version</span>
           </div>
-          <span className="font-bold text-[11px]">v2.5.0 (Agile Meetings)</span>
+          <span className="font-bold text-[11px]">v2.6.0 (AI Agent Pro)</span>
         </div>
       </div>
 
       {/* Modals */}
+      <AiProjectManagerModal
+        isOpen={isAiPmOpen}
+        onClose={() => setIsAiPmOpen(false)}
+      />
+
       <CreateMeetingModal
         isOpen={isCreateMeetingOpen}
         onClose={() => setIsCreateMeetingOpen(false)}
