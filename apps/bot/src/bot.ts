@@ -20,6 +20,7 @@ import { handleTeamCommand } from './handlers/team.handler';
 import { handleAssignedTasks } from './handlers/assigned.handler';
 import { handleInlineQuery } from './handlers/inline.handler';
 import { handleLeaderboard, handleStats } from './handlers/leaderboard.handler';
+import { handleBoardCommand, handleProjectsList } from './handlers/board.handler';
 import {
   handleBotAddedToGroup,
   handleGroupInfo,
@@ -64,7 +65,9 @@ export function createBot() {
   bot.command(['task', 'create', 'add', 'todo'], handleTaskCommand);
   bot.command('tasks', (ctx) => handleTasksList(ctx, 'PENDING', 1));
   bot.command(['assigned', 'inbox', 'mytasks'], handleAssignedTasks);
-  bot.command(['group', 'board'], handleGroupInfo);
+  bot.command(['group', 'info'], handleGroupInfo);
+  bot.command(['board', 'kanban'], handleBoardCommand);
+  bot.command(['projects', 'project', 'milestones'], handleProjectsList);
   bot.command(['summary', 'standup'], handleGroupSummary);
   bot.command('today', handleTodayTasks);
   bot.command('overdue', handleOverdueTasks);
@@ -464,6 +467,9 @@ export function createBot() {
       { parse_mode: 'Markdown' }
     );
   });
+
+  // Board refresh callback
+  bot.callbackQuery('board:refresh', handleBoardCommand);
 
   // 16. Inline Query Handler (@flowtaskmanager_bot <query>)
   bot.on('inline_query', handleInlineQuery);

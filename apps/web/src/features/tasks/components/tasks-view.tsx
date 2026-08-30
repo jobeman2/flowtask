@@ -5,19 +5,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { KanbanView } from './kanban-view';
+import { CalendarView } from './calendar-view';
 import { ProjectsView } from '../../projects/components/projects-view';
 import {
   Search,
   Check,
-  Folder,
   Layers,
-  CheckSquare,
+  LayoutGrid,
+  Calendar as CalendarIcon,
+  List,
+  Folder,
 } from 'lucide-react';
 
 interface TasksViewProps {
   onSelectTask: (taskId: string) => void;
   onOpenCreate: () => void;
 }
+
+export type ViewMode = 'LIST' | 'BOARD' | 'CALENDAR' | 'PROJECTS';
 
 export function TasksView({
   onSelectTask,
@@ -27,7 +33,7 @@ export function TasksView({
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<'TASKS' | 'PROJECTS'>('TASKS');
+  const [activeView, setActiveView] = useState<ViewMode>('LIST');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'TODO' | 'IN_PROGRESS' | 'DONE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +49,7 @@ export function TasksView({
     enabled: Boolean(workspaceId),
   });
 
-  // Fetch Projects for Filter Chips
+  // Fetch Projects
   const { data: projects = [] } = useQuery({
     queryKey: ['projects', workspaceId],
     queryFn: async () => {
@@ -112,54 +118,66 @@ export function TasksView({
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-300 font-sans">
-      {/* 1. Top Mode Switcher: Tasks vs Projects */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('TASKS');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'TASKS'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
-            }`}
-          >
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span>Tasks</span>
-          </button>
+      {/* 1. Multi-View Mode Switcher (List | Board | Calendar | Projects) */}
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
+        {([
+          { id: 'LIST', label: 'List', icon: List },
+          { id: 'BOARD', label: 'Board', icon: LayoutGrid },
+          { id: 'CALENDAR', label: 'Calendar', icon: CalendarIcon },
+          { id: 'PROJECTS', label: 'Projects', icon: Folder },
+        ] as const).map((view) => {
+          const Icon = view.icon;
+          const isActive = activeView === view.id;
 
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('PROJECTS');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'PROJECTS'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
-            }`}
-          >
-            <Folder className="w-3.5 h-3.5" />
-            <span>Projects ({projects.length})</span>
-          </button>
-        </div>
+          return (
+            <button
+              key={view.id}
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setActiveView(view.id);
+              }}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                isActive
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{view.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {activeTab === 'PROJECTS' ? (
-        /* Render Full Projects View */
+      {/* 2. Render Active View */}
+      {activeView === 'PROJECTS' && (
         <ProjectsView
           selectedProjectId={selectedProjectId}
           onSelectProject={(projId) => {
             setSelectedProjectId(projId);
-            setActiveTab('TASKS');
+            setActiveView('LIST');
           }}
         />
-      ) : (
-        /* Render Tasks View */
+      )}
+
+      {activeView === 'BOARD' && (
+        <KanbanView
+          tasks={filteredTasks}
+          onSelectTask={onSelectTask}
+          onOpenCreate={onOpenCreate}
+        />
+      )}
+
+      {activeView === 'CALENDAR' && (
+        <CalendarView
+          tasks={tasks}
+          onSelectTask={onSelectTask}
+          onOpenCreate={onOpenCreate}
+        />
+      )}
+
+      {activeView === 'LIST' && (
         <div className="space-y-4">
           {/* Project Quick Filter Chips */}
           {projects.length > 0 && (
@@ -256,7 +274,7 @@ export function TasksView({
               const isDone = task.status === 'DONE';
               const dueText = formatDue(task.dueDate);
               const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
-              const projectColor = task.project?.color || '#3b82f6';
+              const projectColor = task.project?.color || '#2563eb';
 
               return (
                 <div
