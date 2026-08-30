@@ -6,6 +6,7 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { PricingModal } from '../../billing/components/pricing-modal';
+import { HelpSupportModal } from '../../help/components/help-support-modal';
 import {
   Bell,
   Moon,
@@ -21,6 +22,7 @@ export function MoreView() {
   const { user, workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Subscription
@@ -50,7 +52,7 @@ export function MoreView() {
   const username = user?.name ? `@${user.name.toLowerCase().replace(/\s+/g, '')}` : '@teammate';
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300">
+    <div className="space-y-5 pb-24 animate-in fade-in duration-300 font-sans">
       {/* 1. Profile Card */}
       <div className="flex flex-col items-center justify-center p-5 bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs space-y-2 text-center">
         {user?.avatarUrl ? (
@@ -67,7 +69,7 @@ export function MoreView() {
 
         <div className="space-y-0.5 pt-1">
           <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            {user?.name || 'FlowTask User'}
+            {user?.name || 'Flow User'}
           </h3>
           <p className="text-xs font-semibold text-slate-400">
             {username}
@@ -144,25 +146,33 @@ export function MoreView() {
           </div>
         </div>
 
-        {/* Help & Support */}
+        {/* Help & Support Center */}
         <div
           onClick={() => {
-            window.open('https://t.me/flowtaskmanager_bot', '_blank');
+            triggerHaptic('medium');
+            setIsHelpOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <HelpCircle className="w-4 h-4 text-sky-500" />
-            <span className="font-semibold text-slate-800 dark:text-slate-200">Help & Support</span>
+            <HelpCircle className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              Help & Support Center
+            </span>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-semibold text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+              Guides & FAQs
+            </span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
         </div>
 
-        {/* About FlowTask */}
+        {/* About Flow */}
         <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
           <div className="flex items-center gap-3">
             <Info className="w-4 h-4 text-slate-400" />
-            <span className="font-semibold text-slate-800 dark:text-slate-200">About TaskFlow</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">About Flow</span>
           </div>
           <span className="font-bold text-[11px] text-slate-400">v2.5.0</span>
         </div>
@@ -172,6 +182,12 @@ export function MoreView() {
       <PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
+      />
+
+      {/* Help & Support Center Modal */}
+      <HelpSupportModal
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
       />
     </div>
   );
