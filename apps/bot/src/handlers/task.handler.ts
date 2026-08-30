@@ -232,6 +232,37 @@ export async function handleTaskCommand(ctx: Context) {
       parse_mode: 'Markdown',
       reply_markup: keyboard,
     });
+
+    // 7. Dispatch private DM to assignee if assigned to someone else
+    if (assigneeId && assigneeId !== creatorUserId) {
+      try {
+        const targetAcc = await prisma.telegramAccount.findFirst({
+          where: { userId: assigneeId },
+        });
+        if (targetAcc?.telegramId) {
+          const dmKeyboard = new InlineKeyboard()
+            .text('✅ Mark Done', `task:done:${task.id}`)
+            .text('🔍 Details', `task:view:${task.id}`)
+            .row()
+            .url('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
+
+          const creatorDisplayName = tgUser.first_name || tgUser.username || 'A teammate';
+
+          await ctx.api.sendMessage(
+            targetAcc.telegramId,
+            `📬 *Telegram Inbox — Task Assigned to You!*\n\n` +
+            `📝 *Task:* *${task.title}*${task.description ? `\n📄 *Description:* _${task.description}_` : ''}\n` +
+            `${priorityIcon} *Priority:* \`${task.priority}\`\n` +
+            `🏢 *Workspace:* *${activeWorkspace.name}*\n` +
+            `👤 *Assigned by:* *${creatorDisplayName}*${dueStr}\n\n` +
+            `_You can manage and mark this task as done here or in the Mini App._`,
+            { parse_mode: 'Markdown', reply_markup: dmKeyboard }
+          );
+        }
+      } catch (dmErr: any) {
+        console.warn(`Could not dispatch assignee DM:`, dmErr.message);
+      }
+    }
   } catch (err: any) {
     console.error('Failed to create task:', err);
     await ctx.reply(`⚠️ Failed to create task: ${err.message}`);

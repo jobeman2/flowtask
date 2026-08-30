@@ -43,10 +43,22 @@ export class TelegramService {
 
       const data = await response.json();
       if (!data.ok) {
-        this.logger.warn(`Failed to send Telegram message to ${telegramId}: ${data.description}`);
-      } else {
-        this.logger.log(`Telegram DM sent successfully to ${telegramId}`);
+        this.logger.warn(
+          `Telegram sendMessage with parse_mode failed for ${telegramId}: ${data.description}. Retrying with plain text fallback...`
+        );
+        // Fallback without parse_mode to ensure delivery
+        const fallbackRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: telegramId,
+            text: text.replace(/[*_`\\]/g, ''),
+            reply_markup: options?.reply_markup,
+          }),
+        });
+        return await fallbackRes.json();
       }
+      this.logger.log(`Telegram message sent successfully to ${telegramId}`);
       return data;
     } catch (err: any) {
       this.logger.error(`Error sending Telegram message to ${telegramId}: ${err.message}`);
