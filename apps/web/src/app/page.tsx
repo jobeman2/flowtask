@@ -9,11 +9,11 @@ import { PricingModal } from '../features/billing/components/pricing-modal';
 import { BottomNav, NavTab } from '../components/navigation/bottom-nav';
 import { HomeView } from '../features/home/components/home-view';
 import { TasksView } from '../features/tasks/components/tasks-view';
-import { InboxView } from '../features/inbox/components/inbox-view';
+import { TeamView } from '../features/team/components/team-view';
 import { MoreView } from '../features/more/components/more-view';
 import { CreateTaskSheet } from '../features/tasks/components/create-task-sheet';
 import { TaskDetailModal } from '../features/tasks/components/task-detail-modal';
-import { CheckSquare, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const { user, workspaceId, error } = useAuth();
@@ -50,34 +50,37 @@ export default function HomePage() {
               <img
                 src={user.avatarUrl}
                 alt={user.name || 'User'}
-                className="w-9 h-9 rounded-2xl object-cover border-2 border-white dark:border-slate-800 shadow-flow-sm ring-1 ring-flow-500/20"
+                className="w-9 h-9 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-xs ring-1 ring-blue-500/20"
               />
             ) : (
-              <div className="w-9 h-9 bg-gradient-to-tr from-flow-700 via-flow-600 to-teal-400 rounded-2xl text-white flex items-center justify-center font-black text-sm shadow-flow-sm">
-                {user?.name?.[0]?.toUpperCase() || <CheckSquare className="w-4.5 h-4.5" />}
+              <div className="w-9 h-9 bg-blue-600 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
             )}
 
             {/* Small badge attached directly to avatar */}
             {isUpgraded && (
               <div
-                className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-900 border-2 border-white dark:border-slate-950 flex items-center justify-center shadow-xs"
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-slate-900 border-2 border-white dark:border-slate-950 flex items-center justify-center shadow-xs"
                 title={`${planCode} Plan`}
               >
-                <Sparkles className="w-2.5 h-2.5 fill-slate-900" />
+                <Sparkles className="w-2 h-2 fill-slate-900" />
               </div>
             )}
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="font-black text-sm tracking-tight text-slate-900 dark:text-white truncate leading-tight">
-                FlowTask
+              <h1 className="font-bold text-sm tracking-tight text-slate-900 dark:text-white truncate leading-tight">
+                TaskFlow
               </h1>
+              <span className="text-[9px] font-medium text-slate-400">
+                mini app
+              </span>
               {isUpgraded && (
                 <span
                   onClick={() => setIsPricingOpen(true)}
-                  className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-flow-50 dark:bg-flow-950/60 text-flow-700 dark:text-flow-300 border border-flow-300/40 cursor-pointer leading-tight tracking-wider"
+                  className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-300/40 cursor-pointer leading-tight tracking-wider"
                 >
                   {planCode}
                 </span>
@@ -119,9 +122,9 @@ export default function HomePage() {
           />
         )}
 
-        {activeNav === 'INBOX' && <InboxView />}
+        {activeNav === 'TEAM' && <TeamView />}
 
-        {activeNav === 'MORE' && <MoreView />}
+        {activeNav === 'PROFILE' && <MoreView />}
       </main>
 
       {/* 3. Reusable Task Modals */}

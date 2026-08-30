@@ -3,14 +3,14 @@
 import React from 'react';
 import { useTelegram } from '../../hooks/use-telegram';
 import {
-  Compass,
+  Home,
   CheckSquare,
   Plus,
-  Inbox,
-  LayoutGrid,
+  Users,
+  User,
 } from 'lucide-react';
 
-export type NavTab = 'HOME' | 'TASKS' | 'INBOX' | 'MORE';
+export type NavTab = 'HOME' | 'TASKS' | 'TEAM' | 'PROFILE';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -37,18 +37,18 @@ export function BottomNav({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-2 pointer-events-none flex justify-center">
-      <div className="w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl px-3 py-2 flex items-center justify-between pointer-events-auto transition-all">
+      <div className="w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-full border border-slate-200/80 dark:border-slate-800/80 shadow-xl px-4 py-2 flex items-center justify-between pointer-events-auto transition-all">
         {/* Home Tab */}
         <button
           type="button"
           onClick={() => handleTabClick('HOME')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all ${
             activeTab === 'HOME'
-              ? 'text-flow-600 dark:text-flow-400 font-bold scale-105'
+              ? 'text-blue-600 dark:text-blue-400 font-bold'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
           }`}
         >
-          <Compass className={`w-5 h-5 transition-transform ${activeTab === 'HOME' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <Home className={`w-5 h-5 transition-transform ${activeTab === 'HOME' ? 'stroke-[2.5]' : 'stroke-2'}`} />
           <span className="text-[10px] mt-0.5 tracking-tight">Home</span>
         </button>
 
@@ -56,9 +56,9 @@ export function BottomNav({
         <button
           type="button"
           onClick={() => handleTabClick('TASKS')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all ${
             activeTab === 'TASKS'
-              ? 'text-flow-600 dark:text-flow-400 font-bold scale-105'
+              ? 'text-blue-600 dark:text-blue-400 font-bold'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
           }`}
         >
@@ -67,43 +67,43 @@ export function BottomNav({
         </button>
 
         {/* Central Floating Plus Button */}
-        <div className="relative -top-4 flex items-center justify-center px-1">
+        <div className="relative -top-3 flex items-center justify-center px-1">
           <button
             type="button"
             onClick={handlePlusClick}
             aria-label="Create New Task"
-            className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-flow-700 via-flow-600 to-teal-400 text-white flex items-center justify-center shadow-flow-md hover:shadow-flow-lg active:scale-95 transition-all duration-200 ring-4 ring-white dark:ring-slate-900 cursor-pointer"
+            className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 active:scale-95 transition-all duration-200 ring-4 ring-white dark:ring-slate-900 cursor-pointer"
           >
-            <Plus className="w-7 h-7 stroke-[2.8]" />
+            <Plus className="w-6 h-6 stroke-[3]" />
           </button>
         </div>
 
-        {/* Inbox / Telegram Tab */}
+        {/* Team Tab */}
         <button
           type="button"
-          onClick={() => handleTabClick('INBOX')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
-            activeTab === 'INBOX'
-              ? 'text-flow-600 dark:text-flow-400 font-bold scale-105'
+          onClick={() => handleTabClick('TEAM')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all ${
+            activeTab === 'TEAM'
+              ? 'text-blue-600 dark:text-blue-400 font-bold'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
           }`}
         >
-          <Inbox className={`w-5 h-5 transition-transform ${activeTab === 'INBOX' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight">Inbox</span>
+          <Users className={`w-5 h-5 transition-transform ${activeTab === 'TEAM' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] mt-0.5 tracking-tight">Team</span>
         </button>
 
-        {/* More / Workspace Tab */}
+        {/* Profile Tab */}
         <button
           type="button"
-          onClick={() => handleTabClick('MORE')}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
-            activeTab === 'MORE'
-              ? 'text-flow-600 dark:text-flow-400 font-bold scale-105'
+          onClick={() => handleTabClick('PROFILE')}
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all ${
+            activeTab === 'PROFILE'
+              ? 'text-blue-600 dark:text-blue-400 font-bold'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium'
           }`}
         >
-          <LayoutGrid className={`w-5 h-5 transition-transform ${activeTab === 'MORE' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight">More</span>
+          <User className={`w-5 h-5 transition-transform ${activeTab === 'PROFILE' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] mt-0.5 tracking-tight">Profile</span>
         </button>
       </div>
     </nav>

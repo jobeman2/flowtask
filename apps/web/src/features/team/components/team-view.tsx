@@ -1,49 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
-import { Button } from '@flowtask/ui';
 import {
-  Users,
+  Search,
   UserPlus,
-  Shield,
-  UserCheck,
-  Trash2,
   X,
-  Send,
-  AtSign,
-  Check,
-  Sparkles,
 } from 'lucide-react';
 
 export function TeamView() {
-  const { workspaceId, user: currentUser } = useAuth();
+  const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [inviteInput, setInviteInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [inviteIdentifier, setInviteIdentifier] = useState('');
+  const [inviteRole, setInviteRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
-  // Fetch all user workspaces to detect connected Telegram Groups
-  const { data: workspaces = [] } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: async () => {
-      const res = await apiClient.getWorkspaces();
-      return Array.isArray(res.data) ? res.data : [];
-    },
-  });
-
-  const activeWorkspace = workspaces.find((w: any) => w.id === workspaceId);
-  const isTelegramGroupWorkspace = activeWorkspace?.telegramChat || activeWorkspace?.type === 'TEAM';
-
-  // Fetch Workspace Members
+  // Fetch Team Members
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['workspace-members', workspaceId],
     queryFn: async () => {
@@ -51,322 +30,215 @@ export function TeamView() {
       const res = await apiClient.getWorkspaceMembers(workspaceId);
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
     },
-    enabled: !!workspaceId,
-  });
-
-  // Sync Telegram Group Members Mutation
-  const syncTelegramMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId) return;
-      setErrorMsg(null);
-      setSuccessMsg(null);
-      const res = await apiClient.syncTelegramGroup(workspaceId);
-      if (res.error) throw new Error(res.error);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      triggerHaptic('medium');
-      queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-      setSuccessMsg(data?.message || 'Telegram group members synchronized!');
-      setTimeout(() => setSuccessMsg(null), 3000);
-    },
-    onError: (err: any) => {
-      setErrorMsg(err.message || 'Failed to sync group members from Telegram');
-      triggerHaptic('heavy');
-    },
+    enabled: Boolean(workspaceId),
   });
 
   // Invite Member Mutation
   const inviteMutation = useMutation({
     mutationFn: async () => {
-      if (!workspaceId || !inviteInput.trim()) {
-        throw new Error('Please enter a username or email');
-      }
-      setErrorMsg(null);
-      setSuccessMsg(null);
-
-      const isEmail = inviteInput.includes('@') && inviteInput.includes('.');
-      const isTg = inviteInput.startsWith('@') || !isEmail;
-
+      if (!inviteIdentifier.trim() || !workspaceId) return;
+      setInviteError(null);
       const res = await apiClient.inviteWorkspaceMember(workspaceId, {
-        username: isTg ? inviteInput.replace(/^@/, '').trim() : undefined,
-        email: isEmail ? inviteInput.trim() : undefined,
-        name: nameInput.trim() || undefined,
-        role: selectedRole,
+        username: inviteIdentifier.trim().replace(/^@/, ''),
+        role: inviteRole,
       });
-
-      if (res.error) {
-        throw new Error(res.error);
-      }
+      if (res.error) throw new Error(res.error);
       return res.data;
     },
     onSuccess: () => {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
-      setSuccessMsg('Teammate added to workspace successfully!');
-      setInviteInput('');
-      setNameInput('');
-      setTimeout(() => {
-        setIsInviteOpen(false);
-        setSuccessMsg(null);
-      }, 1200);
+      setInviteIdentifier('');
+      setInviteError(null);
+      setIsInviteOpen(false);
     },
     onError: (err: any) => {
-      setErrorMsg(err.message || 'Failed to invite member');
       triggerHaptic('heavy');
+      setInviteError(err.message || 'Failed to invite member');
     },
   });
 
-  // Remove Member Mutation
-  const removeMutation = useMutation({
-    mutationFn: async (memberId: string) => {
-      if (!workspaceId) return;
-      const res = await apiClient.removeWorkspaceMember(workspaceId, memberId);
-      if (res.error) throw new Error(res.error);
-      return res.data;
-    },
-    onSuccess: () => {
-      triggerHaptic('light');
-      queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
-    },
-  });
+  // Filter Members
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return members;
+    const q = searchQuery.toLowerCase();
+    return members.filter((m: any) => {
+      const nameMatch = m.user?.name?.toLowerCase().includes(q);
+      const emailMatch = m.user?.email?.toLowerCase().includes(q);
+      const roleMatch = m.role?.toLowerCase().includes(q);
+      return nameMatch || emailMatch || roleMatch;
+    });
+  }, [members, searchQuery]);
 
   return (
-    <div className="space-y-4 animate-in fade-in">
-      {/* Telegram Group Sync Banner */}
-      {isTelegramGroupWorkspace && (
-        <div className="p-3.5 bg-gradient-to-r from-flow-500/10 via-teal-500/10 to-indigo-500/10 border border-flow-500/20 rounded-2xl flex items-center justify-between shadow-xs">
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-flow-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-              📱
-            </div>
-            <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                {activeWorkspace?.telegramChat?.title || activeWorkspace?.name || 'Telegram Group'}
-              </h4>
-              <p className="text-[10px] text-slate-500 truncate">
-                Auto-sync group members & task delegate permissions
-              </p>
-            </div>
-          </div>
-
-          <Button
-            size="sm"
-            disabled={syncTelegramMutation.isPending}
-            onClick={() => syncTelegramMutation.mutate()}
-            className="rounded-xl text-xs bg-flow-600 hover:bg-flow-700 text-white font-bold flex items-center gap-1.5 shadow-flow-sm shrink-0"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{syncTelegramMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
-          </Button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-flow-600" />
-            <span>Team Workspace Members</span>
-          </h2>
-          <p className="text-xs text-slate-500">
-            Collaborate, assign tasks, and track team progress
-          </p>
-        </div>
-
-        <Button
-          size="sm"
-          onClick={() => {
-            triggerHaptic('light');
-            setIsInviteOpen(true);
-          }}
-          className="rounded-xl text-xs flex items-center gap-1.5 bg-flow-600 hover:bg-flow-700 text-white font-bold shadow-flow-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Add Member</span>
-        </Button>
+    <div className="space-y-4 pb-24 animate-in fade-in duration-300">
+      {/* 1. Header */}
+      <div className="flex items-center justify-between pt-1">
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          Team
+        </h2>
+        <span className="text-xs font-semibold text-slate-400">
+          {members.length} members
+        </span>
       </div>
 
-      {/* Inline Invite Modal */}
-      {isInviteOpen && (
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg space-y-3.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-              Invite Teammate
-            </h4>
-            <button
-              onClick={() => setIsInviteOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+      {/* 2. Search Bar */}
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search team members..."
+          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors"
+        />
+      </div>
+
+      {/* 3. Members List */}
+      <div className="space-y-2.5">
+        {filteredMembers.map((member: any) => {
+          const isOwner = member.role === 'OWNER';
+          const isAdmin = member.role === 'ADMIN';
+          const memberName = member.user?.name || 'Teammate';
+          const username = member.user?.telegramAccount?.username
+            ? `@${member.user.telegramAccount.username}`
+            : member.user?.email || 'Member';
+
+          return (
+            <div
+              key={member.id}
+              className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3"
             >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {errorMsg && (
-            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-medium">
-              {errorMsg}
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl font-medium flex items-center gap-1.5">
-              <Check className="w-4 h-4" />
-              {successMsg}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="relative">
-              <AtSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Telegram @username or email (e.g. @samuel_dev)"
-                value={inviteInput}
-                onChange={(e) => setInviteInput(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-medium"
-              />
-            </div>
-
-            <input
-              type="text"
-              placeholder="Display Name (optional)"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
-            />
-
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs text-slate-500 font-medium">Role:</span>
-              <div className="flex gap-1.5">
-                {(['MEMBER', 'ADMIN'] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setSelectedRole(r)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                      selectedRole === r
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsInviteOpen(false)}
-              className="rounded-xl text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={!inviteInput.trim() || inviteMutation.isPending}
-              onClick={() => inviteMutation.mutate()}
-              className="rounded-xl text-xs bg-blue-600 text-white font-bold flex items-center gap-1"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{inviteMutation.isPending ? 'Adding...' : 'Add Teammate'}</span>
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Members List */}
-      {isLoading ? (
-        <div className="py-12 text-center text-xs text-slate-400">Loading team members...</div>
-      ) : members.length === 0 ? (
-        <div className="py-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-6">
-          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No teammates yet</h4>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-            Add team members to delegate tasks and collaborate across Telegram.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {members.map((m: any) => {
-            const memberUser = m.user || { name: 'Teammate', id: m.userId };
-            const isOwner = m.role === 'OWNER';
-            const isAdmin = m.role === 'ADMIN';
-            const isSelf = memberUser.id === currentUser?.id;
-
-            return (
-              <div
-                key={m.id || m.userId}
-                className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition-all"
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  {memberUser.avatarUrl ? (
-                    <img
-                      src={memberUser.avatarUrl}
-                      alt={memberUser.name || 'Member'}
-                      className="w-10 h-10 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                      {memberUser.name?.slice(0, 2).toUpperCase() || 'TM'}
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <div className="flex items-center space-x-1.5">
-                      <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                        {memberUser.name}
-                      </h4>
-                      {isSelf && (
-                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold px-1.5 py-0.2 rounded-md">
-                          You
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-[11px] text-slate-400 truncate">
-                      {memberUser.email || (memberUser.telegramAccounts?.[0]?.username ? `@${memberUser.telegramAccounts[0].username}` : 'Team Member')}
-                    </p>
+              {/* Avatar + Info */}
+              <div className="flex items-center gap-3 min-w-0">
+                {member.user?.avatarUrl ? (
+                  <img
+                    src={member.user.avatarUrl}
+                    alt={memberName}
+                    className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
+                    {memberName[0]?.toUpperCase()}
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-center space-x-2 shrink-0">
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-xl uppercase tracking-wider ${
-                      isOwner
-                        ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                        : isAdmin
-                        ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    {isOwner ? (
-                      <Shield className="w-3 h-3 text-amber-500" />
-                    ) : (
-                      <UserCheck className="w-3 h-3 text-purple-500" />
-                    )}
-                    {m.role}
-                  </span>
-
-                  {!isOwner && !isSelf && (
-                    <button
-                      onClick={() => removeMutation.mutate(m.id || m.userId)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
-                      title="Remove member"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {memberName}
+                  </h4>
+                  <p className="text-[11px] font-medium text-slate-400 truncate">
+                    {username}
+                  </p>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Role Badge */}
+              <div className="shrink-0">
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                    isOwner
+                      ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/50'
+                      : isAdmin
+                      ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {isOwner ? 'Owner' : isAdmin ? 'Admin' : 'Member'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredMembers.length === 0 && !isLoading && (
+          <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 font-medium">
+            No team members found.
+          </div>
+        )}
+      </div>
+
+      {/* 4. Bottom Invite Action Button */}
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('medium');
+            setIsInviteOpen(true);
+          }}
+          className="w-full py-3.5 rounded-2xl font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 hover:bg-blue-100 flex items-center justify-center gap-2 transition-all active:scale-98"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Invite Member</span>
+        </button>
+      </div>
+
+      {/* Invite Modal */}
+      {isInviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Invite Teammate</h3>
+              <button
+                onClick={() => setIsInviteOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {inviteError && (
+              <div className="p-2.5 bg-rose-50 text-rose-700 text-xs rounded-xl font-semibold">
+                {inviteError}
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                inviteMutation.mutate();
+              }}
+              className="space-y-3"
+            >
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Telegram Username or Phone
+                </label>
+                <input
+                  type="text"
+                  value={inviteIdentifier}
+                  onChange={(e) => setInviteIdentifier(e.target.value)}
+                  placeholder="@username or phone"
+                  required
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Role
+                </label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as any)}
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium cursor-pointer"
+                >
+                  <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={inviteMutation.isPending}
+                  className="w-full py-3 rounded-2xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all"
+                >
+                  {inviteMutation.isPending ? 'Sending Invite...' : 'Send Invitation'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
