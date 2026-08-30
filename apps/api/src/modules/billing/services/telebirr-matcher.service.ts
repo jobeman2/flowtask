@@ -120,35 +120,14 @@ export class TelebirrMatcherService {
   }> {
     const cleanTxId = transactionId.trim().toUpperCase();
 
-    let smsLog = await this.prisma.telebirrSmsLog.findFirst({
+    const smsLog = await this.prisma.telebirrSmsLog.findFirst({
       where: { extractedTxId: cleanTxId },
     });
-
-    // If SMS gateway hasn't forwarded yet, auto-accept valid Telebirr TxID format (6+ chars) or test tokens
-    if (!smsLog && (cleanTxId.startsWith('TEST') || cleanTxId.length >= 5)) {
-      try {
-        smsLog = await this.prisma.telebirrSmsLog.create({
-          data: {
-            sender: 'telebirr',
-            rawMessage: `Your transaction number is ${cleanTxId}. You have received ETB ${expectedAmount}.00 from customer.`,
-            extractedTxId: cleanTxId,
-            extractedAmount: expectedAmount,
-            senderPhone: '0911000000',
-            isMatched: false,
-          },
-        });
-      } catch {
-        // In case of duplicate key
-        smsLog = await this.prisma.telebirrSmsLog.findFirst({
-          where: { extractedTxId: cleanTxId },
-        });
-      }
-    }
 
     if (!smsLog) {
       return {
         matched: false,
-        reason: 'Transaction ID not found in incoming Telebirr SMS records. Please ensure you entered the exact Transaction Number from Telebirr.',
+        reason: 'Waiting for Telebirr SMS confirmation. We have recorded your Transaction ID and will activate your plan as soon as the Telebirr SMS is received.',
       };
     }
 
