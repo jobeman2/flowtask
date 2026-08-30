@@ -209,28 +209,41 @@ export class WorkspacesService {
     // If targetUserId not directly provided, find by username or email, or create user
     if (!targetUserId) {
       if (payload.username) {
-        const cleanUsername = payload.username.replace(/^@/, '').trim();
-        const tgAcc = await this.prisma.telegramAccount.findUnique({
-          where: { telegramId: cleanUsername },
+        const cleanUsername = payload.username.replace(/^@/, '').trim().toLowerCase();
+        
+        // Find existing Telegram account by username
+        const tgAcc = await this.prisma.telegramAccount.findFirst({
+          where: { username: cleanUsername },
         });
+
         if (tgAcc) {
           targetUserId = tgAcc.userId;
         } else {
-          // Create placeholder user for this username
-          const newUser = await this.prisma.user.create({
-            data: {
-              name: payload.name || `@${cleanUsername}`,
-            },
-          });
-          await this.prisma.telegramAccount.create({
-            data: {
-              telegramId: `tg_${cleanUsername}_${Date.now()}`,
-              username: cleanUsername,
-              firstName: payload.name || cleanUsername,
-              userId: newUser.id,
-            },
-          });
-          targetUserId = newUser.id;
+          // Check if a user with that name already exists
+          const allUsers = await this.prisma.user.findMany();
+          const existingUser = allUsers.find(
+            (u) => u.name?.toLowerCase() === cleanUsername || u.name?.toLowerCase() === `@${cleanUsername}`
+          );
+
+          if (existingUser) {
+            targetUserId = existingUser.id;
+          } else {
+            // Create placeholder user for this username
+            const newUser = await this.prisma.user.create({
+              data: {
+                name: payload.name || `@${cleanUsername}`,
+              },
+            });
+            await this.prisma.telegramAccount.create({
+              data: {
+                telegramId: `tg_${cleanUsername}_${Date.now()}`,
+                username: cleanUsername,
+                firstName: payload.name || cleanUsername,
+                userId: newUser.id,
+              },
+            });
+            targetUserId = newUser.id;
+          }
         }
       } else if (payload.email) {
         const existingUser = await this.prisma.user.findFirst({
