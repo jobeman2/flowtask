@@ -10,6 +10,7 @@ import { HelpSupportModal } from '../../help/components/help-support-modal';
 import { NotificationsModal } from '../../settings/components/notifications-modal';
 import { SettingsModal } from '../../settings/components/settings-modal';
 import { ClickUpSyncModal } from '../../settings/components/clickup-sync-modal';
+import { CreateMeetingModal } from '../../meetings/components/create-meeting-modal';
 import {
   Bell,
   Sliders,
@@ -21,6 +22,7 @@ import {
   ChevronRight,
   Sparkles,
   ArrowRightLeft,
+  Video,
 } from 'lucide-react';
 
 export function MoreView() {
@@ -31,6 +33,7 @@ export function MoreView() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
+  const [isCreateMeetingOpen, setIsCreateMeetingOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch Subscription
@@ -109,8 +112,32 @@ export function MoreView() {
         <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />
       </div>
 
-      {/* 3. Settings List */}
-      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+      {/* 3. Settings & Tools List */}
+      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:border-slate-800/80 text-xs">
+        {/* Meetings & Standups Scheduler */}
+        <div
+          onClick={() => {
+            triggerHaptic('medium');
+            setIsCreateMeetingOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <Video className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+              Meetings & Standups
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-semibold text-[10px] text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full">
+              Schedule & Join
+            </span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
         {/* ClickUp Sync & Migration Tool */}
         <div
           onClick={() => {
@@ -120,16 +147,16 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <ArrowRightLeft className="w-3.5 h-3.5" />
             </div>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
               ClickUp ↔ Flow Sync
             </span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
             <span className="font-extrabold text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
-              Test Tool
+              PRO
             </span>
             <ChevronRight className="w-4 h-4" />
           </div>
@@ -144,7 +171,9 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <Bell className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+            <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <Bell className="w-3.5 h-3.5" />
+            </div>
             <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Notifications & Alarms
             </span>
@@ -164,7 +193,9 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <Sliders className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
+            <div className="w-6 h-6 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center">
+              <Sliders className="w-3.5 h-3.5" />
+            </div>
             <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               App Preferences & Views
             </span>
@@ -181,11 +212,9 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            {isDarkMode ? (
-              <Moon className="w-4 h-4 text-purple-500" />
-            ) : (
-              <Sun className="w-4 h-4 text-amber-500" />
-            )}
+            <div className="w-6 h-6 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              {isDarkMode ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+            </div>
             <span className="font-semibold text-slate-800 dark:text-slate-200">Quick Theme</span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
@@ -197,7 +226,9 @@ export function MoreView() {
         {/* Language */}
         <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
           <div className="flex items-center gap-3">
-            <Globe className="w-4 h-4 text-emerald-500" />
+            <div className="w-6 h-6 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Globe className="w-3.5 h-3.5" />
+            </div>
             <span className="font-semibold text-slate-800 dark:text-slate-200">Language</span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
@@ -215,7 +246,9 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <HelpCircle className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
+            <div className="w-6 h-6 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+              <HelpCircle className="w-3.5 h-3.5" />
+            </div>
             <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Help & Support Center
             </span>
@@ -231,14 +264,21 @@ export function MoreView() {
         {/* About FLOW */}
         <div className="flex items-center justify-between p-3.5 text-slate-400">
           <div className="flex items-center gap-3">
-            <Info className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+              <Info className="w-3.5 h-3.5" />
+            </div>
             <span className="font-semibold text-slate-600 dark:text-slate-400">Version</span>
           </div>
-          <span className="font-bold text-[11px]">v2.4.0 (Agile Pro)</span>
+          <span className="font-bold text-[11px]">v2.5.0 (Agile Meetings)</span>
         </div>
       </div>
 
       {/* Modals */}
+      <CreateMeetingModal
+        isOpen={isCreateMeetingOpen}
+        onClose={() => setIsCreateMeetingOpen(false)}
+      />
+
       <PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}

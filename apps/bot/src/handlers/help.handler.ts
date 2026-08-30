@@ -6,8 +6,9 @@ export async function handleHelp(ctx: Context) {
 
   const helpText = `📋 *FlowTask Deterministic Commands Guide*
 
-*Task Management:*
+*Task & Meeting Management:*
 /task \\<title\\> \\- Quickly create a new task
+/meeting \\<time\\> \\<topic\\> \\- Schedule calls & Google Meet with team alerts
 /tasks \\- View all tasks with status filters & pagination
 /today \\- View tasks scheduled or due today
 /overdue \\- View overdue tasks requiring attention
