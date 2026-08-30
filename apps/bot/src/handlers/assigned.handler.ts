@@ -24,7 +24,14 @@ export async function handleAssignedTasks(ctx: Context) {
     return;
   }
 
-  // Find all active tasks assigned to this user across all their workspaces
+  // 1. Fetch user's accessible workspaces
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId: account.userId },
+    include: { workspace: true },
+  });
+  const workspaceMap = new Map(memberships.map((m: any) => [m.workspaceId, m.workspace?.name || 'Workspace']));
+
+  // 2. Find all active tasks assigned to this user across all their workspaces
   const assignedTasks = await prisma.task.findMany({
     where: {
       assigneeId: account.userId,
@@ -36,7 +43,7 @@ export async function handleAssignedTasks(ctx: Context) {
       project: true,
     },
     orderBy: { createdAt: 'desc' },
-    take: 10,
+    take: 15,
   });
 
   if (assignedTasks.length === 0) {
@@ -46,33 +53,55 @@ export async function handleAssignedTasks(ctx: Context) {
     await ctx.reply(
       `📥 *Your Assigned Tasks Inbox*\n\n` +
       `🎉 You're all caught up! You have no pending tasks assigned to you right now.\n\n` +
-      `_When teammates delegate tasks to you, they will appear here in real-time._`,
+      `_When teammates delegate tasks to you in any workspace, they will appear here grouped by project._`,
       { parse_mode: 'Markdown', reply_markup: keyboard }
     );
     return;
   }
 
-  let text = `📥 *Your Assigned Tasks Inbox* (${assignedTasks.length} pending)\n\n`;
+  // 3. Group tasks by workspace
+  const grouped = new Map<string, any[]>();
+  for (const task of assignedTasks) {
+    const list = grouped.get(task.workspaceId) || [];
+    list.push(task);
+    grouped.set(task.workspaceId, list);
+  }
+
+  let text = `📥 *Your Inbox — Assigned Tasks* (${assignedTasks.length} pending in ${grouped.size} workspaces)\n\n`;
 
   const keyboard = new InlineKeyboard();
+  let globalIndex = 1;
 
-  assignedTasks.forEach((task: any, index: number) => {
-    const priorityIcon =
-      task.priority === 'URGENT' ? '🚨' : task.priority === 'HIGH' ? '🔥' : task.priority === 'MEDIUM' ? '⚡' : '☕';
-    const dueInfo = task.dueDate
-      ? ` • ⏰ Due ${new Date(task.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}`
-      : '';
-    const creatorName = task.creator?.name ? ` • 👤 from *${task.creator.name}*` : '';
+  for (const [wsId, tasks] of grouped.entries()) {
+    const wsName = workspaceMap.get(wsId) || 'Team Workspace';
+    text += `🏢 *${escapeMarkdown(wsName)}* (${tasks.length})\n`;
 
-    text += `${index + 1}\\. ${priorityIcon} *${escapeMarkdown(task.title)}*${creatorName}${dueInfo}\n`;
+    for (const task of tasks) {
+      const priorityIcon =
+        task.priority === 'URGENT' ? '🚨' : task.priority === 'HIGH' ? '🔥' : task.priority === 'MEDIUM' ? '⚡' : '☕';
+      const dueInfo = task.dueDate
+        ? ` • ⏰ ${new Date(task.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}`
+        : '';
+      const creatorName = task.creator?.name ? ` • 👤 from *${task.creator.name}*` : '';
 
-    keyboard
-      .text(`✅ Done: #${index + 1}`, `task:done:${task.id}`)
-      .text(`🔍 Details`, `task:view:${task.id}`)
-      .row();
-  });
+      text += `  ${globalIndex}\\. ${priorityIcon} *${escapeMarkdown(task.title)}*${creatorName}${dueInfo}\n`;
 
-  keyboard.webApp('📱 Open Full Task Board in Mini App', botConfig.webAppUrl);
+      keyboard
+        .text(`✅ #${globalIndex}`, `task:done:${task.id}`)
+        .text(`🔍 Details`, `task:view:${task.id}`)
+        .row();
+
+      globalIndex++;
+    }
+    text += `\n`;
+  }
+
+  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+  if (isGroup) {
+    keyboard.url('📱 Open Full Task Board in Mini App', botConfig.webAppUrl);
+  } else {
+    keyboard.webApp('📱 Open Full Task Board in Mini App', botConfig.webAppUrl);
+  }
 
   await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
 }
