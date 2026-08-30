@@ -153,26 +153,22 @@ export function createBot() {
 
       const userId = account?.userId;
 
-      if (userId) {
-        const member = await prisma.workspaceMember.findFirst({
-          where: { workspaceId: task.workspaceId, userId },
+      if (userId && task.assigneeId && task.assigneeId !== userId) {
+        let targetName = 'the assigned teammate';
+        const assigneeAcc = await prisma.telegramAccount.findFirst({
+          where: { userId: task.assigneeId },
         });
-        const workspace = await prisma.workspace.findUnique({
-          where: { id: task.workspaceId },
-        });
-
-        const isOwnerOrAdmin =
-          workspace?.ownerId === userId || member?.role === 'OWNER' || member?.role === 'ADMIN';
-        const isAssignee = task.assigneeId === userId;
-        const isCreator = task.creatorId === userId;
-
-        if (!isOwnerOrAdmin && !isAssignee && !isCreator) {
-          await ctx.answerCallbackQuery({
-            text: '🚫 Only the assigned teammate, task creator, or workspace admin can mark this task as done.',
-            show_alert: true,
-          });
-          return;
+        if (assigneeAcc?.username) {
+          targetName = `@${assigneeAcc.username}`;
+        } else if (assigneeAcc?.firstName) {
+          targetName = assigneeAcc.firstName;
         }
+
+        await ctx.answerCallbackQuery({
+          text: `🚫 Only ${targetName} can mark this task as done because it is assigned to them.`,
+          show_alert: true,
+        });
+        return;
       }
     }
 

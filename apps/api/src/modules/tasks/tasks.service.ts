@@ -49,10 +49,16 @@ export class TasksService {
         }
       }
 
-      if (action === 'COMPLETE' || action === 'UPDATE') {
+      if (action === 'COMPLETE') {
+        if (task.assigneeId && !isAssignee) {
+          throw new ForbiddenException('Only the assigned teammate can mark this task as done.');
+        }
+      }
+
+      if (action === 'UPDATE') {
         if (!isOwnerOrAdmin && !isCreator && !isAssignee) {
           throw new ForbiddenException(
-            'Only the task assignee, creator, or workspace admin can modify or complete this task.'
+            'Only the task assignee, creator, or workspace admin can modify this task.'
           );
         }
       }

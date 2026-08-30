@@ -299,13 +299,11 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (isDone) return;
-                        const currentMember = members.find((m: any) => m.userId === currentUser?.id);
-                        const isOwnerOrAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
-                        const canComplete = isOwnerOrAdmin || task.creatorId === currentUser?.id || task.assigneeId === currentUser?.id;
+                        const canComplete = !task.assigneeId || task.assigneeId === currentUser?.id;
 
                         if (!canComplete) {
                           triggerHaptic('heavy');
-                          alert('Only the task assignee, creator, or workspace admin can complete this task.');
+                          alert(`Only ${task.assignee?.name || 'the assigned teammate'} can complete this task.`);
                           return;
                         }
 
