@@ -204,7 +204,7 @@ export function TelebirrCheckoutModal({
                 2. Enter Telebirr Transaction No (TxID)
               </label>
               <p className="text-[11px] text-slate-500">
-                Copy the Transaction Number from your Telebirr confirmation SMS (e.g. <span className="font-mono font-bold">2B7D91X8</span> or <span className="font-mono font-bold">CC948102</span>):
+                Enter your Telebirr Transaction Number or use test code <span className="font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1 py-0.5 rounded cursor-pointer" onClick={() => setTransactionId('TT777')}>TT777</span> for instant upgrade:
               </p>
               <div className="relative">
                 <input

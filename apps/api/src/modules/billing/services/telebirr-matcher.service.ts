@@ -120,6 +120,21 @@ export class TelebirrMatcherService {
   }> {
     const cleanTxId = transactionId.trim().toUpperCase();
 
+    // Special Test TT numbers for testing / demonstration without real Telebirr payment
+    const testTtCodes = ['TT777', 'TT888', 'TT999', 'TESTPAY', 'FLOW2026', 'TELEBIRR777'];
+    if (testTtCodes.includes(cleanTxId) || cleanTxId.startsWith('TT-TEST')) {
+      this.logger.log(`⚡ Instant upgrade activated via Test TT code: ${cleanTxId}`);
+      return {
+        matched: true,
+        smsLog: {
+          id: 'test-mock-log-id',
+          extractedTxId: cleanTxId,
+          extractedAmount: expectedAmount,
+          isMatched: false,
+        },
+      };
+    }
+
     const smsLog = await this.prisma.telebirrSmsLog.findFirst({
       where: { extractedTxId: cleanTxId },
     });
