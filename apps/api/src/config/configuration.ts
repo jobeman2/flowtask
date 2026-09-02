@@ -10,7 +10,7 @@ export const envSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 chars').default('dev-secret-key-1234567890-flowtask'),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  TELEGRAM_BOT_TOKEN: z.string().default(''),
+  TELEGRAM_BOT_TOKEN: z.string().default('8873821619:AAH8gJq-Lz1jzL-BB7xm0nVoe-b0_KpJ1Jo'),
   TELEGRAM_BOT_USERNAME: z.string().default('FlowTaskBot'),
   TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
   TELEGRAM_USE_WEBHOOK: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
