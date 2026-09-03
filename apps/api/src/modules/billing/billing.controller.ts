@@ -13,6 +13,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { VerifyOrderDto } from './dto/verify-order.dto';
 import { TelebirrSmsWebhookDto } from './dto/sms-webhook.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 
 @Controller('billing')
 export class BillingController {
@@ -43,6 +44,7 @@ export class BillingController {
     return { success: true, data: order };
   }
 
+  @RateLimit(10, 60) // Anti-tampering: max 10 verification attempts per minute per IP
   @Post('verify-order')
   async verifyPaymentOrder(@Request() req: any, @Body() dto: VerifyOrderDto) {
     const result = await this.billingService.verifyPaymentOrder(req.user.id, dto);
