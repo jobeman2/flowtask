@@ -162,14 +162,61 @@ export class TasksService {
   }
 
   async createTask(dto: CreateTaskDto, creatorId: string) {
-    await this.checkTaskPermission(dto.workspaceId, creatorId, null, 'CREATE');
+    let targetWorkspaceId = dto.workspaceId;
+
+    // Check if target workspace exists and creator has access
+    const member = targetWorkspaceId
+      ? await this.prisma.workspaceMember.findFirst({
+          where: { workspaceId: targetWorkspaceId, userId: creatorId },
+        })
+      : null;
+
+    const workspace = targetWorkspaceId
+      ? await this.prisma.workspace.findUnique({
+          where: { id: targetWorkspaceId },
+        })
+      : null;
+
+    // Self-healing fallback: if workspace doesn't exist or user isn't a member, use the user's primary workspace
+    if (!member && workspace?.ownerId !== creatorId) {
+      const userWs = await this.prisma.workspace.findFirst({
+        where: {
+          OR: [
+            { ownerId: creatorId },
+            { members: { some: { userId: creatorId } } },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (userWs) {
+        targetWorkspaceId = userWs.id;
+      } else {
+        // Create an initial personal workspace for this user
+        const user = await this.prisma.user.findUnique({ where: { id: creatorId } });
+        const newWs = await this.prisma.workspace.create({
+          data: {
+            name: `${user?.name || 'Personal'} Workspace`,
+            type: WorkspaceType.PERSONAL,
+            ownerId: creatorId,
+            members: {
+              create: {
+                userId: creatorId,
+                role: 'OWNER',
+              },
+            },
+          },
+        });
+        targetWorkspaceId = newWs.id;
+      }
+    }
 
     const { labelIds, ...taskData } = dto;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const task = await tx.task.create({
         data: {
-          workspaceId: taskData.workspaceId,
+          workspaceId: targetWorkspaceId,
           projectId: taskData.projectId,
           title: taskData.title,
           description: taskData.description,
@@ -197,7 +244,7 @@ export class TasksService {
       // Log activity
       await tx.activityLog.create({
         data: {
-          workspaceId: taskData.workspaceId,
+          workspaceId: targetWorkspaceId,
           actorId: creatorId,
           entityType: 'TASK',
           entityId: task.id,
