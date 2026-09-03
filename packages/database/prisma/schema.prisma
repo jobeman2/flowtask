@@ -316,6 +316,7 @@ model Plan {
 model Subscription {
   id          String             @id @default(uuid())
   workspaceId String             @unique
+  userId      String?
   planId      String
   status      SubscriptionStatus @default(ACTIVE)
   currentPeriodStart DateTime    @default(now())
@@ -327,6 +328,7 @@ model Subscription {
   plan      Plan      @relation(fields: [planId], references: [id])
 
   @@index([workspaceId])
+  @@index([userId])
   @@index([status])
   @@map("subscriptions")
 }

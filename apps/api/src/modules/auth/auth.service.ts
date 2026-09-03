@@ -229,6 +229,33 @@ export class AuthService {
       telegramId: telegramIdStr,
     });
 
+    // Resolve user's best active subscription so front-end knows their plan immediately
+    let userSubscription: { planCode: string; status: string; currentPeriodEnd: Date | null } | null = null;
+    try {
+      const ownedWs = await this.prisma.workspace.findMany({ where: { ownerId: userId }, select: { id: true } });
+      const activeSub = await this.prisma.subscription.findFirst({
+        where: {
+          OR: [
+            { userId },
+            { workspaceId: { in: ownedWs.map((w) => w.id) } },
+          ],
+          status: 'ACTIVE',
+          plan: { code: { not: 'FREE' } },
+        },
+        include: { plan: true },
+        orderBy: { currentPeriodEnd: 'desc' },
+      });
+      if (activeSub) {
+        userSubscription = {
+          planCode: activeSub.plan?.code || 'FREE',
+          status: activeSub.status,
+          currentPeriodEnd: activeSub.currentPeriodEnd,
+        };
+      }
+    } catch {
+      // Non-critical — fallback to FREE shown on frontend
+    }
+
     return {
       user: {
         id: user.id,
@@ -241,6 +268,7 @@ export class AuthService {
       },
       accessToken,
       defaultWorkspaceId,
+      subscription: userSubscription,
     };
   }
 

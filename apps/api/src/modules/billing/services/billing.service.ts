@@ -33,7 +33,61 @@ export class BillingService {
   }
 
   /**
-   * Get subscription status & limits for a workspace
+   * Get the active subscription for a user account (across all their workspaces / direct user sub)
+   */
+  async getUserSubscription(userId: string) {
+    // 1. Find a subscription directly linked to this userId
+    let sub = await this.prisma.subscription.findFirst({
+      where: { userId, status: SubscriptionStatus.ACTIVE },
+      include: { plan: true },
+      orderBy: { currentPeriodEnd: 'desc' },
+    });
+
+    // 2. Fallback: find best non-FREE subscription on any workspace this user owns
+    if (!sub || sub.plan?.code === 'FREE') {
+      const ownedWorkspaces = await this.prisma.workspace.findMany({
+        where: { ownerId: userId },
+        select: { id: true },
+      });
+
+      if (ownedWorkspaces.length > 0) {
+        const bestSub = await this.prisma.subscription.findFirst({
+          where: {
+            workspaceId: { in: ownedWorkspaces.map((w) => w.id) },
+            status: SubscriptionStatus.ACTIVE,
+            plan: { code: { not: 'FREE' } },
+          },
+          include: { plan: true },
+          orderBy: { currentPeriodEnd: 'desc' },
+        });
+        if (bestSub) sub = bestSub;
+      }
+    }
+
+    const freePlan = await this.prisma.plan.findUnique({ where: { code: 'FREE' } });
+
+    if (!sub || sub.status !== SubscriptionStatus.ACTIVE) {
+      return {
+        userId,
+        status: 'ACTIVE',
+        isFree: true,
+        plan: freePlan || { code: 'FREE', name: 'Free Starter', priceEtbMonth: 0, maxProjects: 3, maxMembers: 1, hasAiFeatures: false },
+        currentPeriodEnd: null,
+      };
+    }
+
+    return {
+      userId,
+      status: sub.status,
+      isFree: sub.plan?.code === 'FREE',
+      plan: sub.plan,
+      currentPeriodStart: sub.currentPeriodStart,
+      currentPeriodEnd: sub.currentPeriodEnd,
+    };
+  }
+
+  /**
+   * Get subscription status & limits for a workspace (inherits from workspace owner's user plan)
    */
   async getWorkspaceSubscription(workspaceId: string) {
     const workspace = await this.prisma.workspace.findUnique({
@@ -44,63 +98,8 @@ export class BillingService {
       throw new NotFoundException('Workspace not found');
     }
 
-    let sub = await this.prisma.subscription.findUnique({
-      where: { workspaceId },
-      include: { plan: true },
-    });
-
-    // If no direct subscription on this workspace, inherit from workspace owner's active subscription
-    if (!sub || sub.status !== SubscriptionStatus.ACTIVE || sub.plan?.code === 'FREE') {
-      const ownerWorkspaces = await this.prisma.workspace.findMany({
-        where: { ownerId: workspace.ownerId },
-      });
-
-      for (const ow of ownerWorkspaces) {
-        if (ow.id === workspaceId) continue;
-        const ownerSub = await this.prisma.subscription.findUnique({
-          where: { workspaceId: ow.id },
-          include: { plan: true },
-        });
-        if (ownerSub && ownerSub.status === SubscriptionStatus.ACTIVE && ownerSub.plan?.code !== 'FREE') {
-          sub = ownerSub;
-          break;
-        }
-      }
-    }
-
-    // If still no subscription, return Free plan
-    if (!sub || sub.status !== SubscriptionStatus.ACTIVE) {
-      const freePlan = await this.prisma.plan.findUnique({ where: { code: 'FREE' } }) || {
-        code: 'FREE',
-        name: 'Starter (Free)',
-        priceEtbMonth: 0,
-        maxMembers: 3,
-        maxProjects: 2,
-        maxTasks: 25,
-        maxGroups: 1,
-        hasAiFeatures: false,
-        hasAttachments: false,
-        hasDailyDigest: false,
-        hasRecurring: false,
-      };
-
-      return {
-        workspaceId,
-        status: sub ? sub.status : 'ACTIVE',
-        isFree: true,
-        plan: freePlan,
-        currentPeriodEnd: null,
-      };
-    }
-
-    return {
-      workspaceId,
-      status: sub.status,
-      isFree: sub.plan?.code === 'FREE',
-      plan: sub.plan,
-      currentPeriodStart: sub.currentPeriodStart,
-      currentPeriodEnd: sub.currentPeriodEnd,
-    };
+    // Always resolve subscription from the workspace owner's user account
+    return this.getUserSubscription(workspace.ownerId);
   }
 
   /**
@@ -221,18 +220,20 @@ export class BillingService {
         }
       }
 
-      // 3. Upsert Workspace Subscription
+      // 3. Upsert subscription — tied to BOTH the workspace and the user account
       const currentPeriodEnd = new Date(Date.now() + (order.durationDays || 30) * 24 * 60 * 60 * 1000);
       const sub = await this.prisma.subscription.upsert({
         where: { workspaceId: order.workspaceId },
         create: {
           workspaceId: order.workspaceId,
+          userId: order.userId,  // Stamp user account so plan is per-user
           planId: plan.id,
           status: SubscriptionStatus.ACTIVE,
           currentPeriodStart: new Date(),
           currentPeriodEnd,
         },
         update: {
+          userId: order.userId,  // Always keep userId in sync
           planId: plan.id,
           status: SubscriptionStatus.ACTIVE,
           currentPeriodEnd,

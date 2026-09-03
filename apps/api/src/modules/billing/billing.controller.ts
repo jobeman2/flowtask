@@ -25,6 +25,12 @@ export class BillingController {
     return { success: true, data: plans };
   }
 
+  @Get('me')
+  async getMySubscription(@Request() req: any) {
+    const sub = await this.billingService.getUserSubscription(req.user.id);
+    return { success: true, data: sub };
+  }
+
   @Get('workspace/:workspaceId')
   async getWorkspaceSubscription(@Param('workspaceId') workspaceId: string) {
     const sub = await this.billingService.getWorkspaceSubscription(workspaceId);

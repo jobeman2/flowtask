@@ -19,21 +19,14 @@ interface PricingModalProps {
 }
 
 export function PricingModal({ isOpen, onClose }: PricingModalProps) {
-  const { workspaceId } = useAuth();
+  const { workspaceId, subscription, setSubscription } = useAuth();
   const { triggerHaptic } = useTelegram();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { data: subscription } = useQuery({
-    queryKey: ['workspace-subscription', workspaceId],
-    queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await apiClient.getWorkspaceSubscription(workspaceId);
-      return res.data;
-    },
-    enabled: Boolean(workspaceId && isOpen),
-  });
+  // Current plan comes from user's account subscription (no extra API call needed)
+  const currentPlanCode = subscription?.planCode || 'FREE';
 
   const createOrderMutation = useMutation({
     mutationFn: async (planCode: string) => {
@@ -59,62 +52,76 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
   if (!isOpen) return null;
 
-  const currentPlanCode = subscription?.plan?.code || 'FREE';
-
   const plans = [
     {
       code: 'FREE',
-      name: 'Starter (Free)',
+      name: 'Free Starter',
       price: '0 ETB',
       period: 'forever',
-      description: 'Essential task management for individuals and small chats',
+      description: 'Essential task management for individuals',
       popular: false,
       color: 'border-slate-200 dark:border-slate-800',
       badge: 'Free',
       features: [
         '1 Workspace',
-        'Up to 3 Team Members',
-        'Up to 25 Active Tasks',
+        'Up to 3 Projects',
+        '1 Team Member',
         '1 Telegram Group Board',
-        'Core Bot Commands (/task, /today)',
-      ],
-    },
-    {
-      code: 'STANDARD',
-      name: 'Standard (Team)',
-      price: '10 ETB',
-      period: '/ month (Test Promo)',
-      description: 'Ideal for growing squads and active Telegram groups',
-      popular: true,
-      color: 'border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10',
-      badge: 'Most Popular',
-      features: [
-        'Unlimited Active Tasks',
-        'Up to 10 Team Members',
-        'Up to 5 Telegram Group Boards',
-        '🔄 ClickUp & Notion 2-Way Sync Engine',
-        '📎 Image & Document Attachments',
-        '⏰ Automated Morning Digests',
-        '🔁 Recurring Tasks (Daily/Weekly)',
+        'Core Bot Commands',
       ],
     },
     {
       code: 'PRO',
-      name: 'Pro (Agency)',
-      price: '950 ETB',
+      name: 'Pro Individual',
+      price: '199 ETB',
       period: '/ month',
-      description: 'Maximum speed for companies managing multiple clients',
+      description: 'Unlimited projects, reminders, and AI task extraction',
+      popular: true,
+      color: 'border-blue-500 ring-2 ring-blue-500/20 shadow-blue-500/10',
+      badge: 'Most Popular',
+      features: [
+        '5 Workspaces',
+        'Unlimited Projects',
+        'AI Task Extraction',
+        '🔄 Recurring Tasks',
+        '⏰ Morning Digests',
+        '📎 Image Attachments',
+      ],
+    },
+    {
+      code: 'TEAM',
+      name: 'Team Collaboration',
+      price: '999 ETB',
+      period: '/ month',
+      description: 'Collaborate with your team inside Telegram groups',
       popular: false,
       color: 'border-purple-500 dark:border-purple-600',
-      badge: 'Full Power',
+      badge: 'For Teams',
       features: [
-        'Unlimited Team Members',
-        'Unlimited Telegram Groups',
-        '👑 Full ClickUp 6-Month Backlog Importer',
-        'Multiple Projects & Color Labels',
-        '⚡ Priority Bot Instant Mentions',
-        'HD Image Lightbox Attachments',
-        'Activity History & Export Logs',
+        '10 Workspaces',
+        'Up to 15 Members',
+        'Team Task Board',
+        '5 Telegram Groups',
+        'Role-based Permissions',
+        'Activity History',
+      ],
+    },
+    {
+      code: 'BUSINESS',
+      name: 'Business Scale',
+      price: '2,999 ETB',
+      period: '/ month',
+      description: 'Enterprise-grade management with advanced analytics',
+      popular: false,
+      color: 'border-amber-500 dark:border-amber-600',
+      badge: 'Enterprise',
+      features: [
+        'Unlimited Workspaces',
+        'Up to 100 Members',
+        'Unlimited Groups',
+        'Advanced Analytics',
+        'Priority Support',
+        'Custom Integrations',
       ],
     },
   ];
@@ -244,6 +251,17 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
             setSelectedOrder(null);
           }}
           orderData={selectedOrder}
+          onSuccess={(planCode) => {
+            // Immediately update user's subscription in auth context so badge refreshes
+            setSubscription({
+              planCode,
+              status: 'ACTIVE',
+              currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+            setIsCheckoutOpen(false);
+            setSelectedOrder(null);
+            onClose();
+          }}
         />
       )}
     </>

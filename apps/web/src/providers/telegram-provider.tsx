@@ -4,11 +4,19 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useTelegram } from '../hooks/use-telegram';
 import { apiClient } from '../lib/api-client';
 
+interface UserSubscription {
+  planCode: string;
+  status: string;
+  currentPeriodEnd: string | null;
+}
+
 interface AuthContextType {
   user: any | null;
   workspaceId: string | null;
   setWorkspaceId: (id: string) => void;
   setMockUser: (profile: 'jovany' | 'tumim' | 'dev') => void;
+  subscription: UserSubscription | null;
+  setSubscription: (sub: UserSubscription | null) => void;
   isLoading: boolean;
   error: string | null;
 }
@@ -18,6 +26,8 @@ const TelegramAuthContext = createContext<AuthContextType>({
   workspaceId: null,
   setWorkspaceId: () => {},
   setMockUser: () => {},
+  subscription: null,
+  setSubscription: () => {},
   isLoading: true,
   error: null,
 });
@@ -27,6 +37,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,10 +60,17 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
           apiClient.setToken(res.data.accessToken);
           setUser(res.data.user);
 
+          // Restore subscription from auth response (works cross-device)
+          if (res.data.subscription) {
+            setSubscription(res.data.subscription);
+          } else {
+            setSubscription(null);
+          }
+
           // Restore last selected workspace or fallback to default
           const savedWsId = typeof window !== 'undefined' ? localStorage.getItem('flowtask_active_workspace') : null;
           const initialWsId = targetWsId || savedWsId || res.data.defaultWorkspaceId;
-          
+
           if (initialWsId) {
             setWorkspaceId(initialWsId);
             apiClient.setWorkspaceId(initialWsId);
@@ -87,6 +105,8 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         workspaceId,
         setWorkspaceId: handleSetWorkspaceId,
         setMockUser: handleSetMockUser,
+        subscription,
+        setSubscription,
         isLoading,
         error,
       }}

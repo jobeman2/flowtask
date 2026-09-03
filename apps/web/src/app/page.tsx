@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../lib/api-client';
 import { useAuth } from '../providers/telegram-provider';
 import { WorkspaceSwitcher } from '../features/workspaces/components/workspace-switcher';
 import { PricingModal } from '../features/billing/components/pricing-modal';
@@ -16,24 +14,14 @@ import { TaskDetailModal } from '../features/tasks/components/task-detail-modal'
 import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, workspaceId, error } = useAuth();
+  const { user, workspaceId, error, subscription } = useAuth();
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
-  // Fetch Subscription for subtle badge
-  const { data: subscription } = useQuery({
-    queryKey: ['workspace-subscription', workspaceId],
-    queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await apiClient.getWorkspaceSubscription(workspaceId);
-      return res.data;
-    },
-    enabled: Boolean(workspaceId),
-  });
-
-  const planCode = subscription?.plan?.code || 'FREE';
+  // Plan comes from the user's own account subscription (works cross-device automatically)
+  const planCode = subscription?.planCode || 'FREE';
   const isUpgraded = planCode !== 'FREE';
 
   return (

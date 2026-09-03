@@ -20,12 +20,14 @@ interface TelebirrCheckoutModalProps {
     telebirrAccountName: string;
     instructions: string[];
   } | null;
+  onSuccess?: (planCode: string) => void;
 }
 
 export function TelebirrCheckoutModal({
   isOpen,
   onClose,
   orderData,
+  onSuccess,
 }: TelebirrCheckoutModalProps) {
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
@@ -58,6 +60,11 @@ export function TelebirrCheckoutModal({
     onSuccess: (data) => {
       setVerificationResult(data);
       triggerHaptic('medium');
+      // Notify parent to update subscription context immediately
+      if (data?.verified && orderData?.planCode && onSuccess) {
+        setTimeout(() => onSuccess(orderData.planCode), 2000);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['workspace-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     },

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export function TeamView() {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
@@ -34,6 +34,11 @@ export function TeamView() {
     },
     enabled: Boolean(workspaceId),
   });
+
+  // Determine current user's role in this workspace
+  const currentMember = members.find((m: any) => m.userId === user?.id);
+  const currentRole = currentMember?.role || 'MEMBER';
+  const canManageMembers = currentRole === 'OWNER' || currentRole === 'ADMIN';
 
   // Invite Member Mutation
   const inviteMutation = useMutation({
@@ -83,6 +88,7 @@ export function TeamView() {
             Manage teammates, roles & AI copilot
           </p>
         </div>
+        {canManageMembers && (
         <button
           type="button"
           onClick={() => {
@@ -94,6 +100,7 @@ export function TeamView() {
           <UserPlus className="w-3.5 h-3.5" />
           <span>Invite</span>
         </button>
+        )}
       </div>
 
       <div className="flex items-center justify-between px-1">
