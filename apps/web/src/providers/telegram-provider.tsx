@@ -47,9 +47,19 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const explicitUser = activeProfile || urlParams?.get('user');
-      const targetWsId = urlParams?.get('workspaceId') || urlParams?.get('tgWebAppStartParam');
+      // If running inside Telegram, NEVER fallback to dev_user_jovany
+      const isTg = typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
+      const actualInitData = initData || (typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData : '');
 
-      const payload = initData || (explicitUser ? `dev_user_${explicitUser}` : 'dev_user_jovany');
+      let payload = actualInitData;
+      if (!payload) {
+        if (isTg) {
+          // Inside Telegram WebApp: Wait for initData or report error, DO NOT login as jovany!
+          return;
+        }
+        // Only outside Telegram in desktop browser localhost/dev:
+        payload = explicitUser ? `dev_user_${explicitUser}` : 'dev_user_jovany';
+      }
 
       try {
         setIsLoading(true);
@@ -67,8 +77,9 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
             setSubscription(null);
           }
 
-          // Restore last selected workspace or fallback to default
-          const savedWsId = typeof window !== 'undefined' ? localStorage.getItem('flowtask_active_workspace') : null;
+          // User-specific workspace storage (NEVER leak another account's workspace on shared device)
+          const userStorageKey = `flowtask_active_ws_${res.data.user.id}`;
+          const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(userStorageKey) : null;
           const initialWsId = targetWsId || savedWsId || res.data.defaultWorkspaceId;
 
           if (initialWsId) {
@@ -89,8 +100,8 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   const handleSetWorkspaceId = (id: string) => {
     setWorkspaceId(id);
     apiClient.setWorkspaceId(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('flowtask_active_workspace', id);
+    if (typeof window !== 'undefined' && user?.id) {
+      localStorage.setItem(`flowtask_active_ws_${user.id}`, id);
     }
   };
 
