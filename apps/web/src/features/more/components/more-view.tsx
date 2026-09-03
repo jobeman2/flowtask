@@ -123,14 +123,14 @@ export function MoreView() {
             triggerHaptic('medium');
             setIsAiPmOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group bg-gradient-to-r from-purple-50/50 via-pink-50/30 to-indigo-50/40 dark:from-purple-950/20 dark:via-pink-950/10 dark:to-indigo-950/20"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group bg-blue-50/30 dark:bg-blue-950/20"
         >
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white flex items-center justify-center shadow-xs">
+            <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <Bot className="w-4 h-4" />
             </div>
             <div className="space-y-0.5">
-              <span className="font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+              <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 AI Project Manager
               </span>
               <p className="text-[10px] text-slate-400 font-medium">
@@ -139,8 +139,8 @@ export function MoreView() {
             </div>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
-            <span className="font-black text-[9px] uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xs">
-              Test Tool
+            <span className="font-black text-[9px] uppercase px-2 py-0.5 rounded-full bg-blue-600 text-white shadow-xs">
+              Beta
             </span>
             <ChevronRight className="w-4 h-4" />
           </div>
@@ -155,15 +155,15 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Video className="w-3.5 h-3.5" />
             </div>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               Meetings & Standups
             </span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
-            <span className="font-semibold text-[10px] text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full">
+            <span className="font-semibold text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
               Schedule & Join
             </span>
             <ChevronRight className="w-4 h-4" />
@@ -179,15 +179,15 @@ export function MoreView() {
           className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center">
               <ArrowRightLeft className="w-3.5 h-3.5" />
             </div>
-            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               ClickUp ↔ Flow Sync
             </span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
-            <span className="font-extrabold text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
+            <span className="font-extrabold text-[9px] uppercase px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
               PRO
             </span>
             <ChevronRight className="w-4 h-4" />

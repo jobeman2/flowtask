@@ -122,12 +122,12 @@ export function HomeView({
   const activeFocusTask = tasks.find((t: any) => t.status === 'IN_PROGRESS') || tasks.find((t: any) => t.status !== 'DONE');
 
   return (
-    <div className="space-y-5 pb-24 animate-in fade-in duration-300 font-sans">
-      {/* 1. Hero Focus Card (Pinterest/Clean Productivity Aesthetic) */}
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 p-5 text-white shadow-xl shadow-blue-500/20 border border-blue-400/20">
+    <div className="space-y-5 pb-32 animate-in fade-in duration-300 font-sans">
+      {/* 1. Hero Focus Card (Pure Blue Brand Palette) */}
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-600 to-blue-700 p-5 text-white shadow-xl shadow-blue-500/20 border border-blue-400/25">
         {/* Subtle decorative background rings */}
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-sky-400/20 rounded-full blur-xl pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
           <div className="flex items-start justify-between">
@@ -142,7 +142,7 @@ export function HomeView({
             </div>
 
             {/* Circular Progress Badge */}
-            <div className="flex flex-col items-center justify-center bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl w-13 h-13 shrink-0">
+            <div className="flex flex-col items-center justify-center bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl w-13 h-13 shrink-0">
               <span className="text-sm font-black tracking-tight">{progressPercent}%</span>
               <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider">done</span>
             </div>
@@ -196,7 +196,7 @@ export function HomeView({
         </div>
       </div>
 
-      {/* 2. Sleek Metrics Pill Row (Pinterest aesthetic) */}
+      {/* 2. Sleek Metrics Pill Row (Pure Blue Palette) */}
       <div className="grid grid-cols-3 gap-2.5">
         {/* Card 1: Active Tasks */}
         <div
@@ -217,9 +217,9 @@ export function HomeView({
         {/* Card 2: In Progress */}
         <div
           onClick={onNavigateTasks}
-          className="bg-white dark:bg-slate-900/90 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] cursor-pointer hover:border-amber-200 transition-all active:scale-98"
+          className="bg-white dark:bg-slate-900/90 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] cursor-pointer hover:border-blue-200 transition-all active:scale-98"
         >
-          <div className="w-7 h-7 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-2">
+          <div className="w-7 h-7 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-2">
             <Clock className="w-4 h-4" />
           </div>
           <div className="text-xl font-black text-slate-900 dark:text-white leading-none">
@@ -233,9 +233,9 @@ export function HomeView({
         {/* Card 3: Due Today */}
         <div
           onClick={onNavigateTasks}
-          className="bg-white dark:bg-slate-900/90 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] cursor-pointer hover:border-purple-200 transition-all active:scale-98"
+          className="bg-white dark:bg-slate-900/90 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] cursor-pointer hover:border-blue-200 transition-all active:scale-98"
         >
-          <div className="w-7 h-7 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2">
+          <div className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
             <Calendar className="w-4 h-4" />
           </div>
           <div className="text-xl font-black text-slate-900 dark:text-white leading-none">

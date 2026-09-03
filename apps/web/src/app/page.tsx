@@ -27,13 +27,13 @@ export default function HomePage() {
   return (
     <div className="flex flex-col flex-1 space-y-4 pb-20 min-h-screen font-sans">
       {/* 1. Header: Account & Workspace on Left, Status/Upgrade on Right */}
-      <header className="flex items-center justify-between pt-2 pb-2.5 px-1.5 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60">
-        {/* Left Side: Account Avatar, Name & Workspace Switcher */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+      <header className="flex items-center justify-between pt-2 pb-2.5 px-1 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60">
+        {/* Left Side: Avatar + Workspace Switcher */}
+        <div className="flex items-center gap-2 min-w-0">
           {/* User Avatar */}
           <div
             onClick={() => setActiveNav('PROFILE')}
-            className="w-9 h-9 rounded-full bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-extrabold text-xs border border-blue-200/60 dark:border-blue-700/60 cursor-pointer overflow-hidden ring-2 ring-transparent hover:ring-blue-500/30 transition-all shrink-0 shadow-2xs"
+            className="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-extrabold text-xs border border-blue-200/60 dark:border-blue-700/60 cursor-pointer overflow-hidden shrink-0 shadow-2xs"
           >
             {user?.avatarUrl ? (
               <img
@@ -46,22 +46,8 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Account Name & Workspace Switcher */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              onClick={() => setActiveNav('PROFILE')}
-              className="cursor-pointer min-w-0"
-            >
-              <h2 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight truncate">
-                {user?.name || 'My Account'}
-              </h2>
-            </div>
-
-            <div className="h-3 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
-
-            {/* Workspace Switcher attached on Left */}
-            <WorkspaceSwitcher />
-          </div>
+          {/* Workspace Switcher Pill */}
+          <WorkspaceSwitcher />
         </div>
 
         {/* Right Side: Plan Badge */}
