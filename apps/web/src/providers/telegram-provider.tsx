@@ -48,7 +48,11 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         } else if (res.data) {
           apiClient.setToken(res.data.accessToken);
           setUser(res.data.user);
-          const initialWsId = targetWsId || res.data.defaultWorkspaceId;
+
+          // Restore last selected workspace or fallback to default
+          const savedWsId = typeof window !== 'undefined' ? localStorage.getItem('flowtask_active_workspace') : null;
+          const initialWsId = targetWsId || savedWsId || res.data.defaultWorkspaceId;
+          
           if (initialWsId) {
             setWorkspaceId(initialWsId);
             apiClient.setWorkspaceId(initialWsId);
@@ -67,6 +71,9 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   const handleSetWorkspaceId = (id: string) => {
     setWorkspaceId(id);
     apiClient.setWorkspaceId(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('flowtask_active_workspace', id);
+    }
   };
 
   const handleSetMockUser = (profile: 'jovany' | 'tumim' | 'dev') => {
