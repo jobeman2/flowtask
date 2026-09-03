@@ -27,4 +27,9 @@ export interface AuthSession {
   telegramAccount?: TelegramAccount | null;
   accessToken: string;
   defaultWorkspaceId?: string;
+  subscription?: {
+    planCode: string;
+    status: string;
+    currentPeriodEnd: Date | null;
+  } | null;
 }

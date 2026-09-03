@@ -37,8 +37,9 @@ export class WorkspacesService {
     const workspaceIds = memberships.map((m) => m.workspaceId);
 
     // Fetch all linked Telegram chats for user's workspaces from DB
+    // Cast as any: PrismaService has a typed stub for telegramChat that omits findMany, but runtime client has it
     const telegramChats = workspaceIds.length > 0
-      ? await this.prisma.telegramChat.findMany({
+      ? await (this.prisma as any).telegramChat.findMany({
           where: { workspaceId: { in: workspaceIds } },
         })
       : [];
