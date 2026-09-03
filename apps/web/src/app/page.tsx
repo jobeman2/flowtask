@@ -14,7 +14,7 @@ import { TaskDetailModal } from '../features/tasks/components/task-detail-modal'
 import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, workspaceId, error, subscription } = useAuth();
+  const { user, error, subscription } = useAuth();
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
