@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   CanActivate,
   ExecutionContext,
@@ -46,7 +46,7 @@ export class RateLimitGuard implements CanActivate {
       ]) || { limit: this.defaultLimit, ttlSeconds: this.defaultTtlSeconds };
 
     const ip = this.getClientIp(req);
-    const key = ${ip}:;
+    const key = `${ip}:${req.baseUrl || ''}${req.path || ''}`;
     const now = Date.now();
     const windowMs = options.ttlSeconds * 1000;
 
@@ -68,13 +68,13 @@ export class RateLimitGuard implements CanActivate {
     res.setHeader('X-RateLimit-Reset', resetTimeSec);
 
     if (record.count > options.limit) {
-      this.logger.warn(🛑 Rate limit exceeded for IP:  on  );
+      this.logger.warn(`🛑 Rate limit exceeded for IP: ${ip} on ${req.method} ${req.path}`);
       res.setHeader('Retry-After', resetTimeSec);
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           error: 'Too Many Requests',
-          message: Too many requests from this IP. Please try again in  seconds.,
+          message: `Too many requests from this IP. Please try again in ${resetTimeSec} seconds.`,
         },
         HttpStatus.TOO_MANY_REQUESTS
       );
