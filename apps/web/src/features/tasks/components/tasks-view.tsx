@@ -280,70 +280,83 @@ export function TasksView({
                 <div
                   key={task.id}
                   onClick={() => onSelectTask(task.id)}
-                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] flex items-center justify-between gap-3.5 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-md transition-all cursor-pointer group"
+                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-blue-200 dark:hover:border-blue-900/50 transition-all cursor-pointer group"
                 >
-                  {/* Left side: Circular Checkbox + Title & Tag */}
-                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isDone) return;
-                        if (task.assigneeId && task.assigneeId !== user?.id) {
-                          triggerHaptic('heavy');
-                          alert(`Only ${task.assignee?.name || 'the assignee'} can complete this task.`);
-                          return;
-                        }
-                        completeMutation.mutate(task.id);
-                      }}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                        isDone
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
-                      }`}
-                    >
-                      {isDone && <Check className="w-3 h-3 stroke-[3]" />}
-                    </button>
-
-                    <div className="min-w-0 flex-1">
-                      <h4
-                        className={`text-[13px] font-bold truncate leading-snug tracking-tight ${
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Left side: Circular Checkbox + Title & Tags */}
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isDone) return;
+                          if (task.assigneeId && task.assigneeId !== user?.id) {
+                            triggerHaptic('heavy');
+                            alert(`Only ${task.assignee?.name || 'the assignee'} can complete this task.`);
+                            return;
+                          }
+                          completeMutation.mutate(task.id);
+                        }}
+                        className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
                           isDone
-                            ? 'line-through text-slate-400 dark:text-slate-500'
-                            : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
                         }`}
                       >
-                        {task.title}
-                      </h4>
+                        {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
 
-                      <div className="flex items-center gap-2 mt-1">
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"
-                          style={{
-                            backgroundColor: `${projectColor}15`,
-                            color: projectColor,
-                            borderColor: `${projectColor}30`,
-                            borderWidth: '1px',
-                          }}
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className={`text-xs font-bold leading-snug tracking-tight truncate ${
+                            isDone
+                              ? 'line-through text-slate-400 dark:text-slate-500'
+                              : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
+                          }`}
                         >
+                          {task.title}
+                        </h4>
+
+                        <div className="flex items-center gap-2 mt-2">
                           <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: projectColor }}
-                          />
-                          {projectTag}
-                        </span>
+                            className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${projectColor}15`,
+                              color: projectColor,
+                            }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: projectColor }}
+                            />
+                            <span>{projectTag}</span>
+                          </span>
+
+                          {dueText && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                              {dueText}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right side: Relative Due Date & Priority Dot */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {dueText && (
-                      <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                        {dueText}
-                      </span>
-                    )}
-                    <span className={`w-2 h-2 rounded-full ring-2 ${getPriorityDot(task.priority)}`} />
+                    {/* Right side: Assignee Avatar or Priority indicator */}
+                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                      {task.assignee?.avatarUrl ? (
+                        <img
+                          src={task.assignee.avatarUrl}
+                          alt={task.assignee.name || 'Assignee'}
+                          className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                        />
+                      ) : task.assignee?.name ? (
+                        <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center">
+                          {task.assignee.name[0].toUpperCase()}
+                        </div>
+                      ) : (
+                        <span className={`w-2 h-2 rounded-full ring-2 ${getPriorityDot(task.priority)}`} />
+                      )}
+                    </div>
                   </div>
                 </div>
               );
