@@ -29,6 +29,16 @@ export function WorkspaceSwitcher() {
     enabled: !!user,
   });
 
+  // Self-healing: if workspaceId is invalid, stale, or not found, automatically snap to user's first real workspace
+  React.useEffect(() => {
+    if (workspaces.length > 0) {
+      const exists = workspaces.some((w: any) => w.id === workspaceId);
+      if (!workspaceId || !exists) {
+        setWorkspaceId(workspaces[0].id);
+      }
+    }
+  }, [workspaces, workspaceId, setWorkspaceId]);
+
   const createWsMutation = useMutation({
     mutationFn: async () => {
       if (!newWsName.trim()) return;

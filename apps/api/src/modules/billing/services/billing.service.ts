@@ -105,13 +105,40 @@ export class BillingService {
   /**
    * Create a Telebirr payment order
    */
-  async createPaymentOrder(userId: string, dto: CreateOrderDto) {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: dto.workspaceId },
+    let targetWorkspaceId = dto.workspaceId;
+
+    let workspace = await this.prisma.workspace.findUnique({
+      where: { id: targetWorkspaceId },
     });
 
+    // Fallback: If the passed workspaceId was stale, deleted, or from another device, find or create the user's primary workspace
     if (!workspace) {
-      throw new NotFoundException('Workspace not found');
+      const userWs = await this.prisma.workspace.findFirst({
+        where: { ownerId: userId },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (userWs) {
+        workspace = userWs;
+        targetWorkspaceId = userWs.id;
+      } else {
+        // Create an initial Personal Workspace for the user if they don't have one
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        workspace = await this.prisma.workspace.create({
+          data: {
+            name: `${user?.name || 'Personal'} Workspace`,
+            type: 'PERSONAL',
+            ownerId: userId,
+            members: {
+              create: {
+                userId,
+                role: 'OWNER',
+              },
+            },
+          },
+        });
+        targetWorkspaceId = workspace.id;
+      }
     }
 
     const plan = await this.prisma.plan.findUnique({
@@ -132,7 +159,7 @@ export class BillingService {
     const order = await this.prisma.paymentOrder.create({
       data: {
         orderCode,
-        workspaceId: dto.workspaceId,
+        workspaceId: targetWorkspaceId,
         userId,
         planCode: plan.code,
         amountEtb,
