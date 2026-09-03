@@ -34,10 +34,17 @@ export class WorkspacesService {
       orderBy: { createdAt: 'asc' },
     });
 
-    const chats = Array.from((this.prisma as any).telegramChats?.values?.() || []) as any[];
+    const workspaceIds = memberships.map((m) => m.workspaceId);
+
+    // Fetch all linked Telegram chats for user's workspaces from DB
+    const telegramChats = workspaceIds.length > 0
+      ? await this.prisma.telegramChat.findMany({
+          where: { workspaceId: { in: workspaceIds } },
+        })
+      : [];
 
     return memberships.map((m) => {
-      const linkedChat = chats.find((c: any) => c.workspaceId === m.workspaceId) as any;
+      const linkedChat = telegramChats.find((c: any) => c.workspaceId === m.workspaceId);
       return {
         ...m.workspace,
         role: m.role,
@@ -96,18 +103,23 @@ export class WorkspacesService {
     });
     const ownedCount = userWorkspaces.length;
 
-    let maxAllowedWorkspaces = 1; // Default Free Plan limit
+    let maxAllowedWorkspaces = 1; // Free plan: 1 workspace only
+
     for (const uw of userWorkspaces) {
       const sub = await this.prisma.subscription.findUnique({
         where: { workspaceId: uw.id },
         include: { plan: true },
       });
-      if (sub && sub.status === 'ACTIVE') {
-        if (sub.plan?.code === 'PRO') {
+      if (sub && sub.status === 'ACTIVE' && sub.plan) {
+        const planCode = sub.plan.code;
+        if (planCode === 'BUSINESS') {
           maxAllowedWorkspaces = 999;
           break;
         }
-        if (sub.plan?.code === 'STANDARD') {
+        if (planCode === 'TEAM') {
+          maxAllowedWorkspaces = Math.max(maxAllowedWorkspaces, 10);
+        }
+        if (planCode === 'PRO') {
           maxAllowedWorkspaces = Math.max(maxAllowedWorkspaces, 5);
         }
       }
@@ -116,8 +128,8 @@ export class WorkspacesService {
     if (ownedCount >= maxAllowedWorkspaces) {
       throw new ForbiddenException(
         maxAllowedWorkspaces === 1
-          ? 'The Free plan is limited to 1 workspace. Upgrade to Standard or Pro with Telebirr to create more workspaces!'
-          : `Your current plan allows a maximum of ${maxAllowedWorkspaces} workspaces. Upgrade to Pro for unlimited workspaces!`
+          ? 'The Free plan is limited to 1 workspace. Upgrade to Pro or Team with Telebirr to create more workspaces!'
+          : `Your current plan allows a maximum of ${maxAllowedWorkspaces} workspaces. Upgrade to Business for unlimited workspaces!`
       );
     }
 
@@ -159,15 +171,21 @@ export class WorkspacesService {
     const members = await this.prisma.workspaceMember.findMany({
       where: { workspaceId },
       include: {
-        user: true,
+        user: {
+          include: {
+            _count: {
+              select: {
+                assignedTasks: {
+                  where: { workspaceId, status: { notIn: ['DONE', 'CANCELLED'] }, archivedAt: null },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     return members.map((m: any) => {
-      const assignedCount = Array.from((this.prisma as any).tasks?.values?.() || [])
-        .filter((t: any) => t.workspaceId === workspaceId && t.assigneeId === m.userId && t.status !== 'DONE' && !t.archivedAt)
-        .length;
-
       return {
         id: m.id,
         workspaceId: m.workspaceId,
@@ -175,7 +193,7 @@ export class WorkspacesService {
         role: m.role,
         createdAt: m.createdAt,
         user: m.user,
-        activeTasksCount: assignedCount,
+        activeTasksCount: m.user?._count?.assignedTasks ?? 0,
       };
     });
   }
