@@ -14,8 +14,6 @@ import {
   Sparkles,
   Flame,
   CheckCircle2,
-  AlertCircle,
-  TrendingUp,
 } from 'lucide-react';
 
 interface HomeViewProps {
