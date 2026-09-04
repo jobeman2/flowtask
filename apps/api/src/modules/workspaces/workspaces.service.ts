@@ -104,22 +104,19 @@ export class WorkspacesService {
     });
     const ownedCount = ownedWorkspaces.length;
 
-    // Find user's best active subscription (by userId or across their owned workspaces)
-    const ownedIds = ownedWorkspaces.map((w) => w.id);
-    const activeSub = ownedIds.length > 0
-      ? await this.prisma.subscription.findFirst({
-          where: {
-            OR: [
-              { userId },
-              { workspaceId: { in: ownedIds } },
-            ],
-            status: 'ACTIVE',
-            plan: { code: { not: 'FREE' } },
-          },
-          include: { plan: true },
-          orderBy: { currentPeriodEnd: 'desc' },
-        })
-      : null;
+    // Find user's best active subscription (by userId directly or across their owned workspaces)
+    const activeSub = await this.prisma.subscription.findFirst({
+      where: {
+        OR: [
+          { userId },
+          ...(ownedIds.length > 0 ? [{ workspaceId: { in: ownedIds } }] : []),
+        ],
+        status: 'ACTIVE',
+        plan: { code: { not: 'FREE' } },
+      },
+      include: { plan: true },
+      orderBy: { currentPeriodEnd: 'desc' },
+    });
 
     const planCode = activeSub?.plan?.code || 'FREE';
 
