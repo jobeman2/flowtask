@@ -200,12 +200,14 @@ export class MockPrismaClient {
       path.resolve(process.cwd(), '../../flowtask_db.json'),
       path.resolve(__dirname, '../../flowtask_db.json'),
       path.resolve(__dirname, '../flowtask_db.json'),
-      'd:\\Thrive Inc\\FLOW TASK\\flowtask_db.json',
     ];
+    if (process.platform === 'win32') {
+      candidates.push('d:\\Thrive Inc\\FLOW TASK\\flowtask_db.json');
+    }
     for (const c of candidates) {
       if (fs.existsSync(c)) return c;
     }
-    return 'd:\\Thrive Inc\\FLOW TASK\\flowtask_db.json';
+    return path.resolve(process.cwd(), 'flowtask_db.json');
   }
 
   public loadFromDisk(): boolean {
@@ -1245,6 +1247,39 @@ export class MockPrismaClient {
       if (where?.id) return this.telegramChats.get(where.id) || null;
       return null;
     },
+    findMany: async ({ where, include }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.telegramChats.values());
+      if (where?.workspaceId) {
+        if (typeof where.workspaceId === 'string') {
+          list = list.filter((c: any) => c.workspaceId === where.workspaceId);
+        } else if (where.workspaceId.in && Array.isArray(where.workspaceId.in)) {
+          list = list.filter((c: any) => where.workspaceId.in.includes(c.workspaceId));
+        } else if (where.workspaceId.notIn && Array.isArray(where.workspaceId.notIn)) {
+          list = list.filter((c: any) => !where.workspaceId.notIn.includes(c.workspaceId));
+        }
+      }
+      if (where?.chatId) {
+        list = list.filter((c: any) => c.chatId === where.chatId);
+      }
+      if (include?.workspace) {
+        list = list.map((c: any) => {
+          const ws = this.workspaces.get(c.workspaceId);
+          if (!ws) return c;
+          const memberCount = Array.from(this.workspaceMembers.values()).filter((m: any) => m.workspaceId === ws.id).length;
+          const taskCount = Array.from(this.tasks.values()).filter((t: any) => t.workspaceId === ws.id).length;
+          const projectCount = Array.from(this.projects.values()).filter((p: any) => p.workspaceId === ws.id).length;
+          return {
+            ...c,
+            workspace: {
+              ...ws,
+              _count: { members: memberCount, tasks: taskCount, projects: projectCount },
+            },
+          };
+        });
+      }
+      return list;
+    },
     create: async ({ data }: any) => {
       this.loadFromDisk();
       const id = data.id || `chat_${Date.now()}`;
@@ -1279,6 +1314,24 @@ export class MockPrismaClient {
     },
   };
 
+  public getPlanByIdOrCode(planIdOrCode: string) {
+    if (!planIdOrCode) return null;
+    const search = planIdOrCode.toLowerCase();
+    const cleanSearch = search.replace(/^plan_/, '');
+    return (
+      Array.from(this.plans.values()).find((p: any) => {
+        const pId = (p.id || '').toLowerCase();
+        const pCode = (p.code || '').toLowerCase();
+        return (
+          pId === search ||
+          pCode === search ||
+          pCode === cleanSearch ||
+          pId === `plan_${cleanSearch}`
+        );
+      }) || null
+    );
+  }
+
   subscription = {
     findUnique: async ({ where, include }: any) => {
       this.loadFromDisk();
@@ -1288,7 +1341,7 @@ export class MockPrismaClient {
         (where?.id && s.id === where.id)
       ) || null;
       if (sub && include?.plan) {
-        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
+        sub = { ...sub, plan: this.getPlanByIdOrCode(sub.planId) };
       }
       return sub;
     },
@@ -1331,7 +1384,7 @@ export class MockPrismaClient {
 
       if (where?.plan?.code?.not) {
         list = list.filter((s: any) => {
-          const planObj = Array.from(this.plans.values()).find((p: any) => p.id === s.planId || p.code === s.planId);
+          const planObj = this.getPlanByIdOrCode(s.planId);
           return planObj && planObj.code !== where.plan.code.not;
         });
       }
@@ -1343,7 +1396,7 @@ export class MockPrismaClient {
 
       let sub = list[0] || null;
       if (sub && include?.plan) {
-        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
+        sub = { ...sub, plan: this.getPlanByIdOrCode(sub.planId) };
       }
       return sub;
     },
@@ -1356,7 +1409,7 @@ export class MockPrismaClient {
       if (include?.plan) {
         return list.map((s: any) => ({
           ...s,
-          plan: Array.from(this.plans.values()).find((p: any) => p.id === s.planId || p.code === s.planId || p.id === `plan_${s.planId?.toLowerCase()}`) || null,
+          plan: this.getPlanByIdOrCode(s.planId),
         }));
       }
       return list;
@@ -1368,7 +1421,7 @@ export class MockPrismaClient {
       this.subscriptions.set(id, record);
       this.saveToDisk();
       if (include?.plan) {
-        return { ...record, plan: Array.from(this.plans.values()).find((p: any) => p.id === record.planId || p.code === record.planId || p.id === `plan_${record.planId?.toLowerCase()}`) || null };
+        return { ...record, plan: this.getPlanByIdOrCode(record.planId) };
       }
       return record;
     },
@@ -1380,7 +1433,7 @@ export class MockPrismaClient {
         this.saveToDisk();
       }
       if (sub && include?.plan) {
-        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
+        return { ...sub, plan: this.getPlanByIdOrCode(sub.planId) };
       }
       return sub || null;
     },
@@ -1400,7 +1453,7 @@ export class MockPrismaClient {
         this.saveToDisk();
       }
       if (sub && include?.plan) {
-        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
+        return { ...sub, plan: this.getPlanByIdOrCode(sub.planId) };
       }
       return sub;
     },

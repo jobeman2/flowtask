@@ -236,22 +236,37 @@ export class AuthService {
     // Resolve user's best active subscription so front-end knows their plan immediately
     let userSubscription: { planCode: string; status: string; currentPeriodEnd: Date | null } | null = null;
     try {
-      const ownedWs = await this.prisma.workspace.findMany({ where: { ownerId: userId }, select: { id: true } });
-      const activeSub = await this.prisma.subscription.findFirst({
-        where: {
-          OR: [
-            { userId },
-            { workspaceId: { in: ownedWs.map((w) => w.id) } },
-          ],
-          status: 'ACTIVE',
-          plan: { code: { not: 'FREE' } },
-        },
+      // 1. Check direct user subscription
+      let activeSub = await this.prisma.subscription.findFirst({
+        where: { userId, status: 'ACTIVE' },
         include: { plan: true },
         orderBy: { currentPeriodEnd: 'desc' },
       });
-      if (activeSub) {
+
+      // 2. Check workspaces owned or joined by this user
+      if (!activeSub || !activeSub.plan || activeSub.plan.code === 'FREE') {
+        const ownedWs = await this.prisma.workspace.findMany({ where: { ownerId: userId }, select: { id: true } });
+        const memberWs = await this.prisma.workspaceMember.findMany({ where: { userId }, select: { workspaceId: true } });
+        const allWsIds = Array.from(new Set([...ownedWs.map((w) => w.id), ...memberWs.map((m) => m.workspaceId)]));
+
+        if (allWsIds.length > 0) {
+          const wsSub = await this.prisma.subscription.findFirst({
+            where: {
+              workspaceId: { in: allWsIds },
+              status: 'ACTIVE',
+            },
+            include: { plan: true },
+            orderBy: { currentPeriodEnd: 'desc' },
+          });
+          if (wsSub && wsSub.plan && wsSub.plan.code !== 'FREE') {
+            activeSub = wsSub;
+          }
+        }
+      }
+
+      if (activeSub && activeSub.plan && activeSub.plan.code !== 'FREE') {
         userSubscription = {
-          planCode: activeSub.plan?.code || 'FREE',
+          planCode: activeSub.plan.code,
           status: activeSub.status,
           currentPeriodEnd: activeSub.currentPeriodEnd,
         };

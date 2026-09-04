@@ -71,11 +71,29 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
           apiClient.setToken(res.data.accessToken);
           setUser(res.data.user);
 
-          // Restore subscription from auth response (works cross-device)
+          // Restore subscription from auth response or resilient user-specific cache
+          const subStorageKey = `flowtask_subscription_${res.data.user.id}`;
           if (res.data.subscription) {
             setSubscription(res.data.subscription);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(subStorageKey, JSON.stringify(res.data.subscription));
+            }
           } else {
-            setSubscription(null);
+            const cachedSub = typeof window !== 'undefined' ? localStorage.getItem(subStorageKey) : null;
+            if (cachedSub) {
+              try {
+                const parsed = JSON.parse(cachedSub);
+                if (!parsed.currentPeriodEnd || new Date(parsed.currentPeriodEnd).getTime() > Date.now()) {
+                  setSubscription(parsed);
+                } else {
+                  setSubscription(null);
+                }
+              } catch {
+                setSubscription(null);
+              }
+            } else {
+              setSubscription(null);
+            }
           }
 
           // User-specific workspace storage (NEVER leak another account's workspace on shared device)
@@ -110,6 +128,18 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     setActiveProfile(profile);
   };
 
+  const handleSetSubscription = (sub: UserSubscription | null) => {
+    setSubscription(sub);
+    if (typeof window !== 'undefined' && user?.id) {
+      const subStorageKey = `flowtask_subscription_${user.id}`;
+      if (sub) {
+        localStorage.setItem(subStorageKey, JSON.stringify(sub));
+      } else {
+        localStorage.removeItem(subStorageKey);
+      }
+    }
+  };
+
   return (
     <TelegramAuthContext.Provider
       value={{
@@ -118,7 +148,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         setWorkspaceId: handleSetWorkspaceId,
         setMockUser: handleSetMockUser,
         subscription,
-        setSubscription,
+        setSubscription: handleSetSubscription,
         isLoading,
         error,
       }}
