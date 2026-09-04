@@ -108,9 +108,11 @@ export class BillingService {
   async createPaymentOrder(userId: string, dto: CreateOrderDto) {
     let targetWorkspaceId = dto.workspaceId;
 
-    let workspace = await this.prisma.workspace.findUnique({
-      where: { id: targetWorkspaceId },
-    });
+    let workspace = targetWorkspaceId
+      ? await this.prisma.workspace.findUnique({
+          where: { id: targetWorkspaceId },
+        })
+      : null;
 
     // Fallback: If the passed workspaceId was stale, deleted, or from another device, find or create the user's primary workspace
     if (!workspace) {

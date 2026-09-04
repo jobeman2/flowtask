@@ -50,7 +50,8 @@ export function MoreView() {
     enabled: Boolean(workspaceId),
   });
 
-  const isUpgraded = subscription?.plan?.code && subscription.plan.code !== 'FREE';
+  const planCode = subscription?.planCode || (subscription as any)?.plan?.code || 'FREE';
+  const isUpgraded = planCode !== 'FREE';
 
   const toggleDarkMode = () => {
     triggerHaptic('light');
@@ -103,13 +104,13 @@ export function MoreView() {
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
             <span className="text-xs font-extrabold uppercase tracking-wider">
-              {isUpgraded ? 'Standard Plan Active' : 'Upgrade to Standard'}
+              {isUpgraded ? `${planCode} Plan Active` : 'Upgrade to Pro'}
             </span>
           </div>
           <p className="text-[11px] text-blue-100 font-medium">
             {isUpgraded
               ? 'Enjoy AI features, attachments & unlimited tasks'
-              : 'Unlock 10 ETB/mo Telebirr Team features'}
+              : 'Unlock Pro features with Telebirr'}
           </p>
         </div>
         <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />

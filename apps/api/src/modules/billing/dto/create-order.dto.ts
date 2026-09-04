@@ -2,8 +2,8 @@ import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateOrderDto {
   @IsString()
-  @IsNotEmpty()
-  workspaceId!: string;
+  @IsOptional()
+  workspaceId?: string;
 
   @IsString()
   @IsNotEmpty()

@@ -5,12 +5,44 @@ class ApiClient {
   private token: string | null = null;
   private currentWorkspaceId: string | null = null;
 
+  getToken(): string | null {
+    if (this.token) return this.token;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('flowtask_auth_token');
+      if (stored) {
+        this.token = stored;
+        return stored;
+      }
+    }
+    return null;
+  }
+
   setToken(token: string | null) {
     this.token = token;
+    if (typeof window !== 'undefined') {
+      if (token) localStorage.setItem('flowtask_auth_token', token);
+      else localStorage.removeItem('flowtask_auth_token');
+    }
+  }
+
+  getWorkspaceId(): string | null {
+    if (this.currentWorkspaceId) return this.currentWorkspaceId;
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('flowtask_active_ws');
+      if (stored) {
+        this.currentWorkspaceId = stored;
+        return stored;
+      }
+    }
+    return null;
   }
 
   setWorkspaceId(id: string | null) {
     this.currentWorkspaceId = id;
+    if (typeof window !== 'undefined') {
+      if (id) localStorage.setItem('flowtask_active_ws', id);
+      else localStorage.removeItem('flowtask_active_ws');
+    }
   }
 
   async request<T>(
@@ -22,12 +54,14 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const activeToken = this.getToken();
+    if (activeToken) {
+      headers['Authorization'] = `Bearer ${activeToken}`;
     }
 
-    if (this.currentWorkspaceId) {
-      headers['x-workspace-id'] = this.currentWorkspaceId;
+    const activeWsId = this.getWorkspaceId();
+    if (activeWsId) {
+      headers['x-workspace-id'] = activeWsId;
     }
 
     try {
