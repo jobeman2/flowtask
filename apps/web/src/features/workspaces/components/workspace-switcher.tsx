@@ -64,6 +64,7 @@ export function WorkspaceSwitcher() {
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
 
   return (
     <>
