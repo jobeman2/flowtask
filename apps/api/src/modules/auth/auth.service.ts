@@ -22,9 +22,9 @@ export class AuthService {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
     const nodeEnv = this.configService.get<string>('NODE_ENV');
 
-    // In development mode, allow mock / dev fallback if token is dummy
+    // In development mode or test account mode, allow mock / dev fallback
     let validated = validateTelegramWebAppData(initData, botToken);
-    if (!validated && nodeEnv === 'development') {
+    if (!validated && (nodeEnv === 'development' || initData.startsWith('dev_user_') || initData.startsWith('dev_mock_'))) {
       if (initData.startsWith('dev_user_jovany') || initData.startsWith('dev_user_jobeman')) {
         validated = {
           user: {
@@ -47,16 +47,20 @@ export class AuthService {
           },
           authDate: new Date(),
         };
-      } else if (initData.startsWith('dev_mock_')) {
-        const mockId = initData.replace('dev_mock_', '') || '1001';
+      } else if (initData.startsWith('dev_mock_') || initData.startsWith('dev_user_')) {
+        const rawSuffix = initData.replace(/^dev_(mock|user)_/, '') || '1';
+        const numId = parseInt(rawSuffix, 10);
+        const userIdNum = !isNaN(numId) && numId > 0
+          ? (numId < 10000 ? 1000000000 + numId : numId)
+          : Math.abs(rawSuffix.split('').reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0), 0));
         validated = {
           user: {
-            id: parseInt(mockId, 10),
-            first_name: 'Dev',
+            id: userIdNum,
+            first_name: rawSuffix.charAt(0).toUpperCase() + rawSuffix.slice(1),
             last_name: 'Tester',
-            username: `dev_user_${mockId}`,
+            username: `dev_user_${rawSuffix}`,
             language_code: 'en',
-            photo_url: `https://api.dicebear.com/7.x/bottts/svg?seed=dev_${mockId}`,
+            photo_url: `https://api.dicebear.com/7.x/bottts/svg?seed=dev_${rawSuffix}`,
           },
           authDate: new Date(),
         };

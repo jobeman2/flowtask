@@ -36,9 +36,9 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
   const createOrderMutation = useMutation({
     mutationFn: async (planCode: string) => {
-      if (!workspaceId) throw new Error('No active workspace selected');
+      const targetWsId = workspaceId || '';
       const res = await apiClient.createPaymentOrder({
-        workspaceId,
+        workspaceId: targetWsId,
         planCode,
         durationDays: 30,
       });
@@ -218,11 +218,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                       </Button>
                     ) : (
                       <Button
-                        variant={p.code === 'STANDARD' ? 'primary' : 'outline'}
+                        variant={p.popular ? 'primary' : 'outline'}
                         onClick={() => createOrderMutation.mutate(p.code)}
                         disabled={createOrderMutation.isPending}
                         className={`w-full text-xs font-bold py-2 rounded-xl ${
-                          p.code === 'STANDARD'
+                          p.popular
                             ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20'
                             : ''
                         }`}

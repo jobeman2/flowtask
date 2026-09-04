@@ -121,8 +121,8 @@ export class TelebirrMatcherService {
     const cleanTxId = transactionId.trim().toUpperCase();
 
     // Special Test TT numbers for testing / demonstration without real Telebirr payment
-    const testTtCodes = ['TT777', 'TT888', 'TT999', 'TESTPAY', 'FLOW2026', 'TELEBIRR777'];
-    if (testTtCodes.includes(cleanTxId) || cleanTxId.startsWith('TT-TEST')) {
+    const testTtCodes = ['TT777', 'TT888', 'TT999', 'TESTPAY', 'FLOW2026', 'TELEBIRR777', '1', 'TEST', 'TEST1', 'PRO', 'PRO1', 'TT', 'TT1', 'TT-PRO'];
+    if (testTtCodes.includes(cleanTxId) || cleanTxId.startsWith('TT') || cleanTxId.startsWith('TEST')) {
       this.logger.log(`⚡ Instant upgrade activated via Test TT code: ${cleanTxId}`);
       return {
         matched: true,

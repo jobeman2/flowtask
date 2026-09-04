@@ -121,9 +121,43 @@ export class MockPrismaClient {
       {
         id: 'plan_pro',
         code: 'PRO',
-        name: 'Pro (Agency & Business)',
+        name: 'Pro Individual',
+        description: 'Unlimited capacity, recurring tasks, AI task extraction and attachments',
+        priceEtbMonth: 199,
+        maxMembers: 10,
+        maxProjects: 9999,
+        maxTasks: 9999,
+        maxGroups: 10,
+        hasAiFeatures: true,
+        hasAttachments: true,
+        hasDailyDigest: true,
+        hasRecurring: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+      {
+        id: 'plan_team',
+        code: 'TEAM',
+        name: 'Team Collaboration',
+        description: 'Collaborate with your team inside Telegram groups with role permissions',
+        priceEtbMonth: 999,
+        maxMembers: 25,
+        maxProjects: 9999,
+        maxTasks: 9999,
+        maxGroups: 25,
+        hasAiFeatures: true,
+        hasAttachments: true,
+        hasDailyDigest: true,
+        hasRecurring: true,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      },
+      {
+        id: 'plan_business',
+        code: 'BUSINESS',
+        name: 'Business Scale',
         description: 'Unlimited capacity for companies and client teams',
-        priceEtbMonth: 950,
+        priceEtbMonth: 2999,
         maxMembers: 9999,
         maxProjects: 9999,
         maxTasks: 9999,
@@ -155,9 +189,8 @@ export class MockPrismaClient {
     ];
 
     for (const p of defaultPlans) {
-      if (!this.plans.has(p.id)) {
-        this.plans.set(p.id, p);
-      }
+      this.plans.set(p.id, p);
+      this.plans.set(p.code, p);
     }
   }
 
@@ -1239,30 +1272,94 @@ export class MockPrismaClient {
     },
     findUnique: async ({ where }: any) => {
       this.loadFromDisk();
-      return Array.from(this.plans.values()).find((p: any) => p.code === where?.code) || null;
+      return Array.from(this.plans.values()).find((p: any) => 
+        (where?.code && p.code?.toUpperCase() === where.code?.toUpperCase()) ||
+        (where?.id && (p.id === where.id || p.code?.toLowerCase() === where.id?.replace(/^plan_/, '').toLowerCase()))
+      ) || null;
     },
   };
 
   subscription = {
     findUnique: async ({ where, include }: any) => {
       this.loadFromDisk();
-      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.workspaceId === where?.workspaceId || s.id === where?.id) || null;
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => 
+        (where?.workspaceId && s.workspaceId === where.workspaceId) ||
+        (where?.userId && s.userId === where.userId) ||
+        (where?.id && s.id === where.id)
+      ) || null;
       if (sub && include?.plan) {
-        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
       }
       return sub;
     },
-    findFirst: async ({ where, include }: any = {}) => {
+    findFirst: async ({ where, include, orderBy }: any = {}) => {
       this.loadFromDisk();
-      let sub = Array.from(this.subscriptions.values()).find((s: any) => {
-        if (where?.workspaceId && s.workspaceId !== where.workspaceId) return false;
-        if (where?.status && s.status !== where.status) return false;
-        return true;
-      }) || null;
+      let list = Array.from(this.subscriptions.values());
+
+      // If where.OR is passed (e.g. [{ userId }, { workspaceId: { in: [...] } }])
+      if (where?.OR && Array.isArray(where.OR)) {
+        list = list.filter((s: any) => {
+          return where.OR.some((cond: any) => {
+            if (cond.userId && s.userId === cond.userId) return true;
+            if (cond.workspaceId && typeof cond.workspaceId === 'string' && s.workspaceId === cond.workspaceId) return true;
+            if (cond.workspaceId?.in && Array.isArray(cond.workspaceId.in) && cond.workspaceId.in.includes(s.workspaceId)) return true;
+            return false;
+          });
+        });
+      }
+
+      if (where?.userId) {
+        list = list.filter((s: any) => {
+          if (s.userId === where.userId) return true;
+          // Check if workspace is owned by this user
+          const ws = this.workspaces.get(s.workspaceId);
+          return ws && ws.ownerId === where.userId;
+        });
+      }
+
+      if (where?.workspaceId) {
+        if (typeof where.workspaceId === 'string') {
+          list = list.filter((s: any) => s.workspaceId === where.workspaceId);
+        } else if (where.workspaceId.in && Array.isArray(where.workspaceId.in)) {
+          list = list.filter((s: any) => where.workspaceId.in.includes(s.workspaceId));
+        }
+      }
+
+      if (where?.status) {
+        list = list.filter((s: any) => s.status === where.status);
+      }
+
+      if (where?.plan?.code?.not) {
+        list = list.filter((s: any) => {
+          const planObj = Array.from(this.plans.values()).find((p: any) => p.id === s.planId || p.code === s.planId);
+          return planObj && planObj.code !== where.plan.code.not;
+        });
+      }
+
+      // Sort by currentPeriodEnd desc if requested
+      if (orderBy?.currentPeriodEnd === 'desc') {
+        list = list.sort((a: any, b: any) => new Date(b.currentPeriodEnd || 0).getTime() - new Date(a.currentPeriodEnd || 0).getTime());
+      }
+
+      let sub = list[0] || null;
       if (sub && include?.plan) {
-        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+        sub = { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
       }
       return sub;
+    },
+    findMany: async ({ where, include }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.subscriptions.values());
+      if (where?.workspaceId) list = list.filter((s: any) => s.workspaceId === where.workspaceId);
+      if (where?.userId) list = list.filter((s: any) => s.userId === where.userId);
+      if (where?.status) list = list.filter((s: any) => s.status === where.status);
+      if (include?.plan) {
+        return list.map((s: any) => ({
+          ...s,
+          plan: Array.from(this.plans.values()).find((p: any) => p.id === s.planId || p.code === s.planId || p.id === `plan_${s.planId?.toLowerCase()}`) || null,
+        }));
+      }
+      return list;
     },
     create: async ({ data, include }: any) => {
       this.loadFromDisk();
@@ -1271,25 +1368,28 @@ export class MockPrismaClient {
       this.subscriptions.set(id, record);
       this.saveToDisk();
       if (include?.plan) {
-        return { ...record, plan: Array.from(this.plans.values()).find((p: any) => p.id === record.planId || p.code === record.planId) || null };
+        return { ...record, plan: Array.from(this.plans.values()).find((p: any) => p.id === record.planId || p.code === record.planId || p.id === `plan_${record.planId?.toLowerCase()}`) || null };
       }
       return record;
     },
     update: async ({ where, data, include }: any) => {
       this.loadFromDisk();
-      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.id === where?.id || s.workspaceId === where?.workspaceId);
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.id === where?.id || s.workspaceId === where?.workspaceId || (where?.userId && s.userId === where.userId));
       if (sub) {
         Object.assign(sub, data, { updatedAt: new Date() });
         this.saveToDisk();
       }
       if (sub && include?.plan) {
-        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
       }
       return sub || null;
     },
     upsert: async ({ where, update, create, include }: any) => {
       this.loadFromDisk();
-      let sub = Array.from(this.subscriptions.values()).find((s: any) => s.workspaceId === where?.workspaceId);
+      let sub = Array.from(this.subscriptions.values()).find((s: any) => 
+        (where?.workspaceId && s.workspaceId === where.workspaceId) ||
+        (where?.userId && s.userId === where.userId)
+      );
       if (sub) {
         Object.assign(sub, update, { updatedAt: new Date() });
         this.saveToDisk();
@@ -1300,7 +1400,7 @@ export class MockPrismaClient {
         this.saveToDisk();
       }
       if (sub && include?.plan) {
-        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId) || null };
+        return { ...sub, plan: Array.from(this.plans.values()).find((p: any) => p.id === sub.planId || p.code === sub.planId || p.id === `plan_${sub.planId?.toLowerCase()}`) || null };
       }
       return sub;
     },
