@@ -45,52 +45,60 @@ export class WorkspacesService {
         })
       : [];
 
-    // For Pro/Upgraded users: also check if user has admin groups in TelegramChat where membership was missing
-    const userTgAccount = await this.prisma.telegramAccount.findFirst({
-      where: { userId },
-    });
-
-    if (userTgAccount?.telegramId) {
-      // Find all TelegramChats currently registered with the bot
-      const allTgChats = await (this.prisma as any).telegramChat.findMany({
-        where: { workspaceId: { notIn: workspaceIds } },
-        include: {
-          workspace: {
-            include: {
-              _count: {
-                select: {
-                  members: true,
-                  tasks: true,
-                  projects: true,
-                },
+    // Find all TelegramChats registered with the bot to ensure bot-initiated groups are available to everyone
+    const allTgChats = await (this.prisma as any).telegramChat.findMany({
+      include: {
+        workspace: {
+          include: {
+            _count: {
+              select: {
+                members: true,
+                tasks: true,
+                projects: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
-      for (const tgChat of allTgChats) {
-        if (!tgChat.workspace) continue;
-        try {
-          const memberInfo = await this.telegramService.getChatMember(tgChat.chatId, userTgAccount.telegramId);
-          if (memberInfo && (memberInfo.status === 'creator' || memberInfo.status === 'administrator')) {
-            // User is admin of this group! Auto-create workspace membership as ADMIN
-            const newMem = await this.prisma.workspaceMember.create({
-              data: {
-                workspaceId: tgChat.workspace.id,
-                userId,
-                role: memberInfo.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN,
-              },
-            });
-            memberships.push({
-              ...newMem,
-              workspace: tgChat.workspace,
-            } as any);
-            telegramChats.push(tgChat);
+    const userTgAccount = await this.prisma.telegramAccount.findFirst({
+      where: { userId },
+    });
+
+    for (const tgChat of allTgChats) {
+      if (!tgChat.workspace) continue;
+      const alreadyMember = memberships.some((m) => m.workspaceId === tgChat.workspace.id);
+      if (!alreadyMember) {
+        let role = WorkspaceRole.MEMBER;
+        if (userTgAccount?.telegramId) {
+          try {
+            const memberInfo = await this.telegramService.getChatMember(tgChat.chatId, userTgAccount.telegramId);
+            if (memberInfo && (memberInfo.status === 'creator' || memberInfo.status === 'administrator')) {
+              role = memberInfo.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN;
+            }
+          } catch {
+            // Ignore telegram check errors
           }
-        } catch {
-          // Ignore if bot was kicked or cannot check
         }
+        try {
+          const newMem = await this.prisma.workspaceMember.create({
+            data: {
+              workspaceId: tgChat.workspace.id,
+              userId,
+              role,
+            },
+          });
+          memberships.push({
+            ...newMem,
+            workspace: tgChat.workspace,
+          } as any);
+        } catch {
+          // If already exists or concurrent create
+        }
+      }
+      if (!telegramChats.some((c: any) => c.id === tgChat.id)) {
+        telegramChats.push(tgChat);
       }
     }
 
@@ -108,7 +116,7 @@ export class WorkspacesService {
   }
 
   async getWorkspaceById(workspaceId: string, userId: string) {
-    const member = await this.prisma.workspaceMember.findUnique({
+    let member = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: {
           workspaceId,
@@ -136,6 +144,53 @@ export class WorkspacesService {
         },
       },
     });
+
+    if (!member) {
+      const tgChat = await (this.prisma as any).telegramChat.findFirst({
+        where: { workspaceId },
+      });
+      if (tgChat) {
+        try {
+          await this.prisma.workspaceMember.create({
+            data: {
+              workspaceId,
+              userId,
+              role: WorkspaceRole.MEMBER,
+            },
+          });
+          member = await this.prisma.workspaceMember.findUnique({
+            where: {
+              workspaceId_userId: {
+                workspaceId,
+                userId,
+              },
+            },
+            include: {
+              workspace: {
+                include: {
+                  projects: { where: { isArchived: false } },
+                  labels: true,
+                  members: {
+                    include: {
+                      user: {
+                        select: {
+                          id: true,
+                          name: true,
+                          email: true,
+                          avatarUrl: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
+        } catch {
+          // Ignore
+        }
+      }
+    }
 
     if (!member) {
       throw new ForbiddenException('You do not have access to this workspace');
