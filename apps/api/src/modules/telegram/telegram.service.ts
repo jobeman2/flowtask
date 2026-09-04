@@ -1,11 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../database/prisma.service';
+import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
 
 @Injectable()
 export class TelegramService {
   private readonly logger = new Logger(TelegramService.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {}
 
   verifyWebhookSecret(headerSecret: string): boolean {
     const configuredSecret = this.configService.get<string>('TELEGRAM_WEBHOOK_SECRET');
@@ -15,6 +20,43 @@ export class TelegramService {
 
   async handleUpdate(update: any) {
     this.logger.log(`Received Telegram webhook update ID: ${update?.update_id}`);
+    try {
+      // 1. Group membership change (bot added to group or made admin)
+      if (update?.my_chat_member) {
+        const myChatMember = update.my_chat_member;
+        const chat = myChatMember.chat;
+        const from = myChatMember.from;
+        const newStatus = myChatMember.new_chat_member?.status;
+
+        if (chat && (chat.type === 'group' || chat.type === 'supergroup')) {
+          if (newStatus === 'member' || newStatus === 'administrator') {
+            await this.registerOrSyncTelegramGroup(chat, from);
+          }
+        }
+      }
+
+      // 2. Message in group (e.g. /start, /connect, /sync or bot added via new_chat_members)
+      if (update?.message) {
+        const msg = update.message;
+        const chat = msg.chat;
+        const from = msg.from;
+
+        if (chat && (chat.type === 'group' || chat.type === 'supergroup')) {
+          const hasBot = msg.new_chat_members?.some((m: any) => m.is_bot);
+          const isCommand =
+            msg.text?.startsWith('/start') ||
+            msg.text?.startsWith('/connect') ||
+            msg.text?.startsWith('/sync') ||
+            msg.text?.startsWith('/workspace');
+
+          if (hasBot || isCommand) {
+            await this.registerOrSyncTelegramGroup(chat, from);
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(`Error handling Telegram update: ${err.message}`);
+    }
     return { ok: true };
   }
 
@@ -168,10 +210,13 @@ export class TelegramService {
     }
 
     try {
+      const cleanId = chatId.trim();
+      const targetChatId =
+        isNaN(Number(cleanId)) && !cleanId.startsWith('@') ? `@${cleanId}` : cleanId;
       const response = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId }),
+        body: JSON.stringify({ chat_id: targetChatId }),
       });
       const data = await response.json();
       if (data.ok && data.result) {
@@ -183,6 +228,30 @@ export class TelegramService {
       return null;
     }
   }
+
+  async getChatMember(chatId: string, userId: number | string): Promise<any> {
+    const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token || token === 'mock_token_for_dev') {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, user_id: Number(userId) }),
+      });
+      const data = await response.json();
+      if (data.ok && data.result) {
+        return data.result;
+      }
+      return null;
+    } catch (err: any) {
+      this.logger.error(`Error fetching chat member for ${chatId}/${userId}: ${err.message}`);
+      return null;
+    }
+  }
+
 
   async notifyWorkspaceInvite(data: {
     targetTelegramId?: string;
@@ -407,6 +476,225 @@ export class TelegramService {
       reply_markup: {
         inline_keyboard: [
           [{ text: '📱 Open Group Board', url: webAppUrl }],
+        ],
+      },
+    });
+  }
+
+  async registerOrSyncTelegramGroup(chat: any, fromUser: any) {
+    const chatId = String(chat.id);
+    const title = chat.title || 'Telegram Group';
+    this.logger.log(`Registering or syncing Telegram Group: "${title}" (${chatId})`);
+
+    // 1. Find or create User for fromUser if available
+    let user: any = null;
+    if (fromUser && !fromUser.is_bot) {
+      const tgIdStr = String(fromUser.id);
+      let account = await this.prisma.telegramAccount.findUnique({
+        where: { telegramId: tgIdStr },
+        include: { user: true },
+      });
+
+      if (!account && fromUser.username) {
+        account = await this.prisma.telegramAccount.findFirst({
+          where: { username: fromUser.username },
+          include: { user: true },
+        });
+      }
+
+      if (!account) {
+        const displayName =
+          [fromUser.first_name, fromUser.last_name].filter(Boolean).join(' ') ||
+          fromUser.username ||
+          'Admin';
+        const newUser = await this.prisma.user.create({
+          data: {
+            name: displayName,
+            timezone: 'UTC',
+          },
+        });
+        account = await this.prisma.telegramAccount.create({
+          data: {
+            telegramId: tgIdStr,
+            username: fromUser.username || null,
+            firstName: fromUser.first_name,
+            lastName: fromUser.last_name || null,
+            userId: newUser.id,
+          },
+          include: { user: true },
+        });
+        user = newUser;
+      } else {
+        user = account.user;
+      }
+    }
+
+    // 2. Check if TelegramChat already exists
+    let tgChat = await (this.prisma as any).telegramChat.findUnique({
+      where: { chatId },
+      include: { workspace: true },
+    });
+
+    let workspaceId: string;
+
+    if (!tgChat) {
+      let ownerId = user?.id;
+      if (!ownerId) {
+        const admins = await this.getChatAdministrators(chatId);
+        const firstCreator =
+          admins.find((a: any) => a.status === 'creator' && !a.user?.is_bot) ||
+          admins.find((a: any) => !a.user?.is_bot);
+        if (firstCreator?.user) {
+          const adminTg = firstCreator.user;
+          const adminTgId = String(adminTg.id);
+          let adminAcc = await this.prisma.telegramAccount.findUnique({
+            where: { telegramId: adminTgId },
+            include: { user: true },
+          });
+          if (!adminAcc) {
+            const adminName =
+              [adminTg.first_name, adminTg.last_name].filter(Boolean).join(' ') ||
+              adminTg.username ||
+              'Group Admin';
+            const newAdminUser = await this.prisma.user.create({
+              data: {
+                name: adminName,
+                timezone: 'UTC',
+              },
+            });
+            adminAcc = await this.prisma.telegramAccount.create({
+              data: {
+                telegramId: adminTgId,
+                username: adminTg.username || null,
+                firstName: adminTg.first_name,
+                lastName: adminTg.last_name || null,
+                userId: newAdminUser.id,
+              },
+              include: { user: true },
+            });
+            ownerId = newAdminUser.id;
+          } else {
+            ownerId = adminAcc.userId;
+          }
+        }
+      }
+
+      if (!ownerId) {
+        this.logger.warn(`Could not determine owner for Telegram group "${title}" (${chatId})`);
+        return;
+      }
+
+      const slug = `tg-${chatId.replace(/[^0-9]/g, '')}-${Date.now().toString(36)}`;
+      const newWs = await this.prisma.workspace.create({
+        data: {
+          name: title,
+          slug,
+          ownerId,
+          type: WorkspaceType.TEAM,
+          members: {
+            create: {
+              userId: ownerId,
+              role: WorkspaceRole.OWNER,
+            },
+          },
+        },
+      });
+
+      tgChat = await (this.prisma as any).telegramChat.create({
+        data: {
+          chatId,
+          title,
+          type: chat.type || 'group',
+          workspaceId: newWs.id,
+        },
+      });
+
+      workspaceId = newWs.id;
+    } else {
+      workspaceId = tgChat.workspaceId;
+      if (title && tgChat.title !== title) {
+        await (this.prisma as any).telegramChat.update({
+          where: { id: tgChat.id },
+          data: { title },
+        });
+      }
+    }
+
+    // 3. Auto-sync administrators as members
+    const admins = await this.getChatAdministrators(chatId);
+    for (const item of admins) {
+      const adminTg = item.user;
+      if (!adminTg || adminTg.is_bot) continue;
+
+      const adminTgId = String(adminTg.id);
+      let adminAcc = await this.prisma.telegramAccount.findUnique({
+        where: { telegramId: adminTgId },
+        include: { user: true },
+      });
+
+      if (!adminAcc && adminTg.username) {
+        adminAcc = await this.prisma.telegramAccount.findFirst({
+          where: { username: adminTg.username },
+          include: { user: true },
+        });
+      }
+
+      let adminUserId: string;
+      if (!adminAcc) {
+        const adminName =
+          [adminTg.first_name, adminTg.last_name].filter(Boolean).join(' ') ||
+          adminTg.username ||
+          'Admin';
+        const newAdminUser = await this.prisma.user.create({
+          data: {
+            name: adminName,
+            timezone: 'UTC',
+          },
+        });
+        adminAcc = await this.prisma.telegramAccount.create({
+          data: {
+            telegramId: adminTgId,
+            username: adminTg.username || null,
+            firstName: adminTg.first_name,
+            lastName: adminTg.last_name || null,
+            userId: newAdminUser.id,
+          },
+          include: { user: true },
+        });
+        adminUserId = newAdminUser.id;
+      } else {
+        adminUserId = adminAcc.userId;
+      }
+
+      // Add to workspace if not already member
+      const exists = await this.prisma.workspaceMember.findFirst({
+        where: { workspaceId, userId: adminUserId },
+      });
+
+      if (!exists) {
+        const role = item.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN;
+        await this.prisma.workspaceMember.create({
+          data: {
+            workspaceId,
+            userId: adminUserId,
+            role,
+          },
+        });
+      }
+    }
+
+    // 4. Send welcome confirmation to group
+    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'https://flowtask-web-six.vercel.app';
+    const welcomeText =
+      `🎉 *FlowTask Connected Successfully!*\n\n` +
+      `🏢 *Workspace:* *${title}*\n` +
+      `🛡️ *Status:* Group administrators have been synced to the workspace team.\n\n` +
+      `Team members can now open the board in the FlowTask Mini App, assign tasks, set deadlines, and receive instant alerts here!`;
+
+    await this.sendTelegramMessage(chatId, welcomeText, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🚀 Open FlowTask Board', web_app: { url: webAppUrl } }],
         ],
       },
     });

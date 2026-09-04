@@ -101,6 +101,17 @@ class ApiClient {
     });
   }
 
+  async connectTelegramGroup(chatIdOrUsername: string) {
+    return this.request<{
+      workspaceId: string;
+      telegramChat: any;
+      syncResult: any;
+    }>('/workspaces/connect-telegram-group', {
+      method: 'POST',
+      body: JSON.stringify({ chatIdOrUsername }),
+    });
+  }
+
   async getTaskStats(workspaceId: string) {
     return this.request<{
       totalActive: number;

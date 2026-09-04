@@ -22,6 +22,12 @@ class CreateWorkspaceDto {
   type?: WorkspaceType = WorkspaceType.PERSONAL;
 }
 
+class ConnectTelegramGroupDto {
+  @IsNotEmpty()
+  @IsString()
+  chatIdOrUsername: string;
+}
+
 class AddMemberDto {
   @IsOptional()
   @IsString()
@@ -59,6 +65,14 @@ export class WorkspacesController {
     @Body() dto: CreateWorkspaceDto
   ) {
     return this.workspacesService.createWorkspace(user.id, dto.name, dto.type);
+  }
+
+  @Post('connect-telegram-group')
+  async connectTelegramGroup(
+    @CurrentUser() user: User,
+    @Body() dto: ConnectTelegramGroupDto
+  ) {
+    return this.workspacesService.connectTelegramGroup(user.id, dto.chatIdOrUsername);
   }
 
   @Get(':id')

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
@@ -11,6 +12,8 @@ import {
   X,
   Bot,
   Sparkles,
+  RefreshCw,
+  Users,
 } from 'lucide-react';
 
 export function TeamView() {
@@ -18,11 +21,29 @@ export function TeamView() {
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
+  const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteIdentifier, setInviteIdentifier] = useState('');
   const [inviteRole, setInviteRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fetch all workspaces to inspect current workspace telegram link
+  const { data: workspaces = [] } = useQuery({
+    queryKey: ['workspaces', user?.id],
+    queryFn: async () => {
+      const res = await apiClient.getWorkspaces();
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
 
   // Fetch Team Members
   const { data: members = [], isLoading } = useQuery({
@@ -65,6 +86,28 @@ export function TeamView() {
     },
   });
 
+  // Sync Telegram Group Mutation
+  const syncGroupMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspaceId) return;
+      setSyncStatus(null);
+      const res = await apiClient.syncTelegramGroup(workspaceId);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
+      setSyncStatus(data?.message || 'Telegram group members synchronized successfully!');
+      setTimeout(() => setSyncStatus(null), 4000);
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      setSyncStatus(err.message || 'Failed to synchronize group members');
+      setTimeout(() => setSyncStatus(null), 5000);
+    },
+  });
+
   // Filter Members
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return members;
@@ -102,6 +145,48 @@ export function TeamView() {
         </button>
         )}
       </div>
+
+      {/* Telegram Group Sync Banner if linked */}
+      {currentWorkspace?.telegramChat && (
+        <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-900/60 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Users className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                {currentWorkspace.telegramChat.title || 'Telegram Group'}
+              </div>
+              <div className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-1">
+                <span>Group Synced</span>
+                <span>•</span>
+                <span>{members.length} member{members.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </div>
+
+          {canManageMembers && (
+            <button
+              type="button"
+              disabled={syncGroupMutation.isPending}
+              onClick={() => {
+                triggerHaptic('light');
+                syncGroupMutation.mutate();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all shrink-0 active:scale-95"
+            >
+              <RefreshCw className={`w-3 h-3 ${syncGroupMutation.isPending ? 'animate-spin' : ''}`} />
+              <span>{syncGroupMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {syncStatus && (
+        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-semibold animate-in fade-in">
+          {syncStatus}
+        </div>
+      )}
 
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-semibold text-slate-400">
@@ -216,10 +301,10 @@ export function TeamView() {
         )}
       </div>
 
-      {/* 4. Invite Member Bottom Sheet */}
-      {isInviteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+      {/* 4. Invite Member Bottom Sheet (Portaled to document.body) */}
+      {isInviteOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[85dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
@@ -295,7 +380,8 @@ export function TeamView() {
               {inviteMutation.isPending ? 'Sending Invite...' : 'Send Telegram Invite'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

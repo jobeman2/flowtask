@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
@@ -21,9 +22,14 @@ interface PricingModalProps {
 export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const { workspaceId, subscription, setSubscription } = useAuth();
   const { triggerHaptic } = useTelegram();
+  const [mounted, setMounted] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Current plan comes from user's account subscription (no extra API call needed)
   const currentPlanCode = subscription?.planCode || 'FREE';
@@ -50,7 +56,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     },
   });
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const plans = [
     {
@@ -126,9 +132,9 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     },
   ];
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in">
+      <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in">
         <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -264,6 +270,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
           }}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
