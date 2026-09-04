@@ -47,6 +47,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const explicitUser = activeProfile || urlParams?.get('user');
+      const targetWsId = urlParams?.get('workspaceId') || urlParams?.get('tgWebAppStartParam');
       // If running inside Telegram, NEVER fallback to dev_user_jovany
       const isTg = typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
       const actualInitData = initData || (typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData : '');
