@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';

@@ -49,7 +49,7 @@ class ApiClient {
   }
 
   async authWithTelegram(initData: string) {
-    return this.request<{ accessToken: string; user: any; defaultWorkspaceId?: string }>(
+    return this.request<{ accessToken: string; user: any; defaultWorkspaceId?: string; subscription?: any }>(
       '/auth/telegram',
       {
         method: 'POST',

@@ -8,7 +8,7 @@ import { TelegramService } from '../telegram/telegram.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { TaskStatus } from '@flowtask/database';
+import { TaskStatus, WorkspaceType } from '@flowtask/database';
 
 @Injectable()
 export class TasksService {

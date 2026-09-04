@@ -105,6 +105,7 @@ export class BillingService {
   /**
    * Create a Telebirr payment order
    */
+  async createPaymentOrder(userId: string, dto: CreateOrderDto) {
     let targetWorkspaceId = dto.workspaceId;
 
     let workspace = await this.prisma.workspace.findUnique({

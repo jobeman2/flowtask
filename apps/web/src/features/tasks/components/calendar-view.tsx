@@ -271,8 +271,7 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
             {selectedDateTasks.map((task) => {
               const isMeeting = task.title.toLowerCase().startsWith('[meeting]');
               const isDone = task.status === 'DONE';
-              const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
-              const projectColor = task.project?.color || '#2563eb';
+              const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'Task');
 
               // Extract meeting call link if available
               const urlMatch = task.description?.match(/Join URL:\s*(https?:\/\/[^\n\s]+)/i);
@@ -360,7 +359,7 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
-                          Task
+                          {projectTag}
                         </span>
                         <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {task.title}

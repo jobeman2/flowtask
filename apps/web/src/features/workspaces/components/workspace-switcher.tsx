@@ -7,11 +7,11 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { PricingModal } from '../../billing/components/pricing-modal';
-import { Layers, Plus, Users, User, X, Building2, Crown, Sparkles, Send } from 'lucide-react';
+import { Layers, Plus, Users, User, X, Building2, Crown, Sparkles } from 'lucide-react';
 import { Button } from '@flowtask/ui';
 
 export function WorkspaceSwitcher() {
-  const { user, workspaceId, setWorkspaceId, subscription } = useAuth();
+  const { user, workspaceId, setWorkspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
