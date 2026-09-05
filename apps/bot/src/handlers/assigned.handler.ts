@@ -73,7 +73,7 @@ export async function handleAssignedTasks(ctx: Context) {
   let globalIndex = 1;
 
   for (const [wsId, tasks] of grouped.entries()) {
-    const wsName = workspaceMap.get(wsId) || 'Team Workspace';
+    const wsName = String(workspaceMap.get(wsId) || 'Team Workspace');
     text += `🏢 *${escapeMarkdown(wsName)}* (${tasks.length})\n`;
 
     for (const task of tasks) {

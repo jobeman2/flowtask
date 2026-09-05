@@ -1,6 +1,7 @@
 // Resilient database client wrapper supporting both PrismaClient and in-memory mock storage with JSON disk persistence
 import * as fs from 'fs';
 import * as path from 'path';
+import { PrismaClient as RealPrismaClient } from '@prisma/client';
 
 export enum WorkspaceRole {
   OWNER = 'OWNER',
@@ -1630,6 +1631,46 @@ export class MockPrismaClient {
   }
 }
 
-export const prisma = new MockPrismaClient();
-export { MockPrismaClient as PrismaClient };
+// Determine whether to use real Prisma with Postgres or fallback to Mock
+const shouldUseRealDb = Boolean(
+  process.env.DATABASE_URL &&
+  process.env.USE_MOCK_DB !== 'true' &&
+  !process.env.DATABASE_URL.includes('localhost:5432/flowtask')
+);
+
+export function createPrismaClient(): any {
+  if (shouldUseRealDb) {
+    try {
+      return new RealPrismaClient();
+    } catch (err) {
+      console.warn('[Database] Failed to instantiate RealPrismaClient, falling back to mock:', err);
+      return new MockPrismaClient();
+    }
+  }
+  return new MockPrismaClient();
+}
+
+// Resilient class wrapper for NestJS DI / PrismaService inheritance
+export class DynamicPrismaClient extends MockPrismaClient {
+  constructor(options?: any) {
+    super();
+    if (shouldUseRealDb) {
+      try {
+        return new RealPrismaClient(options) as any;
+      } catch (err) {
+        console.warn('[Database] Failed to instantiate RealPrismaClient, falling back to mock:', err);
+      }
+    }
+  }
+}
+
+const globalForPrisma = globalThis as unknown as { prisma: any };
+
+export const prisma = globalForPrisma.prisma || createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+export { RealPrismaClient, DynamicPrismaClient as PrismaClient };
 

@@ -35,10 +35,10 @@ export async function handleBoardCommand(ctx: Context) {
     orderBy: { createdAt: 'desc' },
   });
 
-  const todo = tasks.filter((t) => t.status === TaskStatus.TODO);
-  const inProgress = tasks.filter((t) => t.status === TaskStatus.IN_PROGRESS);
-  const inReview = tasks.filter((t) => t.status === (TaskStatus as any).IN_REVIEW || (t.status as any) === 'IN_REVIEW');
-  const done = tasks.filter((t) => t.status === TaskStatus.DONE);
+  const todo = tasks.filter((t: any) => t.status === TaskStatus.TODO);
+  const inProgress = tasks.filter((t: any) => t.status === TaskStatus.IN_PROGRESS);
+  const inReview = tasks.filter((t: any) => t.status === (TaskStatus as any).IN_REVIEW || (t.status as any) === 'IN_REVIEW');
+  const done = tasks.filter((t: any) => t.status === TaskStatus.DONE);
 
   let msg = `📌 <b>${workspace.name} — Live Kanban Board</b>\n\n`;
 
@@ -46,7 +46,7 @@ export async function handleBoardCommand(ctx: Context) {
   msg += `⚪ <b>To Do (${todo.length}):</b>\n`;
   if (todo.length === 0) msg += `  <i>(No tasks)</i>\n`;
   else {
-    todo.slice(0, 3).forEach((t) => {
+    todo.slice(0, 3).forEach((t: any) => {
       msg += `  • ${t.title} ${t.assignee ? `(@${t.assignee.name})` : ''}\n`;
     });
     if (todo.length > 3) msg += `  <i>...and ${todo.length - 3} more</i>\n`;
@@ -57,7 +57,7 @@ export async function handleBoardCommand(ctx: Context) {
   msg += `🟡 <b>In Progress (${inProgress.length}):</b>\n`;
   if (inProgress.length === 0) msg += `  <i>(No tasks)</i>\n`;
   else {
-    inProgress.slice(0, 3).forEach((t) => {
+    inProgress.slice(0, 3).forEach((t: any) => {
       msg += `  • ${t.title} ${t.assignee ? `(@${t.assignee.name})` : ''}\n`;
     });
     if (inProgress.length > 3) msg += `  <i>...and ${inProgress.length - 3} more</i>\n`;
@@ -67,7 +67,7 @@ export async function handleBoardCommand(ctx: Context) {
   // In Review
   if (inReview.length > 0) {
     msg += `🟣 <b>In Review (${inReview.length}):</b>\n`;
-    inReview.slice(0, 3).forEach((t) => {
+    inReview.slice(0, 3).forEach((t: any) => {
       msg += `  • ${t.title} ${t.assignee ? `(@${t.assignee.name})` : ''}\n`;
     });
     msg += `\n`;
