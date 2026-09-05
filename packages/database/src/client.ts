@@ -797,6 +797,28 @@ export class MockPrismaClient {
       }
       return ws;
     },
+    delete: async ({ where }: any) => {
+      this.loadFromDisk();
+      const ws = this.workspaces.get(where.id);
+      if (ws) {
+        this.workspaces.delete(where.id);
+        // Cascade delete members, tasks, projects, telegramChats
+        for (const [mId, m] of this.workspaceMembers.entries()) {
+          if (m.workspaceId === where.id) this.workspaceMembers.delete(mId);
+        }
+        for (const [tId, t] of this.tasks.entries()) {
+          if (t.workspaceId === where.id) this.tasks.delete(tId);
+        }
+        for (const [pId, p] of this.projects.entries()) {
+          if (p.workspaceId === where.id) this.projects.delete(pId);
+        }
+        for (const [cId, c] of this.telegramChats.entries()) {
+          if (c.workspaceId === where.id) this.telegramChats.delete(cId);
+        }
+        this.saveToDisk();
+      }
+      return ws;
+    },
   };
 
   workspaceMember = {

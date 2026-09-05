@@ -109,6 +109,22 @@ export class WorkspacesController {
     return this.workspacesService.removeMember(workspaceId, user.id, memberId);
   }
 
+  @Post(':id/leave')
+  async leaveWorkspace(
+    @Param('id') workspaceId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.leaveWorkspace(workspaceId, user.id);
+  }
+
+  @Delete(':id')
+  async deleteWorkspace(
+    @Param('id') workspaceId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.deleteWorkspace(workspaceId, user.id);
+  }
+
   @Post(':id/sync-telegram-group')
   async syncTelegramGroup(
     @Param('id') workspaceId: string,

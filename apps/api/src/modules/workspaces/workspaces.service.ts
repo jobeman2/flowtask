@@ -501,6 +501,55 @@ export class WorkspacesService {
     });
   }
 
+  async leaveWorkspace(workspaceId: string, currentUserId: string) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    if (workspace.ownerId === currentUserId) {
+      throw new BadRequestException('The workspace owner cannot leave the workspace. You can delete the workspace instead.');
+    }
+
+    const member = await this.prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId: currentUserId },
+    });
+
+    if (!member) {
+      throw new NotFoundException('You are not a member of this workspace');
+    }
+
+    await this.prisma.workspaceMember.delete({
+      where: { id: member.id },
+    });
+
+    return { success: true, message: 'Successfully left the workspace' };
+  }
+
+  async deleteWorkspace(workspaceId: string, currentUserId: string) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    if (workspace.ownerId !== currentUserId) {
+      throw new ForbiddenException('Only the workspace owner can delete this workspace');
+    }
+
+    // Cascade deletes tasks, projects, members, labels, activity logs, telegram chat
+    await this.prisma.workspace.delete({
+      where: { id: workspaceId },
+    });
+
+    return { success: true, message: 'Workspace deleted successfully' };
+  }
+
   async syncTelegramGroup(workspaceId: string, currentUserId: string) {
     // 1. Find linked telegram chat for this workspace
     let tgChat = await this.prisma.telegramChat.findFirst({

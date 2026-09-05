@@ -12,6 +12,7 @@ import { SettingsModal } from '../../settings/components/settings-modal';
 import { ClickUpSyncModal } from '../../settings/components/clickup-sync-modal';
 import { CreateMeetingModal } from '../../meetings/components/create-meeting-modal';
 import { AiProjectManagerModal } from '../../ai/components/ai-project-manager-modal';
+import { ManageWorkspaceModal } from '../../workspaces/components/manage-workspace-modal';
 import {
   Bell,
   Sliders,
@@ -25,6 +26,7 @@ import {
   ArrowRightLeft,
   Video,
   Bot,
+  Building2,
 } from 'lucide-react';
 
 export function MoreView() {
@@ -37,6 +39,7 @@ export function MoreView() {
   const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
   const [isCreateMeetingOpen, setIsCreateMeetingOpen] = useState(false);
   const [isAiPmOpen, setIsAiPmOpen] = useState(false);
+  const [isWorkspaceManageOpen, setIsWorkspaceManageOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Fetch User's Own Subscription
@@ -215,6 +218,28 @@ export function MoreView() {
           </div>
         </div>
 
+        {/* Workspace & Team Management */}
+        <div
+          onClick={() => {
+            triggerHaptic('light');
+            setIsWorkspaceManageOpen(true);
+          }}
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+              Workspace & Members
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-400">
+            <span className="font-medium text-[11px]">Leave, Delete & Members</span>
+            <ChevronRight className="w-4 h-4" />
+          </div>
+        </div>
+
         {/* General App Settings & Preferences */}
         <div
           onClick={() => {
@@ -338,6 +363,11 @@ export function MoreView() {
       <ClickUpSyncModal
         isOpen={isClickUpSyncOpen}
         onClose={() => setIsClickUpSyncOpen(false)}
+      />
+
+      <ManageWorkspaceModal
+        isOpen={isWorkspaceManageOpen}
+        onClose={() => setIsWorkspaceManageOpen(false)}
       />
     </div>
   );

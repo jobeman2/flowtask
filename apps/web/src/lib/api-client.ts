@@ -129,6 +129,18 @@ class ApiClient {
     });
   }
 
+  async leaveWorkspace(workspaceId: string) {
+    return this.request<any>(`/workspaces/${workspaceId}/leave`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteWorkspace(workspaceId: string) {
+    return this.request<any>(`/workspaces/${workspaceId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async syncTelegramGroup(workspaceId: string) {
     return this.request<{
       success: boolean;
