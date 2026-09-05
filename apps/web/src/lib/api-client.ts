@@ -45,6 +45,12 @@ class ApiClient {
     }
   }
 
+  getLiveStreamUrl(workspaceId?: string): string {
+    const base = API_URL;
+    const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
+    return `${base}/tasks/live-stream${query}`;
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {}

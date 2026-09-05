@@ -408,42 +408,73 @@ export function createBot() {
     }
 
     const fromTgId = String(ctx.from?.id);
-    const tgAcc = await prisma.telegramAccount.findFirst({ where: { telegramId: fromTgId } });
-    
+    let tgAcc = await prisma.telegramAccount.findFirst({ where: { telegramId: fromTgId } });
+
+    if (!tgAcc && ctx.from?.username) {
+      tgAcc = await prisma.telegramAccount.findFirst({ where: { username: ctx.from.username } });
+    }
+
+    let targetUserId = tgAcc?.userId;
+
+    if (!targetUserId) {
+      const u = await prisma.user.create({
+        data: { name: ctx.from?.first_name || 'Teammate', timezone: 'UTC' },
+      });
+      await prisma.telegramAccount.create({
+        data: {
+          telegramId: fromTgId,
+          username: ctx.from?.username || null,
+          firstName: ctx.from?.first_name || 'User',
+          userId: u.id,
+        },
+      });
+      targetUserId = u.id;
+    }
+
     if (memberId && memberId !== 'new') {
       try {
         await (prisma as any).workspaceMember.update({
           where: { id: memberId },
-          data: { role: 'MEMBER' },
+          data: { role: 'MEMBER', userId: targetUserId },
         });
       } catch {
         // Fallback
       }
-    } else if (tgAcc?.userId) {
+    } else {
       try {
-        await prisma.workspaceMember.create({
-          data: {
-            workspaceId,
-            userId: tgAcc.userId,
-            role: 'MEMBER',
-          },
+        const existing = await prisma.workspaceMember.findFirst({
+          where: { workspaceId, userId: targetUserId },
         });
+        if (!existing) {
+          await prisma.workspaceMember.create({
+            data: {
+              workspaceId,
+              userId: targetUserId,
+              role: 'MEMBER',
+            },
+          });
+        }
       } catch {
         // Fallback
       }
     }
 
     await ctx.answerCallbackQuery({ text: '🎉 Invitation accepted!' });
-    const webAppUrl = botConfig.webAppUrl || 'http://localhost:3000';
+    const isHttps = botConfig.webAppUrl.startsWith('https://');
+    const wsUrl = `${botConfig.webAppUrl}?workspaceId=${ws.id}`;
+    const keyboard = new InlineKeyboard();
+
+    if (isHttps) {
+      keyboard.webApp('🚀 Open in FlowTask Mini App', wsUrl);
+    } else {
+      keyboard.url('🚀 Open in FlowTask Mini App', 'https://flowtask.app');
+    }
+
     await ctx.editMessageText(
       `🎉 *Invitation Accepted!*\n\nYou are now an active member of *${ws.name}*.\nYou can now view, collaborate, and manage tasks together!`,
       {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🚀 Open in FlowTask Mini App', web_app: { url: webAppUrl } }],
-          ],
-        },
+        reply_markup: keyboard,
       }
     );
   });

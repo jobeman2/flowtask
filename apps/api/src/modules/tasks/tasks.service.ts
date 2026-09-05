@@ -9,12 +9,14 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { TaskStatus, WorkspaceType } from '@flowtask/database';
+import { LiveEventsService } from './live-events.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     private prisma: PrismaService,
-    private telegramService: TelegramService
+    private telegramService: TelegramService,
+    private liveEventsService: LiveEventsService,
   ) {}
 
   private async checkTaskPermission(
@@ -256,20 +258,41 @@ export class TasksService {
       return task;
     });
 
+    // Dispatch live event to connected frontend clients immediately
+    this.liveEventsService.emit({
+      workspaceId: targetWorkspaceId,
+      type: 'TASK_CREATED',
+      data: result,
+    });
+
     // Dispatch notifications asynchronously (non-blocking)
     try {
       const creator = await this.prisma.user.findUnique({ where: { id: creatorId } });
-      const workspace = await this.prisma.workspace.findUnique({ where: { id: dto.workspaceId } });
+      const workspace = await this.prisma.workspace.findUnique({ where: { id: targetWorkspaceId } });
       const creatorTg = await this.prisma.telegramAccount.findFirst({ where: { userId: creatorId } });
-      const targetTg = dto.assigneeId
+
+      let targetTg = dto.assigneeId
         ? await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } })
         : null;
+
+      // Ensure targetTg has a valid numeric Telegram ID if possible
+      if (dto.assigneeId && (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId))) {
+        const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
+        if (assigneeUserObj?.name) {
+          const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
+          const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
+          if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
+            targetTg = altTg;
+          }
+        }
+      }
+
       const assigneeUser = dto.assigneeId
         ? await this.prisma.user.findUnique({ where: { id: dto.assigneeId } })
         : null;
 
       // 1. Send DM to the assignee (if assigned to someone else)
-      if (targetTg?.telegramId && dto.assigneeId !== creatorId) {
+      if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId) && dto.assigneeId !== creatorId) {
         await this.telegramService.notifyTaskAssigned({
           targetTelegramId: targetTg.telegramId,
           taskId: result.id,
@@ -283,7 +306,7 @@ export class TasksService {
       }
 
       // 2. Send DM confirmation to the creator
-      if (creatorTg?.telegramId) {
+      if (creatorTg?.telegramId && /^\d+$/.test(creatorTg.telegramId)) {
         await this.telegramService.notifyTaskCreatedForCreator({
           targetTelegramId: creatorTg.telegramId,
           taskId: result.id,
@@ -297,10 +320,10 @@ export class TasksService {
 
       // 3. If workspace is linked to a Telegram Group, broadcast to the group chat
       const groupChat = await this.prisma.telegramChat.findFirst({
-        where: { workspaceId: dto.workspaceId },
+        where: { workspaceId: targetWorkspaceId },
       });
 
-      if (groupChat?.chatId) {
+      if (groupChat?.chatId && /^-?\d+$/.test(groupChat.chatId)) {
         await this.telegramService.notifyGroupTaskCreated({
           groupChatId: groupChat.chatId,
           taskId: result.id,
@@ -314,7 +337,7 @@ export class TasksService {
           imageUrl: result.imageUrl || dto.imageUrl || null,
         });
       }
-    } catch {
+    } catch (e: any) {
       // Non-blocking notification
     }
 
@@ -383,13 +406,31 @@ export class TasksService {
       return res;
     });
 
+    // Emit live event to connected frontend clients
+    this.liveEventsService.emit({
+      workspaceId,
+      type: updateFields.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_UPDATED',
+      data: updated,
+    });
+
     // If task was newly assigned or reassigned to a different teammate
     if (dto.assigneeId && dto.assigneeId !== existing.assigneeId && dto.assigneeId !== userId) {
       try {
         const updater = await this.prisma.user.findUnique({ where: { id: userId } });
         const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
-        const targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
-        if (targetTg?.telegramId) {
+        let targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
+        if (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId)) {
+          const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
+          if (assigneeUserObj?.name) {
+            const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
+            const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
+            if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
+              targetTg = altTg;
+            }
+          }
+        }
+
+        if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
           await this.telegramService.notifyTaskAssigned({
             targetTelegramId: targetTg.telegramId,
             taskId: updated.id,
@@ -416,7 +457,7 @@ export class TasksService {
           : null;
 
         // 1. Notify creator if completed by someone else
-        if (creatorTg?.telegramId && existing.creatorId !== userId) {
+        if (creatorTg?.telegramId && /^\d+$/.test(creatorTg.telegramId) && existing.creatorId !== userId) {
           await this.telegramService.notifyTaskCompleted({
             targetTelegramId: creatorTg.telegramId,
             taskTitle: updated.title,
@@ -430,7 +471,7 @@ export class TasksService {
           where: { workspaceId },
         });
 
-        if (groupChat?.chatId) {
+        if (groupChat?.chatId && /^-?\d+$/.test(groupChat.chatId)) {
           await this.telegramService.notifyGroupTaskCompleted({
             groupChatId: groupChat.chatId,
             taskTitle: updated.title,
@@ -477,6 +518,13 @@ export class TasksService {
         action: 'TASK_DELETED',
         metadata: { title: task.title },
       },
+    });
+
+    // Emit live event to connected frontend clients
+    this.liveEventsService.emit({
+      workspaceId,
+      type: 'TASK_DELETED',
+      data: { taskId },
     });
 
     return { deleted: true };

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../providers/telegram-provider';
+import { useLiveEvents } from '../hooks/use-live-events';
 import { WorkspaceSwitcher } from '../features/workspaces/components/workspace-switcher';
 import { PricingModal } from '../features/billing/components/pricing-modal';
 import { BottomNav, NavTab } from '../components/navigation/bottom-nav';
@@ -14,7 +15,8 @@ import { TaskDetailModal } from '../features/tasks/components/task-detail-modal'
 import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, error, subscription } = useAuth();
+  const { user, workspaceId, error, subscription } = useAuth();
+  useLiveEvents(workspaceId);
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);

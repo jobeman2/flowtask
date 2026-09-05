@@ -14,6 +14,10 @@ import {
   Sparkles,
   RefreshCw,
   Users,
+  Copy,
+  Check,
+  Link2,
+  Share2,
 } from 'lucide-react';
 
 export function TeamView() {
@@ -28,6 +32,7 @@ export function TeamView() {
   const [inviteRole, setInviteRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -327,6 +332,51 @@ export function TeamView() {
                 {inviteError}
               </div>
             )}
+
+            {/* Direct Bot Link Option */}
+            <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 rounded-2xl border border-blue-200/80 dark:border-blue-900/60 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 dark:text-blue-200">
+                <Link2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Direct Bot Invite Link</span>
+              </div>
+              <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-snug">
+                Share this link so anyone can open the bot and instantly join this workspace.
+              </p>
+              <div className="flex items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    const link = `https://t.me/flowtaskmanager_bot?start=invite_${workspaceId}`;
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(link);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2500);
+                    }
+                  }}
+                  className="flex-1 py-1.5 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Copied!' : 'Copy Link'}</span>
+                </button>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(`https://t.me/flowtaskmanager_bot?start=invite_${workspaceId}`)}&text=${encodeURIComponent(`Join our workspace team on FlowTask!`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => triggerHaptic('light')}
+                  className="py-1.5 px-2.5 rounded-xl bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 font-bold text-xs flex items-center justify-center gap-1 shadow-xs active:scale-95"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">or invite by username</span>
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+            </div>
 
             <div className="space-y-1">
               <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300">

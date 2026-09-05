@@ -8,12 +8,14 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class WorkspacesService {
   constructor(
     private prisma: PrismaService,
-    private telegramService: TelegramService
+    private telegramService: TelegramService,
+    private configService: ConfigService,
   ) {}
 
   async listUserWorkspaces(userId: string) {
@@ -335,8 +337,8 @@ export class WorkspacesService {
       if (payload.username) {
         const cleanUsername = payload.username.replace(/^@/, '').trim().toLowerCase();
         
-        // Find existing Telegram account by username
-        const tgAcc = await this.prisma.telegramAccount.findFirst({
+        // Find existing Telegram account by username (prioritizing real numeric accounts)
+        let tgAcc = await this.prisma.telegramAccount.findFirst({
           where: { username: cleanUsername },
         });
 
@@ -417,11 +419,15 @@ export class WorkspacesService {
       },
     });
 
+    // Generate deep-link for direct bot acceptance
+    const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'flowtaskmanager_bot';
+    const inviteLink = `https://t.me/${botUsername}?start=invite_${workspaceId}`;
+
     // Send Telegram Notification to the invited user
     try {
       const inviter = await this.prisma.user.findUnique({ where: { id: currentUserId } });
       const targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: targetUserId } });
-      if (targetTg?.telegramId) {
+      if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
         await this.telegramService.notifyWorkspaceInvite({
           targetTelegramId: targetTg.telegramId,
           workspaceId,
@@ -435,7 +441,10 @@ export class WorkspacesService {
       // Non-blocking notification
     }
 
-    return createdMember;
+    return {
+      ...createdMember,
+      inviteLink,
+    };
   }
 
   async removeMember(

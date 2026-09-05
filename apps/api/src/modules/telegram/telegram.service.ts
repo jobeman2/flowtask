@@ -60,11 +60,39 @@ export class TelegramService {
     return { ok: true };
   }
 
+  private escapeMarkdown(text?: string | null): string {
+    if (!text) return '';
+    return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  }
+
+  private getSafeWebAppButton(label: string = '📱 Open in FlowTask Mini App') {
+    const rawUrl = this.configService.get<string>('WEB_BASE_URL') || '';
+    const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'flowtaskmanager_bot';
+    if (rawUrl && rawUrl.startsWith('https://')) {
+      return { text: label, web_app: { url: rawUrl } };
+    }
+    return { text: label, url: `https://t.me/${botUsername}` };
+  }
+
+  private getSafeGroupButton(label: string = '📱 Open in FlowTask Mini App') {
+    const rawUrl = this.configService.get<string>('WEB_BASE_URL') || '';
+    const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'flowtaskmanager_bot';
+    if (rawUrl && rawUrl.startsWith('https://')) {
+      return { text: label, url: rawUrl };
+    }
+    return { text: label, url: `https://t.me/${botUsername}` };
+  }
+
   async sendTelegramMessage(
     telegramId: string,
     text: string,
     options?: { reply_markup?: any; parse_mode?: string }
   ) {
+    if (!telegramId || !/^-?\d+$/.test(telegramId)) {
+      this.logger.warn(`[TelegramService] Skipping message: target "${telegramId}" is not a valid numeric Telegram chat ID`);
+      return { ok: false, error: 'invalid_chat_id' };
+    }
+
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token || token === 'mock_token_for_dev') {
       this.logger.log(`[Mock Bot DM to ${telegramId}]: ${text}`);
@@ -88,7 +116,7 @@ export class TelegramService {
         this.logger.warn(
           `Telegram sendMessage with parse_mode failed for ${telegramId}: ${data.description}. Retrying with plain text fallback...`
         );
-        // Fallback without parse_mode to ensure delivery
+        // Fallback without parse_mode and sanitizing buttons if URL was invalid
         const fallbackRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -261,14 +289,19 @@ export class TelegramService {
     inviterName: string;
     memberId?: string;
   }) {
-    if (!data.targetTelegramId) return;
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) {
+      this.logger.warn(`Cannot send workspace invite DM: target telegram ID "${data.targetTelegramId}" is not numeric`);
+      return;
+    }
 
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    const wsName = this.escapeMarkdown(data.workspaceName);
+    const inviter = this.escapeMarkdown(data.inviterName);
+
     const text =
       `👋 *Workspace Team Invitation!*\n\n` +
-      `🏢 *Workspace:* *${data.workspaceName}*\n` +
+      `🏢 *Workspace:* *${wsName}*\n` +
       `🛡️ *Role:* \`${data.role}\`\n` +
-      `👤 *Invited by:* *${data.inviterName}*\n\n` +
+      `👤 *Invited by:* *${inviter}*\n\n` +
       `Would you like to join this workspace to collaborate and receive assigned tasks?`;
 
     const inlineKeyboard: any[] = [
@@ -276,7 +309,7 @@ export class TelegramService {
         { text: '✅ Accept Invite', callback_data: `invite:accept:${data.workspaceId}:${data.memberId || 'new'}` },
         { text: '❌ Decline', callback_data: `invite:decline:${data.workspaceId}:${data.memberId || 'new'}` },
       ],
-      [{ text: '📱 View in FlowTask Mini App', web_app: { url: webAppUrl } }],
+      [this.getSafeWebAppButton('📱 View in FlowTask Mini App')],
     ];
 
     return this.sendTelegramMessage(data.targetTelegramId, text, {
@@ -296,9 +329,11 @@ export class TelegramService {
     assignerName: string;
     dueDate?: string | null;
   }) {
-    if (!data.targetTelegramId) return;
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) {
+      this.logger.warn(`Cannot send task assigned DM: target telegram ID "${data.targetTelegramId}" is not numeric`);
+      return;
+    }
 
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
     const dueInfo = data.dueDate
       ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
       : '';
@@ -306,18 +341,18 @@ export class TelegramService {
     const priorityEmoji =
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
-    const descInfo = data.description ? `\n📄 *Description:* _${data.description}_` : '';
+    const descInfo = data.description ? `\n📄 *Description:* _${this.escapeMarkdown(data.description)}_` : '';
 
     const text =
       `📬 *Telegram Inbox — Task Assigned to You!*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*${descInfo}\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*${descInfo}\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
-      `🏢 *Workspace:* *${data.workspaceName}*\n` +
-      `👤 *Assigned by:* *${data.assignerName}*${dueInfo}\n\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `👤 *Assigned by:* *${this.escapeMarkdown(data.assignerName)}*${dueInfo}\n\n` +
       `_This task is now in your FlowTask Mini App and Telegram task list._`;
 
     const inlineKeyboard: any[] = [
-      [{ text: '📱 Open in FlowTask Mini App', web_app: { url: webAppUrl } }],
+      [this.getSafeWebAppButton('📱 Open in FlowTask Mini App')],
     ];
 
     if (data.taskId) {
@@ -343,9 +378,8 @@ export class TelegramService {
     assigneeName?: string | null;
     dueDate?: string | null;
   }) {
-    if (!data.targetTelegramId) return;
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) return;
 
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
     const dueInfo = data.dueDate
       ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
       : '';
@@ -355,14 +389,14 @@ export class TelegramService {
 
     const text =
       `✅ *Task Created Confirmation*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
-      `🏢 *Workspace:* *${data.workspaceName}*\n` +
-      `👤 *Assigned to:* *${data.assigneeName || 'You (Personal)'}*${dueInfo}\n\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `👤 *Assigned to:* *${this.escapeMarkdown(data.assigneeName || 'You (Personal)')}*${dueInfo}\n\n` +
       `_You will receive updates here when this task is completed._`;
 
     const inlineKeyboard: any[] = [
-      [{ text: '📱 View in FlowTask Mini App', web_app: { url: webAppUrl } }],
+      [this.getSafeWebAppButton('📱 View in FlowTask Mini App')],
     ];
 
     if (data.taskId) {
@@ -385,20 +419,19 @@ export class TelegramService {
     workspaceName: string;
     completedByName: string;
   }) {
-    if (!data.targetTelegramId) return;
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) return;
 
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
     const text =
       `🎉 *Task Completed!*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*\n` +
-      `🏢 *Workspace:* *${data.workspaceName}*\n` +
-      `✅ *Completed by:* *${data.completedByName}*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `✅ *Completed by:* *${this.escapeMarkdown(data.completedByName)}*\n\n` +
       `Great job! The task is now archived as done.`;
 
     return this.sendTelegramMessage(data.targetTelegramId, text, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📱 Open Mini App Board', web_app: { url: webAppUrl } }],
+          [this.getSafeWebAppButton('📱 Open Mini App Board')],
         ],
       },
     });
@@ -416,7 +449,11 @@ export class TelegramService {
     dueDate?: string | null;
     imageUrl?: string | null;
   }) {
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    if (!data.groupChatId || !/^-?\d+$/.test(data.groupChatId)) {
+      this.logger.warn(`Cannot send group task notification: groupChatId "${data.groupChatId}" is not numeric`);
+      return;
+    }
+
     const dueInfo = data.dueDate
       ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
       : '';
@@ -428,22 +465,22 @@ export class TelegramService {
 
     // If assigned to a specific person, keep description in their private DM
     const isAssignedToUser = Boolean(data.assigneeName && data.assigneeName !== 'You (Personal)');
-    const descInfo = !isAssignedToUser && data.description ? `\n📄 *Description:* _${data.description}_` : '';
+    const descInfo = !isAssignedToUser && data.description ? `\n📄 *Description:* _${this.escapeMarkdown(data.description)}_` : '';
     const privacyFootnote = isAssignedToUser
-      ? `\n\n🔒 _Details & description sent privately to ${data.assigneeName} via DM\\._`
+      ? `\n\n🔒 _Details & description sent privately to ${this.escapeMarkdown(data.assigneeName)} via DM._`
       : `\n\n_This task has been synchronized to your team's group board._`;
 
     const text =
-      `📌 *New Task Created in ${data.workspaceName}*\n\n` +
-      `📝 *Task:* *${data.taskTitle}*${descInfo}\n` +
+      `📌 *New Task Created in ${this.escapeMarkdown(data.workspaceName)}*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*${descInfo}\n` +
       `${priorityEmoji} *Priority:* \`${data.priority}\`${imageInfo}\n` +
-      `👤 *Assigned to:* ${data.assigneeName ? `*${data.assigneeName}*` : '_Unassigned_'}\n` +
-      `👑 *Created by:* *${data.creatorName}*${dueInfo}` +
+      `👤 *Assigned to:* ${data.assigneeName ? `*${this.escapeMarkdown(data.assigneeName)}*` : '_Unassigned_'}\n` +
+      `👑 *Created by:* *${this.escapeMarkdown(data.creatorName)}*${dueInfo}` +
       `${privacyFootnote}`;
 
     const inlineKeyboard: any[] = [
       [{ text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` }],
-      [{ text: '📱 Open in FlowTask Mini App', url: webAppUrl }],
+      [this.getSafeGroupButton('📱 Open in FlowTask Mini App')],
     ];
 
     if (data.imageUrl && !data.imageUrl.startsWith('data:')) {
@@ -467,15 +504,16 @@ export class TelegramService {
     workspaceName: string;
     completedByName: string;
   }) {
-    const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
+    if (!data.groupChatId || !/^-?\d+$/.test(data.groupChatId)) return;
+
     const text =
-      `🎉 *Task Completed in ${data.workspaceName}!*\n\n` +
-      `✅ *${data.completedByName}* completed: *"${data.taskTitle}"*`;
+      `🎉 *Task Completed in ${this.escapeMarkdown(data.workspaceName)}!*\n\n` +
+      `✅ *${this.escapeMarkdown(data.completedByName)}* completed: *"${this.escapeMarkdown(data.taskTitle)}"*`;
 
     return this.sendTelegramMessage(data.groupChatId, text, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📱 Open Group Board', url: webAppUrl }],
+          [this.getSafeGroupButton('📱 Open Group Board')],
         ],
       },
     });

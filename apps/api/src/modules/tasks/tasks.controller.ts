@@ -8,20 +8,32 @@ import {
   Param,
   Query,
   UseGuards,
+  Sse,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { WorkspaceGuard } from '../../common/guards/workspace.guard';
 import { User } from '@flowtask/types';
 import { TaskStatus } from '@flowtask/database';
+import { LiveEventsService } from './live-events.service';
 
 @Controller('tasks')
 @UseGuards(WorkspaceGuard)
 export class TasksController {
-  constructor(private tasksService: TasksService) {}
+  constructor(
+    private tasksService: TasksService,
+    private liveEventsService: LiveEventsService,
+  ) {}
+
+  @Public()
+  @Sse('live-stream')
+  liveStream(@Query('workspaceId') workspaceId?: string) {
+    return this.liveEventsService.getStream(workspaceId);
+  }
 
   @Get()
   async listTasks(

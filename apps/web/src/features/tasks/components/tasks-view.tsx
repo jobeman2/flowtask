@@ -38,7 +38,7 @@ export function TasksView({
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'TODO' | 'IN_PROGRESS' | 'DONE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch Tasks
+  // Fetch Tasks (Live synchronized)
   const { data: tasks = [], isLoading: isTasksLoading } = useQuery({
     queryKey: ['tasks', workspaceId],
     queryFn: async () => {
@@ -47,6 +47,7 @@ export function TasksView({
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
     },
     enabled: Boolean(workspaceId),
+    refetchInterval: 3000,
   });
 
   // Fetch Projects

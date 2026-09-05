@@ -585,11 +585,20 @@ export class MockPrismaClient {
   };
 
   telegramAccount = {
-    findUnique: async ({ where }: any) => {
+    findUnique: async ({ where, include }: any) => {
       this.loadFromDisk();
-      if (where.telegramId) {
-        const acc = Array.from(this.telegramAccounts.values()).find((a: any) => a.telegramId === where.telegramId);
-        if (!acc) return null;
+      let acc: any = null;
+      if (where?.telegramId) {
+        acc = Array.from(this.telegramAccounts.values()).find((a: any) => a.telegramId === where.telegramId) || null;
+      } else if (where?.username) {
+        const clean = where.username.replace(/^@/, '').toLowerCase();
+        const matching = Array.from(this.telegramAccounts.values()).filter((a: any) => a.username?.toLowerCase() === clean);
+        acc = matching.find((a: any) => a.telegramId && /^\d+$/.test(a.telegramId)) || matching[0] || null;
+      } else if (where?.id) {
+        acc = this.telegramAccounts.get(where.id) || null;
+      }
+      if (!acc) return null;
+      if (include?.user || true) {
         const user = this.users.get(acc.userId);
         const members = Array.from(this.workspaceMembers.values()).filter((m: any) => m.userId === acc.userId);
         return {
@@ -598,13 +607,12 @@ export class MockPrismaClient {
             ...user,
             workspaceMembers: members.map((m: any) => ({
               ...m,
-              workspace: this.workspaces.get(m.workspaceId) || { id: m.workspaceId, name: 'Personal Workspace', type: WorkspaceType.PERSONAL },
+              workspace: this.workspaces.get(m.workspaceId) || { id: m.workspaceId, name: 'Workspace', type: WorkspaceType.PERSONAL },
             })),
           },
         };
       }
-      if (where.id) return this.telegramAccounts.get(where.id) || null;
-      return null;
+      return acc;
     },
     findFirst: async ({ where, include }: any = {}) => {
       this.loadFromDisk();
@@ -612,10 +620,14 @@ export class MockPrismaClient {
       if (where?.telegramId) {
         acc = Array.from(this.telegramAccounts.values()).find((a: any) => a.telegramId === where.telegramId) || null;
       } else if (where?.username) {
-        const clean = where.username.replace(/^@/, '').toLowerCase();
-        acc = Array.from(this.telegramAccounts.values()).find((a: any) => a.username?.toLowerCase() === clean) || null;
+        const rawUsername = typeof where.username === 'string' ? where.username : (where.username?.equals || '');
+        const clean = rawUsername.replace(/^@/, '').toLowerCase();
+        const matching = Array.from(this.telegramAccounts.values()).filter((a: any) => a.username?.toLowerCase() === clean);
+        // Prioritize accounts with real numeric telegramId (e.g. 6854918950) over placeholder strings (tg_...)
+        acc = matching.find((a: any) => a.telegramId && /^\d+$/.test(a.telegramId)) || matching[0] || null;
       } else if (where?.userId) {
-        acc = Array.from(this.telegramAccounts.values()).find((a: any) => a.userId === where.userId) || null;
+        const matching = Array.from(this.telegramAccounts.values()).filter((a: any) => a.userId === where.userId);
+        acc = matching.find((a: any) => a.telegramId && /^\d+$/.test(a.telegramId)) || matching[0] || null;
       }
       if (!acc) return null;
       if (include?.user) {
@@ -652,6 +664,63 @@ export class MockPrismaClient {
       return acc;
     },
   };
+
+  consolidateUserAccounts(realUserId: string, realTelegramId: string, username?: string | null) {
+    this.loadFromDisk();
+    if (!username && !realTelegramId) return;
+    const cleanUsername = username ? username.replace(/^@/, '').toLowerCase() : null;
+
+    // Find all placeholder telegram accounts matching this username or with invalid telegramId
+    const placeholders = Array.from(this.telegramAccounts.values()).filter((a: any) => {
+      if (a.userId === realUserId) return false;
+      const isPlaceholderTg = !a.telegramId || a.telegramId.startsWith('tg_') || !/^\d+$/.test(a.telegramId);
+      const matchesUser = cleanUsername && a.username?.toLowerCase() === cleanUsername;
+      return isPlaceholderTg && matchesUser;
+    });
+
+    for (const ph of placeholders) {
+      const oldUserId = ph.userId;
+      // 1. Move tasks assigned or created by placeholder user to real user
+      for (const [taskId, task] of this.tasks.entries()) {
+        let changed = false;
+        if (task.assigneeId === oldUserId) {
+          task.assigneeId = realUserId;
+          changed = true;
+        }
+        if (task.creatorId === oldUserId) {
+          task.creatorId = realUserId;
+          changed = true;
+        }
+        if (changed) {
+          this.tasks.set(taskId, task);
+        }
+      }
+
+      // 2. Move workspace memberships
+      for (const [memId, mem] of this.workspaceMembers.entries()) {
+        if (mem.userId === oldUserId) {
+          // Check if real user already a member of this workspace
+          const already = Array.from(this.workspaceMembers.values()).find(
+            (m: any) => m.workspaceId === mem.workspaceId && m.userId === realUserId
+          );
+          if (!already) {
+            mem.userId = realUserId;
+            this.workspaceMembers.set(memId, mem);
+          } else {
+            this.workspaceMembers.delete(memId);
+          }
+        }
+      }
+
+      // 3. Remove placeholder telegram account
+      this.telegramAccounts.delete(ph.id);
+      if (oldUserId && oldUserId !== realUserId) {
+        this.users.delete(oldUserId);
+      }
+    }
+
+    this.saveToDisk();
+  }
 
   workspace = {
     create: async ({ data }: any) => {

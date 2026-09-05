@@ -31,7 +31,7 @@ export function HomeView({
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-  // 1. Fetch Task Statistics
+  // 1. Fetch Task Statistics (Live synchronized)
   const { data: stats } = useQuery({
     queryKey: ['task-stats', workspaceId],
     queryFn: async () => {
@@ -40,9 +40,10 @@ export function HomeView({
       return res.data;
     },
     enabled: Boolean(workspaceId),
+    refetchInterval: 3000,
   });
 
-  // 2. Fetch Tasks
+  // 2. Fetch Tasks (Live synchronized)
   const { data: tasks = [] } = useQuery({
     queryKey: ['tasks', workspaceId],
     queryFn: async () => {
@@ -51,6 +52,7 @@ export function HomeView({
       return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
     },
     enabled: Boolean(workspaceId),
+    refetchInterval: 3000,
   });
 
   // Complete Task Mutation

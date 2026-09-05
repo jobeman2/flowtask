@@ -259,15 +259,24 @@ export async function handleTaskCommand(ctx: Context) {
     // 7. Dispatch private DM to assignee if assigned to someone else
     if (assigneeId && assigneeId !== creatorUserId) {
       try {
-        const targetAcc = await prisma.telegramAccount.findFirst({
+        let targetAcc = await prisma.telegramAccount.findFirst({
           where: { userId: assigneeId },
         });
-        if (targetAcc?.telegramId) {
+
+        if ((!targetAcc?.telegramId || !/^\d+$/.test(targetAcc.telegramId)) && targetUsername) {
+          const altTg = await prisma.telegramAccount.findFirst({ where: { username: targetUsername } });
+          if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
+            targetAcc = altTg;
+          }
+        }
+
+        if (targetAcc?.telegramId && /^\d+$/.test(targetAcc.telegramId)) {
+          const appUrl = botConfig.webAppUrl.startsWith('https://') ? botConfig.webAppUrl : 'https://flowtask.app';
           const dmKeyboard = new InlineKeyboard()
             .text('✅ Mark Done', `task:done:${task.id}`)
             .text('🔍 Details', `task:view:${task.id}`)
             .row()
-            .url('📱 Open in FlowTask Mini App', botConfig.webAppUrl);
+            .url('📱 Open in FlowTask Mini App', appUrl);
 
           const creatorDisplayName = tgUser.first_name || tgUser.username || 'A teammate';
 
@@ -284,6 +293,35 @@ export async function handleTaskCommand(ctx: Context) {
         }
       } catch (dmErr: any) {
         console.warn(`Could not dispatch assignee DM:`, dmErr.message);
+      }
+    }
+
+    // 8. If task created in private chat but workspace is linked to a group chat, broadcast to the group
+    if (!isGroup) {
+      try {
+        const groupChat = await prisma.telegramChat.findFirst({
+          where: { workspaceId: activeWorkspace.id },
+        });
+        if (groupChat?.chatId && /^-?\d+$/.test(groupChat.chatId)) {
+          const appUrl = botConfig.webAppUrl.startsWith('https://') ? botConfig.webAppUrl : 'https://flowtask.app';
+          const groupKeyboard = new InlineKeyboard()
+            .text('✅ Mark Done', `task:done:${task.id}`)
+            .row()
+            .url('📱 Open in FlowTask Mini App', appUrl);
+
+          await ctx.api.sendMessage(
+            groupChat.chatId,
+            `📌 *New Task Created in ${activeWorkspace.name}*\n\n` +
+            `📝 *Task:* *${task.title}*${task.description ? `\n📄 *Description:* _${task.description}_` : ''}\n` +
+            `${priorityIcon} *Priority:* \`${task.priority}\`\n` +
+            `👤 *Assigned to:* ${assigneeDisplayName || '_Unassigned_'}\n` +
+            `👑 *Created by:* *${tgUser.first_name || tgUser.username || 'A teammate'}*${dueStr}\n\n` +
+            `_This task has been synchronized to your team's group board._`,
+            { parse_mode: 'Markdown', reply_markup: groupKeyboard }
+          );
+        }
+      } catch (grpErr: any) {
+        console.warn('Could not broadcast task to group:', grpErr.message);
       }
     }
   } catch (err: any) {
