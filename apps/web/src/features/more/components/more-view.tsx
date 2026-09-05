@@ -39,15 +39,13 @@ export function MoreView() {
   const [isAiPmOpen, setIsAiPmOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Fetch Subscription
+  // Fetch User's Own Subscription
   const { data: subscription } = useQuery({
-    queryKey: ['workspace-subscription', workspaceId],
+    queryKey: ['my-subscription'],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await apiClient.getWorkspaceSubscription(workspaceId);
+      const res = await apiClient.getMySubscription();
       return res.data;
     },
-    enabled: Boolean(workspaceId),
   });
 
   const planCode = subscription?.planCode || (subscription as any)?.plan?.code || 'FREE';

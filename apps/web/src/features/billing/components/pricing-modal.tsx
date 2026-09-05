@@ -111,6 +111,7 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
         });
       }
 
+      queryClient.invalidateQueries({ queryKey: ['my-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['workspace-subscription'] });
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
     },

@@ -12,16 +12,14 @@ export function PlanBadge() {
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
   const { data: subscription } = useQuery({
-    queryKey: ['workspace-subscription', workspaceId],
+    queryKey: ['my-subscription'],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await apiClient.getWorkspaceSubscription(workspaceId);
+      const res = await apiClient.getMySubscription();
       return res.data;
     },
-    enabled: Boolean(workspaceId),
   });
 
-  const planCode = subscription?.plan?.code || 'FREE';
+  const planCode = subscription?.plan?.code || subscription?.planCode || 'FREE';
   const isFree = planCode === 'FREE';
 
   return (

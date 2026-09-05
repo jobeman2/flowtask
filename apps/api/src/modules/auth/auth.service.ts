@@ -243,16 +243,14 @@ export class AuthService {
         orderBy: { currentPeriodEnd: 'desc' },
       });
 
-      // 2. Check workspaces owned or joined by this user
+      // 2. Fallback: check workspaces owned by this user (never workspaces where user is only a member)
       if (!activeSub || !activeSub.plan || activeSub.plan.code === 'FREE') {
         const ownedWs = await this.prisma.workspace.findMany({ where: { ownerId: userId }, select: { id: true } });
-        const memberWs = await this.prisma.workspaceMember.findMany({ where: { userId }, select: { workspaceId: true } });
-        const allWsIds = Array.from(new Set([...ownedWs.map((w) => w.id), ...memberWs.map((m) => m.workspaceId)]));
 
-        if (allWsIds.length > 0) {
+        if (ownedWs.length > 0) {
           const wsSub = await this.prisma.subscription.findFirst({
             where: {
-              workspaceId: { in: allWsIds },
+              workspaceId: { in: ownedWs.map((w) => w.id) },
               status: 'ACTIVE',
             },
             include: { plan: true },

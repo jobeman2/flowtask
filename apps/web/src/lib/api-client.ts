@@ -250,6 +250,10 @@ class ApiClient {
     return this.request<any[]>('/billing/plans');
   }
 
+  async getMySubscription() {
+    return this.request<any>('/billing/me');
+  }
+
   async getWorkspaceSubscription(workspaceId: string) {
     return this.request<any>(`/billing/workspace/${workspaceId}`);
   }
