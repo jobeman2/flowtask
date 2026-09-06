@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
-import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
+import { WorkspaceType, WorkspaceRole, InvitationStatus } from '@flowtask/database';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -88,53 +88,6 @@ export class WorkspacesService {
         },
       },
     });
-
-    if (!member) {
-      const tgChat = await (this.prisma as any).telegramChat.findFirst({
-        where: { workspaceId },
-      });
-      if (tgChat) {
-        try {
-          await this.prisma.workspaceMember.create({
-            data: {
-              workspaceId,
-              userId,
-              role: WorkspaceRole.MEMBER,
-            },
-          });
-          member = await this.prisma.workspaceMember.findUnique({
-            where: {
-              workspaceId_userId: {
-                workspaceId,
-                userId,
-              },
-            },
-            include: {
-              workspace: {
-                include: {
-                  projects: { where: { isArchived: false } },
-                  labels: true,
-                  members: {
-                    include: {
-                      user: {
-                        select: {
-                          id: true,
-                          name: true,
-                          email: true,
-                          avatarUrl: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          });
-        } catch {
-          // Ignore
-        }
-      }
-    }
 
     if (!member) {
       throw new ForbiddenException('You do not have access to this workspace');
@@ -350,33 +303,60 @@ export class WorkspacesService {
       throw new ConflictException('User is already a member of this workspace');
     }
 
-    const createdMember = await this.prisma.workspaceMember.create({
-      data: {
+    // Lookup any target telegram account info
+    const targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: targetUserId } });
+    const targetTelegramId = targetTg?.telegramId || null;
+    const targetUsername = payload.username
+      ? payload.username.replace(/^@/, '').trim().toLowerCase()
+      : targetTg?.username || null;
+
+    // Check if an existing PENDING invitation is already sent
+    let invitation = await (this.prisma as any).workspaceInvitation.findFirst({
+      where: {
         workspaceId,
-        userId: targetUserId,
-        role: payload.role || WorkspaceRole.MEMBER,
-      },
-      include: {
-        user: true,
+        status: InvitationStatus.PENDING,
+        OR: [
+          ...(targetUserId ? [{ inviteeUserId: targetUserId }] : []),
+          ...(targetTelegramId ? [{ targetTelegramId }] : []),
+          ...(targetUsername ? [{ targetUsername }] : []),
+        ],
       },
     });
 
+    if (!invitation) {
+      invitation = await (this.prisma as any).workspaceInvitation.create({
+        data: {
+          workspaceId,
+          inviterId: currentUserId,
+          inviteeUserId: targetUserId,
+          targetTelegramId,
+          targetUsername,
+          role: payload.role || WorkspaceRole.MEMBER,
+          status: InvitationStatus.PENDING,
+        },
+        include: {
+          workspace: true,
+          inviter: true,
+          invitee: true,
+        },
+      });
+    }
+
     // Generate deep-link for direct bot acceptance
     const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'flowtaskmanager_bot';
-    const inviteLink = `https://t.me/${botUsername}?start=invite_${workspaceId}`;
+    const inviteLink = `https://t.me/${botUsername}?start=invite_${invitation.id}`;
 
     // Send Telegram Notification to the invited user
     try {
       const inviter = await this.prisma.user.findUnique({ where: { id: currentUserId } });
-      const targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: targetUserId } });
-      if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
+      if (targetTelegramId && /^\d+$/.test(targetTelegramId)) {
         await this.telegramService.notifyWorkspaceInvite({
-          targetTelegramId: targetTg.telegramId,
+          targetTelegramId,
           workspaceId,
           workspaceName: workspace?.name || 'Team Workspace',
-          role: createdMember.role,
+          role: invitation.role,
           inviterName: inviter?.name || 'A teammate',
-          memberId: createdMember.id,
+          memberId: invitation.id,
         });
       }
     } catch {
@@ -384,9 +364,104 @@ export class WorkspacesService {
     }
 
     return {
-      ...createdMember,
+      ...invitation,
       inviteLink,
     };
+  }
+
+  async listPendingInvitations(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { telegramAccounts: true },
+    });
+
+    const tgIds = user?.telegramAccounts?.map((t) => t.telegramId).filter(Boolean) || [];
+    const usernames = user?.telegramAccounts?.map((t) => t.username?.toLowerCase()).filter(Boolean) as string[] || [];
+
+    const invitations = await (this.prisma as any).workspaceInvitation.findMany({
+      where: {
+        status: InvitationStatus.PENDING,
+        OR: [
+          { inviteeUserId: userId },
+          ...tgIds.map((id) => ({ targetTelegramId: id })),
+          ...usernames.map((u) => ({ targetUsername: u })),
+        ],
+      },
+      include: {
+        workspace: true,
+        inviter: true,
+      },
+    });
+
+    return invitations;
+  }
+
+  async acceptInvitation(invitationId: string, userId: string) {
+    const invitation = await (this.prisma as any).workspaceInvitation.findUnique({
+      where: { id: invitationId },
+      include: { workspace: true },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found or expired');
+    }
+
+    if (invitation.status !== InvitationStatus.PENDING) {
+      throw new BadRequestException(`Invitation is already ${invitation.status.toLowerCase()}`);
+    }
+
+    // Ensure user is not already a member
+    let member = await this.prisma.workspaceMember.findFirst({
+      where: {
+        workspaceId: invitation.workspaceId,
+        userId,
+      },
+    });
+
+    if (!member) {
+      member = await this.prisma.workspaceMember.create({
+        data: {
+          workspaceId: invitation.workspaceId,
+          userId,
+          role: invitation.role || WorkspaceRole.MEMBER,
+        },
+      });
+    }
+
+    // Mark invitation as accepted
+    await (this.prisma as any).workspaceInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: InvitationStatus.ACCEPTED,
+        inviteeUserId: userId,
+      },
+    });
+
+    return {
+      success: true,
+      member,
+      workspace: invitation.workspace,
+    };
+  }
+
+  async declineInvitation(invitationId: string, userId: string) {
+    const invitation = await (this.prisma as any).workspaceInvitation.findUnique({
+      where: { id: invitationId },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    await (this.prisma as any).workspaceInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: InvitationStatus.DECLINED,
+        inviteeUserId: userId,
+      },
+    });
+
+    return { success: true, message: 'Invitation declined' };
   }
 
   async removeMember(

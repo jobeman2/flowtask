@@ -56,11 +56,19 @@ export enum SubscriptionStatus {
   EXPIRED = 'EXPIRED',
 }
 
+export enum InvitationStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  CANCELLED = 'CANCELLED',
+}
+
 export class MockPrismaClient {
   public users = new Map<string, any>();
   public telegramAccounts = new Map<string, any>();
   public workspaces = new Map<string, any>();
   public workspaceMembers = new Map<string, any>();
+  public workspaceInvitations = new Map<string, any>();
   public tasks = new Map<string, any>();
   public projects = new Map<string, any>();
   public labels = new Map<string, any>();
@@ -222,6 +230,7 @@ export class MockPrismaClient {
           if (data.telegramAccounts) this.telegramAccounts = new Map(Object.entries(data.telegramAccounts));
           if (data.workspaces) this.workspaces = new Map(Object.entries(data.workspaces));
           if (data.workspaceMembers) this.workspaceMembers = new Map(Object.entries(data.workspaceMembers));
+          if (data.workspaceInvitations) this.workspaceInvitations = new Map(Object.entries(data.workspaceInvitations));
           if (data.tasks) this.tasks = new Map(Object.entries(data.tasks));
           if (data.projects) this.projects = new Map(Object.entries(data.projects));
           if (data.labels) this.labels = new Map(Object.entries(data.labels));
@@ -251,6 +260,7 @@ export class MockPrismaClient {
         telegramAccounts: Object.fromEntries(this.telegramAccounts),
         workspaces: Object.fromEntries(this.workspaces),
         workspaceMembers: Object.fromEntries(this.workspaceMembers),
+        workspaceInvitations: Object.fromEntries(this.workspaceInvitations),
         tasks: Object.fromEntries(this.tasks),
         projects: Object.fromEntries(this.projects),
         labels: Object.fromEntries(this.labels),
@@ -959,6 +969,126 @@ export class MockPrismaClient {
         }
       }
       return null;
+    },
+  };
+
+  workspaceInvitation = {
+    findMany: async ({ where, include }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.workspaceInvitations.values());
+
+      if (where?.status) {
+        list = list.filter((i: any) => i.status === where.status);
+      }
+      if (where?.workspaceId) {
+        list = list.filter((i: any) => i.workspaceId === where.workspaceId);
+      }
+      if (where?.inviteeUserId) {
+        list = list.filter((i: any) => i.inviteeUserId === where.inviteeUserId);
+      }
+      if (where?.targetTelegramId) {
+        list = list.filter((i: any) => i.targetTelegramId === where.targetTelegramId);
+      }
+      if (where?.targetUsername) {
+        list = list.filter((i: any) => i.targetUsername?.toLowerCase() === where.targetUsername.toLowerCase());
+      }
+      if (where?.OR && Array.isArray(where.OR)) {
+        list = list.filter((i: any) => {
+          return where.OR.some((cond: any) => {
+            if (cond.inviteeUserId && i.inviteeUserId === cond.inviteeUserId) return true;
+            if (cond.targetTelegramId && i.targetTelegramId === cond.targetTelegramId) return true;
+            if (cond.targetUsername && i.targetUsername?.toLowerCase() === cond.targetUsername.toLowerCase()) return true;
+            return false;
+          });
+        });
+      }
+
+      return list.map((inv: any) => {
+        const res = { ...inv };
+        if (include?.workspace) {
+          res.workspace = this.workspaces.get(inv.workspaceId) || null;
+        }
+        if (include?.inviter) {
+          res.inviter = inv.inviterId ? (this.users.get(inv.inviterId) || null) : null;
+        }
+        if (include?.invitee) {
+          res.invitee = inv.inviteeUserId ? (this.users.get(inv.inviteeUserId) || null) : null;
+        }
+        return res;
+      });
+    },
+
+    findFirst: async ({ where, include }: any = {}) => {
+      const items = await this.workspaceInvitation.findMany({ where, include });
+      return items[0] || null;
+    },
+
+    findUnique: async ({ where, include }: any) => {
+      this.loadFromDisk();
+      const inv = this.workspaceInvitations.get(where?.id);
+      if (!inv) return null;
+      const res = { ...inv };
+      if (include?.workspace) {
+        res.workspace = this.workspaces.get(inv.workspaceId) || null;
+      }
+      if (include?.inviter) {
+        res.inviter = inv.inviterId ? (this.users.get(inv.inviterId) || null) : null;
+      }
+      if (include?.invitee) {
+        res.invitee = inv.inviteeUserId ? (this.users.get(inv.inviteeUserId) || null) : null;
+      }
+      return res;
+    },
+
+    create: async ({ data, include }: any) => {
+      this.loadFromDisk();
+      const id = data.id || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const record = {
+        id,
+        role: data.role || WorkspaceRole.MEMBER,
+        status: data.status || InvitationStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...data,
+      };
+      this.workspaceInvitations.set(id, record);
+      this.saveToDisk();
+
+      const res = { ...record };
+      if (include?.workspace) {
+        res.workspace = this.workspaces.get(record.workspaceId) || null;
+      }
+      if (include?.inviter) {
+        res.inviter = record.inviterId ? (this.users.get(record.inviterId) || null) : null;
+      }
+      if (include?.invitee) {
+        res.invitee = record.inviteeUserId ? (this.users.get(record.inviteeUserId) || null) : null;
+      }
+      return res;
+    },
+
+    update: async ({ where, data, include }: any) => {
+      this.loadFromDisk();
+      const inv = this.workspaceInvitations.get(where.id);
+      if (!inv) return null;
+      Object.assign(inv, data, { updatedAt: new Date() });
+      this.saveToDisk();
+
+      const res = { ...inv };
+      if (include?.workspace) {
+        res.workspace = this.workspaces.get(inv.workspaceId) || null;
+      }
+      return res;
+    },
+
+    delete: async ({ where }: any) => {
+      this.loadFromDisk();
+      const inv = this.workspaceInvitations.get(where.id);
+      if (inv) {
+        this.workspaceInvitations.delete(where.id);
+        this.saveToDisk();
+      }
+      return inv || { id: where.id };
     },
   };
 

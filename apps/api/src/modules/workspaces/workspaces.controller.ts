@@ -75,6 +75,27 @@ export class WorkspacesController {
     return this.workspacesService.connectTelegramGroup(user.id, dto.chatIdOrUsername);
   }
 
+  @Get('invitations/pending')
+  async listPendingInvitations(@CurrentUser() user: User) {
+    return this.workspacesService.listPendingInvitations(user.id);
+  }
+
+  @Post('invitations/:id/accept')
+  async acceptInvitation(
+    @Param('id') invitationId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.acceptInvitation(invitationId, user.id);
+  }
+
+  @Post('invitations/:id/decline')
+  async declineInvitation(
+    @Param('id') invitationId: string,
+    @CurrentUser() user: User
+  ) {
+    return this.workspacesService.declineInvitation(invitationId, user.id);
+  }
+
   @Get(':id')
   async getWorkspaceById(
     @Param('id') workspaceId: string,

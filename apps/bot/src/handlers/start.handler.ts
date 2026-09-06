@@ -102,53 +102,97 @@ export async function handleStart(ctx: Context) {
     console.warn('Account consolidation check:', err);
   }
 
-  // 3. Check for invite payload: /start invite_<workspaceId>
+  // 3. Check for invite payload: /start invite_<id>
   const text = ctx.message?.text || '';
   const param = text.split(' ')[1]?.trim() || '';
 
   if (param.startsWith('invite_')) {
-    const targetWorkspaceId = param.replace('invite_', '');
-    const ws = await prisma.workspace.findUnique({ where: { id: targetWorkspaceId } });
+    const invitePayload = param.replace('invite_', '');
+    // Check if invitePayload is an invitation ID or workspace ID
+    let inv = await (prisma as any).workspaceInvitation.findUnique({
+      where: { id: invitePayload },
+      include: { workspace: true },
+    });
 
-    if (ws) {
-      // Check if already a member
-      const existingMember = await prisma.workspaceMember.findFirst({
-        where: { workspaceId: targetWorkspaceId, userId },
+    if (!inv) {
+      // Check if it's a workspace ID directly
+      inv = await (prisma as any).workspaceInvitation.findFirst({
+        where: {
+          workspaceId: invitePayload,
+          status: 'PENDING',
+          OR: [
+            { inviteeUserId: userId },
+            { targetTelegramId: tgIdStr },
+            ...(rawUsername ? [{ targetUsername: rawUsername }] : []),
+          ],
+        },
+        include: { workspace: true },
       });
+    }
 
-      if (!existingMember) {
-        // Create active membership
-        await prisma.workspaceMember.create({
-          data: {
-            workspaceId: targetWorkspaceId,
-            userId,
-            role: WorkspaceRole.MEMBER,
-          },
-        });
+    if (inv && inv.workspace) {
+      const invKeyboard = new InlineKeyboard()
+        .text('✅ Accept Invitation', `invite:accept:${inv.workspaceId}:${inv.id}`)
+        .text('❌ Decline', `invite:decline:${inv.workspaceId}:${inv.id}`)
+        .row();
+
+      if (botConfig.webAppUrl.startsWith('https://')) {
+        invKeyboard.webApp('📱 View in Mini App', botConfig.webAppUrl);
       }
 
-      const isHttps = botConfig.webAppUrl.startsWith('https://');
-      const wsUrl = `${botConfig.webAppUrl}?workspaceId=${ws.id}`;
-      const inviteKeyboard = new InlineKeyboard();
-
-      if (isHttps) {
-        inviteKeyboard.webApp('🚀 Open Workspace in Mini App', wsUrl).row();
-      } else {
-        inviteKeyboard.url('🚀 Open Workspace in Mini App', 'https://flowtask.app').row();
-      }
-
-      inviteKeyboard.text('📊 Today Work', 'action:today_work');
-
-      const safeWsName = ws.name.replace(/[_*[\]()~`>#+-=|{}.!]/g, '\\$&');
       await ctx.reply(
-        `🎉 *Welcome to ${safeWsName}\\!*\n\n` +
-        `You have joined the workspace team\\. You can now collaborate, view tasks, and receive task assignments directly here in the bot and in the Mini App\\.`,
+        `👋 *Workspace Team Invitation!*\n\n` +
+        `You have been invited to join *${inv.workspace.name}* as \`${inv.role}\`.\n\n` +
+        `Click *Accept Invitation* below to join the team and access tasks!`,
         {
-          parse_mode: 'MarkdownV2',
-          reply_markup: inviteKeyboard,
+          parse_mode: 'Markdown',
+          reply_markup: invKeyboard,
         }
       );
       return;
+    }
+  }
+
+  // 4. Always check if user has any pending invitations across all workspaces!
+  const pendingInvitations = await (prisma as any).workspaceInvitation.findMany({
+    where: {
+      status: 'PENDING',
+      OR: [
+        { inviteeUserId: userId },
+        { targetTelegramId: tgIdStr },
+        ...(rawUsername ? [{ targetUsername: rawUsername }] : []),
+      ],
+    },
+    include: {
+      workspace: true,
+      inviter: true,
+    },
+  });
+
+  if (pendingInvitations && pendingInvitations.length > 0) {
+    for (const pInv of pendingInvitations) {
+      if (!pInv.workspace) continue;
+      const invKeyboard = new InlineKeyboard()
+        .text('✅ Accept Invitation', `invite:accept:${pInv.workspaceId}:${pInv.id}`)
+        .text('❌ Decline', `invite:decline:${pInv.workspaceId}:${pInv.id}`)
+        .row();
+
+      if (botConfig.webAppUrl.startsWith('https://')) {
+        invKeyboard.webApp('📱 View in Mini App', botConfig.webAppUrl);
+      }
+
+      const inviterName = pInv.inviter?.name || 'A teammate';
+      await ctx.reply(
+        `📬 *Pending Workspace Invitation!*\n\n` +
+        `🏢 *Workspace:* *${pInv.workspace.name}*\n` +
+        `🛡️ *Role:* \`${pInv.role}\`\n` +
+        `👤 *Invited by:* *${inviterName}*\n\n` +
+        `Would you like to accept this invitation and join the workspace?`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: invKeyboard,
+        }
+      );
     }
   }
 

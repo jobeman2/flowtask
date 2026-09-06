@@ -123,6 +123,22 @@ class ApiClient {
     });
   }
 
+  async getPendingInvitations() {
+    return this.request<any[]>('/workspaces/invitations/pending');
+  }
+
+  async acceptInvitation(invitationId: string) {
+    return this.request<any>(`/workspaces/invitations/${invitationId}/accept`, {
+      method: 'POST',
+    });
+  }
+
+  async declineInvitation(invitationId: string) {
+    return this.request<any>(`/workspaces/invitations/${invitationId}/decline`, {
+      method: 'POST',
+    });
+  }
+
   async removeWorkspaceMember(workspaceId: string, memberId: string) {
     return this.request<any>(`/workspaces/${workspaceId}/members/${memberId}`, {
       method: 'DELETE',

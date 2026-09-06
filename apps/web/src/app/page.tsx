@@ -12,6 +12,7 @@ import { TeamView } from '../features/team/components/team-view';
 import { MoreView } from '../features/more/components/more-view';
 import { CreateTaskSheet } from '../features/tasks/components/create-task-sheet';
 import { TaskDetailModal } from '../features/tasks/components/task-detail-modal';
+import { PendingInvitationsBanner } from '../features/workspaces/components/pending-invitations';
 import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
@@ -110,6 +111,9 @@ export default function HomePage() {
           {error}
         </div>
       )}
+
+      {/* Pending Workspace Invitations Banner */}
+      <PendingInvitationsBanner />
 
       {/* 2. Main Screen Area (Switched by Bottom Nav) */}
       <main className="flex-1 px-1">

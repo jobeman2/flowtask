@@ -723,20 +723,56 @@ export class TelegramService {
         adminUserId = adminAcc.userId;
       }
 
-      // Add to workspace if not already member
-      const exists = await this.prisma.workspaceMember.findFirst({
+      // If not creator and not already member, create pending invitation instead of auto-membership
+      const isMember = await this.prisma.workspaceMember.findFirst({
         where: { workspaceId, userId: adminUserId },
       });
 
-      if (!exists) {
-        const role = item.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN;
-        await this.prisma.workspaceMember.create({
-          data: {
-            workspaceId,
-            userId: adminUserId,
-            role,
-          },
-        });
+      if (!isMember) {
+        if (item.status === 'creator') {
+          await this.prisma.workspaceMember.create({
+            data: {
+              workspaceId,
+              userId: adminUserId,
+              role: WorkspaceRole.OWNER,
+            },
+          });
+        } else {
+          // Check if pending invite already exists
+          const existingInv = await (this.prisma as any).workspaceInvitation.findFirst({
+            where: {
+              workspaceId,
+              status: 'PENDING',
+              OR: [
+                { inviteeUserId: adminUserId },
+                { targetTelegramId: adminTgId },
+              ],
+            },
+          });
+
+          if (!existingInv) {
+            const newInv = await (this.prisma as any).workspaceInvitation.create({
+              data: {
+                workspaceId,
+                inviteeUserId: adminUserId,
+                targetTelegramId: adminTgId,
+                targetUsername: adminTg.username ? adminTg.username.toLowerCase() : null,
+                role: WorkspaceRole.ADMIN,
+                status: 'PENDING',
+              },
+            });
+
+            // Send DM invitation
+            await this.notifyWorkspaceInvite({
+              targetTelegramId: adminTgId,
+              workspaceId,
+              workspaceName: title,
+              role: 'ADMIN',
+              inviterName: 'FlowTask Bot',
+              memberId: newInv.id,
+            });
+          }
+        }
       }
     }
 

@@ -27,10 +27,9 @@ import {
   handleBotAddedToGroup,
   handleGroupInfo,
   handleGroupSummary,
-  resolveGroupWorkspace,
 } from './handlers/group.handler';
 import { ReminderScheduler } from './services/reminder-scheduler';
-import { prisma, TaskStatus, TaskPriority } from '@flowtask/database';
+import { prisma, TaskStatus, TaskPriority, WorkspaceRole } from '@flowtask/database';
 
 export function createBot() {
   if (!botConfig.token) {
@@ -45,21 +44,6 @@ export function createBot() {
   bot.on('message:new_chat_members', handleBotAddedToGroup);
   bot.on('my_chat_member', handleBotAddedToGroup);
   bot.on('chat_member', handleBotAddedToGroup);
-
-  // Auto-sync any group sender as a team member
-  bot.use(async (ctx, next) => {
-    if (ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup') {
-      const tgUser = ctx.from;
-      if (tgUser && !tgUser.is_bot) {
-        try {
-          await resolveGroupWorkspace(ctx, tgUser);
-        } catch {
-          // Ignore
-        }
-      }
-    }
-    await next();
-  });
 
   // --- COMMAND ROUTES ---
   bot.command('start', handleStart);
@@ -431,32 +415,43 @@ export function createBot() {
       targetUserId = u.id;
     }
 
+    // Look up invitation if memberId corresponds to an invitation
+    let invRole = WorkspaceRole.MEMBER;
     if (memberId && memberId !== 'new') {
       try {
-        await (prisma as any).workspaceMember.update({
+        const inv = await (prisma as any).workspaceInvitation.findUnique({
           where: { id: memberId },
-          data: { role: 'MEMBER', userId: targetUserId },
         });
-      } catch {
-        // Fallback
-      }
-    } else {
-      try {
-        const existing = await prisma.workspaceMember.findFirst({
-          where: { workspaceId, userId: targetUserId },
-        });
-        if (!existing) {
-          await prisma.workspaceMember.create({
+        if (inv) {
+          invRole = inv.role || WorkspaceRole.MEMBER;
+          await (prisma as any).workspaceInvitation.update({
+            where: { id: memberId },
             data: {
-              workspaceId,
-              userId: targetUserId,
-              role: 'MEMBER',
+              status: 'ACCEPTED',
+              inviteeUserId: targetUserId,
             },
           });
         }
       } catch {
         // Fallback
       }
+    }
+
+    try {
+      const existing = await prisma.workspaceMember.findFirst({
+        where: { workspaceId, userId: targetUserId },
+      });
+      if (!existing) {
+        await prisma.workspaceMember.create({
+          data: {
+            workspaceId,
+            userId: targetUserId,
+            role: invRole,
+          },
+        });
+      }
+    } catch {
+      // Fallback
     }
 
     await ctx.answerCallbackQuery({ text: '🎉 Invitation accepted!' });
@@ -488,11 +483,18 @@ export function createBot() {
 
     if (memberId && memberId !== 'new') {
       try {
-        await (prisma as any).workspaceMember.delete({
+        await (prisma as any).workspaceInvitation.update({
           where: { id: memberId },
+          data: { status: 'DECLINED' },
         });
       } catch {
-        // Fallback
+        try {
+          await (prisma as any).workspaceMember.delete({
+            where: { id: memberId },
+          });
+        } catch {
+          // Fallback
+        }
       }
     }
 

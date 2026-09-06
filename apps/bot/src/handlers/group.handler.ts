@@ -131,25 +131,8 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
     }
   }
 
-  // 3. Ensure the current sender is a member of the group workspace
-  const isMember = await prisma.workspaceMember.findFirst({
-    where: {
-      workspaceId: groupWorkspace.id,
-      userId: account.userId,
-    },
-  });
-
-  if (!isMember) {
-    await prisma.workspaceMember.create({
-      data: {
-        workspaceId: groupWorkspace.id,
-        userId: account.userId,
-        role: WorkspaceRole.MEMBER,
-      },
-    });
-  }
-
-  // 4. Auto-import group administrators from Telegram
+  // 3. Sender is NOT auto-added as a member. If not a member, they can request invite or be invited.
+  // 4. Creators are set as owners, other administrators are invited via pending invitations
   try {
     const admins = await ctx.api.getChatAdministrators(ctx.chat!.id);
     for (const admin of admins) {
@@ -181,13 +164,40 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
       });
 
       if (!existingMem) {
-        await prisma.workspaceMember.create({
-          data: {
-            workspaceId: groupWorkspace.id,
-            userId: adminAcc.userId,
-            role: admin.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN,
-          },
-        });
+        if (admin.status === 'creator') {
+          await prisma.workspaceMember.create({
+            data: {
+              workspaceId: groupWorkspace.id,
+              userId: adminAcc.userId,
+              role: WorkspaceRole.OWNER,
+            },
+          });
+        } else {
+          // Check if pending invitation exists
+          const existingInv = await (prisma as any).workspaceInvitation.findFirst({
+            where: {
+              workspaceId: groupWorkspace.id,
+              status: 'PENDING',
+              OR: [
+                { inviteeUserId: adminAcc.userId },
+                { targetTelegramId: adminTgId },
+              ],
+            },
+          });
+
+          if (!existingInv) {
+            await (prisma as any).workspaceInvitation.create({
+              data: {
+                workspaceId: groupWorkspace.id,
+                inviteeUserId: adminAcc.userId,
+                targetTelegramId: adminTgId,
+                targetUsername: admin.user.username ? admin.user.username.toLowerCase() : null,
+                role: WorkspaceRole.ADMIN,
+                status: 'PENDING',
+              },
+            });
+          }
+        }
       }
     }
   } catch (err: any) {

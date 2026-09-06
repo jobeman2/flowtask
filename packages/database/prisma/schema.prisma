@@ -61,6 +61,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
 model User {
   id               String            @id @default(uuid())
   email            String?           @unique
@@ -76,6 +83,8 @@ model User {
   assignedTasks    Task[]            @relation("TaskAssignee")
   comments         Comment[]
   activityLogs     ActivityLog[]
+  sentInvitations  WorkspaceInvitation[] @relation("InvitedBy")
+  receivedInvitations WorkspaceInvitation[] @relation("InvitedUser")
 
   @@map("users")
 }
@@ -110,6 +119,7 @@ model Workspace {
   updatedAt   DateTime      @updatedAt
 
   members       WorkspaceMember[]
+  invitations   WorkspaceInvitation[]
   projects      Project[]
   tasks         Task[]
   labels        Label[]
@@ -137,6 +147,29 @@ model WorkspaceMember {
   @@index([workspaceId])
   @@index([userId])
   @@map("workspace_members")
+}
+
+model WorkspaceInvitation {
+  id               String           @id @default(uuid())
+  workspaceId      String
+  inviterId        String?
+  inviteeUserId    String?
+  targetTelegramId String?
+  targetUsername   String?
+  role             WorkspaceRole    @default(MEMBER)
+  status           InvitationStatus @default(PENDING)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter   User?     @relation("InvitedBy", fields: [inviterId], references: [id], onDelete: SetNull)
+  invitee   User?     @relation("InvitedUser", fields: [inviteeUserId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([inviteeUserId])
+  @@index([targetTelegramId])
+  @@index([targetUsername])
+  @@map("workspace_invitations")
 }
 
 model TelegramChat {
