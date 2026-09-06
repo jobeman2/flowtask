@@ -939,6 +939,27 @@ export class MockPrismaClient {
       }
       return { id: 'deleted' };
     },
+    update: async ({ where, data }: any) => {
+      this.loadFromDisk();
+      let targetId = where?.id;
+      if (!targetId && where?.workspaceId_userId) {
+        const mem = Array.from(this.workspaceMembers.values()).find(
+          (m: any) =>
+            m.workspaceId === where.workspaceId_userId.workspaceId &&
+            m.userId === where.workspaceId_userId.userId
+        );
+        targetId = mem?.id;
+      }
+      if (targetId) {
+        const mem = this.workspaceMembers.get(targetId);
+        if (mem) {
+          Object.assign(mem, data, { updatedAt: new Date() });
+          this.saveToDisk();
+          return mem;
+        }
+      }
+      return null;
+    },
   };
 
   task = {

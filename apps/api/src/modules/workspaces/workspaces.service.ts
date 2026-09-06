@@ -39,88 +39,12 @@ export class WorkspacesService {
 
     const workspaceIds = memberships.map((m) => m.workspaceId);
 
-    // Fetch all linked Telegram chats for user's workspaces from DB
-    // Cast as any: PrismaService has a typed stub for telegramChat that omits findMany, but runtime client has it
+    // Fetch linked Telegram chats only for user's actual workspaces
     const telegramChats = workspaceIds.length > 0
       ? await (this.prisma as any).telegramChat.findMany({
           where: { workspaceId: { in: workspaceIds } },
         })
       : [];
-
-    // Find TelegramChats registered with the bot for team/group workspaces to allow verified group members to join
-    const allTgChats = await (this.prisma as any).telegramChat.findMany({
-      where: {
-        workspace: {
-          type: { not: WorkspaceType.PERSONAL },
-        },
-      },
-      include: {
-        workspace: {
-          include: {
-            _count: {
-              select: {
-                members: true,
-                tasks: true,
-                projects: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const userTgAccount = await this.prisma.telegramAccount.findFirst({
-      where: { userId },
-    });
-
-    for (const tgChat of allTgChats) {
-      if (!tgChat.workspace || tgChat.workspace.type === WorkspaceType.PERSONAL) continue;
-      const alreadyMember = memberships.some((m) => m.workspaceId === tgChat.workspace.id);
-      if (!alreadyMember) {
-        // SECURITY: Only auto-create a workspace membership if we can verify the user is actually a member of the Telegram chat.
-        if (!userTgAccount?.telegramId) {
-          // User has not linked their Telegram account -> do not auto-add
-          continue;
-        }
-
-        let memberInfo: any;
-        try {
-          memberInfo = await this.telegramService.getChatMember(tgChat.chatId, userTgAccount.telegramId);
-        } catch {
-          // If we cannot verify membership due to Telegram API error or permissions, skip to avoid exposing workspace info
-          continue;
-        }
-
-        // If the user is not present in the chat or was removed/kicked, skip
-        if (!memberInfo || ['left', 'kicked'].includes(memberInfo.status)) {
-          continue;
-        }
-
-        // Determine role based on Telegram status
-        let role = WorkspaceRole.MEMBER;
-        if (memberInfo.status === 'creator') role = WorkspaceRole.OWNER;
-        else if (memberInfo.status === 'administrator') role = WorkspaceRole.ADMIN;
-
-        try {
-          const newMem = await this.prisma.workspaceMember.create({
-            data: {
-              workspaceId: tgChat.workspace.id,
-              userId,
-              role,
-            },
-          });
-          memberships.push({
-            ...newMem,
-            workspace: tgChat.workspace,
-          } as any);
-        } catch {
-          // If already exists or concurrent create, ignore
-        }
-      }
-      if (memberships.some((m) => m.workspaceId === tgChat.workspace?.id) && !telegramChats.some((c: any) => c.id === tgChat.id)) {
-        telegramChats.push(tgChat);
-      }
-    }
 
     return memberships.map((m) => {
       const linkedChat = telegramChats.find((c: any) => c.workspaceId === m.workspaceId);
@@ -528,16 +452,39 @@ export class WorkspacesService {
       throw new NotFoundException('Workspace not found');
     }
 
-    if (workspace.ownerId === currentUserId) {
-      throw new BadRequestException('The workspace owner cannot leave the workspace. You can delete the workspace instead.');
-    }
-
     const member = await this.prisma.workspaceMember.findFirst({
       where: { workspaceId, userId: currentUserId },
     });
 
     if (!member) {
       throw new NotFoundException('You are not a member of this workspace');
+    }
+
+    // If the owner is leaving a personal workspace, block it
+    if (workspace.type === WorkspaceType.PERSONAL && workspace.ownerId === currentUserId) {
+      throw new BadRequestException('You cannot leave your personal workspace. You can delete or rename it.');
+    }
+
+    // If the owner is leaving a team workspace, transfer ownership or delete if last member
+    if (workspace.ownerId === currentUserId) {
+      const nextMember = await this.prisma.workspaceMember.findFirst({
+        where: { workspaceId, userId: { not: currentUserId } },
+        orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+      });
+
+      if (nextMember) {
+        await this.prisma.workspace.update({
+          where: { id: workspaceId },
+          data: { ownerId: nextMember.userId },
+        });
+        await this.prisma.workspaceMember.update({
+          where: { id: nextMember.id },
+          data: { role: WorkspaceRole.OWNER },
+        });
+      } else {
+        // Last member leaving: delete the workspace
+        return this.deleteWorkspace(workspaceId, currentUserId);
+      }
     }
 
     await this.prisma.workspaceMember.delete({
@@ -556,13 +503,64 @@ export class WorkspacesService {
       throw new NotFoundException('Workspace not found');
     }
 
-    if (workspace.ownerId !== currentUserId) {
-      throw new ForbiddenException('Only the workspace owner can delete this workspace');
+    const membership = await this.prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId: currentUserId },
+    });
+
+    const isAuthorized =
+      workspace.ownerId === currentUserId ||
+      membership?.role === WorkspaceRole.OWNER ||
+      (workspace.type === WorkspaceType.TEAM && membership?.role === WorkspaceRole.ADMIN);
+
+    if (!isAuthorized) {
+      throw new ForbiddenException('Only the workspace owner or admin can delete this workspace');
     }
 
-    // Cascade deletes tasks, projects, members, labels, activity logs, telegram chat
-    await this.prisma.workspace.delete({
-      where: { id: workspaceId },
+    // Comprehensive cascading delete inside transaction so no foreign keys fail
+    await this.prisma.$transaction(async (tx: any) => {
+      // 1. Delete tasks and their related sub-entities
+      const tasks = await tx.task.findMany({
+        where: { workspaceId },
+        select: { id: true },
+      });
+      const taskIds = tasks.map((t: any) => t.id);
+
+      if (taskIds.length > 0) {
+        if (tx.reminder?.deleteMany) {
+          await tx.reminder.deleteMany({ where: { taskId: { in: taskIds } } });
+        }
+        if (tx.comment?.deleteMany) {
+          await tx.comment.deleteMany({ where: { taskId: { in: taskIds } } });
+        }
+        if (tx.taskLabel?.deleteMany) {
+          await tx.taskLabel.deleteMany({ where: { taskId: { in: taskIds } } });
+        }
+        await tx.task.deleteMany({ where: { id: { in: taskIds } } });
+      }
+
+      // 2. Delete workspace entities
+      if (tx.telegramChat?.deleteMany) {
+        await tx.telegramChat.deleteMany({ where: { workspaceId } });
+      }
+      if (tx.project?.deleteMany) {
+        await tx.project.deleteMany({ where: { workspaceId } });
+      }
+      if (tx.label?.deleteMany) {
+        await tx.label.deleteMany({ where: { workspaceId } });
+      }
+      if (tx.activityLog?.deleteMany) {
+        await tx.activityLog.deleteMany({ where: { workspaceId } });
+      }
+      if (tx.subscription?.deleteMany) {
+        await tx.subscription.deleteMany({ where: { workspaceId } });
+      }
+      if (tx.paymentOrder?.deleteMany) {
+        await tx.paymentOrder.deleteMany({ where: { workspaceId } });
+      }
+      await tx.workspaceMember.deleteMany({ where: { workspaceId } });
+
+      // 3. Delete workspace record
+      await tx.workspace.delete({ where: { id: workspaceId } });
     });
 
     return { success: true, message: 'Workspace deleted successfully' };

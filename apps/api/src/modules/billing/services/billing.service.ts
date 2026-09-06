@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
@@ -14,8 +15,47 @@ import { VerifyOrderDto } from '../dto/verify-order.dto';
 import { WorkspaceRole, WorkspaceType, SubscriptionStatus } from '@flowtask/database';
 
 @Injectable()
-export class BillingService {
+export class BillingService implements OnModuleInit {
   private readonly logger = new Logger(BillingService.name);
+
+  readonly defaultPlans = [
+    {
+      code: 'FREE',
+      name: 'Free Starter',
+      description: 'Perfect for individual task management on Telegram',
+      priceEtbMonth: 0,
+      maxProjects: 3,
+      maxMembers: 1,
+      hasAiFeatures: false,
+    },
+    {
+      code: 'PRO',
+      name: 'Pro Individual',
+      description: 'Unlimited projects, reminders, and AI task extraction',
+      priceEtbMonth: 199,
+      maxProjects: 100,
+      maxMembers: 1,
+      hasAiFeatures: true,
+    },
+    {
+      code: 'TEAM',
+      name: 'Team Collaboration',
+      description: 'Collaborate with team members inside Telegram groups',
+      priceEtbMonth: 999,
+      maxProjects: 500,
+      maxMembers: 15,
+      hasAiFeatures: true,
+    },
+    {
+      code: 'BUSINESS',
+      name: 'Business Scale',
+      description: 'Enterprise grade task management with advanced analytics',
+      priceEtbMonth: 2999,
+      maxProjects: 5000,
+      maxMembers: 100,
+      hasAiFeatures: true,
+    },
+  ];
 
   constructor(
     private prisma: PrismaService,
@@ -24,11 +64,34 @@ export class BillingService {
     private configService: ConfigService
   ) {}
 
+  async onModuleInit() {
+    await this.ensureDefaultPlans();
+  }
+
+  async ensureDefaultPlans() {
+    try {
+      for (const plan of this.defaultPlans) {
+        await this.prisma.plan.upsert({
+          where: { code: plan.code },
+          update: plan,
+          create: plan,
+        });
+      }
+      this.logger.log('Default billing plans verified/seeded in database');
+    } catch (err: any) {
+      this.logger.warn(`Could not seed default plans: ${err?.message || err}`);
+    }
+  }
+
   /**
    * Get all active pricing plans
    */
   async getPlans() {
-    const plans = await this.prisma.plan.findMany();
+    let plans = await this.prisma.plan.findMany();
+    if (!plans || plans.length === 0) {
+      await this.ensureDefaultPlans();
+      plans = await this.prisma.plan.findMany();
+    }
     return plans.sort((a: any, b: any) => a.priceEtbMonth - b.priceEtbMonth);
   }
 
@@ -148,11 +211,26 @@ export class BillingService {
       throw new BadRequestException('Please select a valid plan code to upgrade to');
     }
 
-    const requestedCode = dto.planCode.trim().toUpperCase();
+    const requestedCode = dto.planCode.toUpperCase();
 
-    const plan = await this.prisma.plan.findUnique({
+    let plan = await this.prisma.plan.findUnique({
       where: { code: requestedCode },
     });
+
+    if (!plan) {
+      const defaultPlan = this.defaultPlans.find((p) => p.code === requestedCode);
+      if (defaultPlan) {
+        try {
+          plan = await this.prisma.plan.upsert({
+            where: { code: defaultPlan.code },
+            update: defaultPlan,
+            create: defaultPlan,
+          });
+        } catch (err: any) {
+          this.logger.error(`Error auto-upserting plan ${requestedCode}:`, err);
+        }
+      }
+    }
 
     if (!plan || plan.code === 'FREE') {
       throw new BadRequestException(`Invalid plan selected for upgrade: "${requestedCode}"`);
