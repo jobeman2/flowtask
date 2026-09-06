@@ -72,17 +72,30 @@ export class WorkspacesService {
       if (!tgChat.workspace) continue;
       const alreadyMember = memberships.some((m) => m.workspaceId === tgChat.workspace.id);
       if (!alreadyMember) {
-        let role = WorkspaceRole.MEMBER;
-        if (userTgAccount?.telegramId) {
-          try {
-            const memberInfo = await this.telegramService.getChatMember(tgChat.chatId, userTgAccount.telegramId);
-            if (memberInfo && (memberInfo.status === 'creator' || memberInfo.status === 'administrator')) {
-              role = memberInfo.status === 'creator' ? WorkspaceRole.OWNER : WorkspaceRole.ADMIN;
-            }
-          } catch {
-            // Ignore telegram check errors
-          }
+        // SECURITY: Only auto-create a workspace membership if we can verify the user is actually a member of the Telegram chat.
+        if (!userTgAccount?.telegramId) {
+          // User has not linked their Telegram account -> do not auto-add
+          continue;
         }
+
+        let memberInfo: any;
+        try {
+          memberInfo = await this.telegramService.getChatMember(tgChat.chatId, userTgAccount.telegramId);
+        } catch {
+          // If we cannot verify membership due to Telegram API error or permissions, skip to avoid exposing workspace info
+          continue;
+        }
+
+        // If the user is not present in the chat or was removed/kicked, skip
+        if (!memberInfo || ['left', 'kicked'].includes(memberInfo.status)) {
+          continue;
+        }
+
+        // Determine role based on Telegram status
+        let role = WorkspaceRole.MEMBER;
+        if (memberInfo.status === 'creator') role = WorkspaceRole.OWNER;
+        else if (memberInfo.status === 'administrator') role = WorkspaceRole.ADMIN;
+
         try {
           const newMem = await this.prisma.workspaceMember.create({
             data: {
@@ -96,7 +109,7 @@ export class WorkspacesService {
             workspace: tgChat.workspace,
           } as any);
         } catch {
-          // If already exists or concurrent create
+          // If already exists or concurrent create, ignore
         }
       }
       if (!telegramChats.some((c: any) => c.id === tgChat.id)) {
