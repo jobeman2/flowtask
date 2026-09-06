@@ -342,9 +342,206 @@ export class TelegramService {
     });
   }
 
-  // ... other notify helpers unchanged (omitted for brevity in this commit)
+  async notifyTaskAssigned(data: {
+    targetTelegramId?: string;
+    taskId?: string;
+    taskTitle: string;
+    description?: string | null;
+    priority: string;
+    workspaceName: string;
+    assignerName: string;
+    dueDate?: string | null;
+  }) {
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) {
+      this.logger.warn(`Cannot send task assigned DM: target telegram ID "${data.targetTelegramId}" is not numeric`);
+      return;
+    }
 
-  // Keep registerOrSyncTelegramGroup but with improved typing and using typed prisma calls
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const descInfo = data.description ? `\n📄 *Description:* _${this.escapeMarkdown(data.description)}_` : '';
+
+    const text =
+      `📬 *Telegram Inbox — Task Assigned to You!*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*${descInfo}\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `👤 *Assigned by:* *${this.escapeMarkdown(data.assignerName)}*${dueInfo}\n\n` +
+      `_This task is now in your FlowTask Mini App and Telegram task list._`;
+
+    const inlineKeyboard: any[] = [
+      [this.getSafeWebAppButton('📱 Open in FlowTask Mini App')],
+    ];
+
+    if (data.taskId) {
+      inlineKeyboard.push([
+        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
+        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
+      ]);
+    }
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async notifyTaskCreatedForCreator(data: {
+    targetTelegramId?: string;
+    taskId?: string;
+    taskTitle: string;
+    priority: string;
+    workspaceName: string;
+    assigneeName?: string | null;
+    dueDate?: string | null;
+  }) {
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) return;
+
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const text =
+      `✅ *Task Created Confirmation*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `👤 *Assigned to:* *${this.escapeMarkdown(data.assigneeName || 'You (Personal)')}*${dueInfo}\n\n` +
+      `_You will receive updates here when this task is completed._`;
+
+    const inlineKeyboard: any[] = [
+      [this.getSafeWebAppButton('📱 View in FlowTask Mini App')],
+    ];
+
+    if (data.taskId) {
+      inlineKeyboard.push([
+        { text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` },
+        { text: '🔍 View Details', callback_data: `task:view:${data.taskId}` },
+      ]);
+    }
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async notifyTaskCompleted(data: {
+    targetTelegramId?: string;
+    taskTitle: string;
+    workspaceName: string;
+    completedByName: string;
+  }) {
+    if (!data.targetTelegramId || !/^-?\d+$/.test(data.targetTelegramId)) return;
+
+    const text =
+      `🎉 *Task Completed!*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*\n` +
+      `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n` +
+      `✅ *Completed by:* *${this.escapeMarkdown(data.completedByName)}*\n\n` +
+      `Great job! The task is now archived as done.`;
+
+    return this.sendTelegramMessage(data.targetTelegramId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [this.getSafeWebAppButton('📱 Open Mini App Board')],
+        ],
+      },
+    });
+  }
+
+  async notifyGroupTaskCreated(data: {
+    groupChatId: string;
+    taskId: string;
+    taskTitle: string;
+    description?: string | null;
+    priority: string;
+    workspaceName: string;
+    creatorName: string;
+    assigneeName?: string | null;
+    dueDate?: string | null;
+    imageUrl?: string | null;
+  }) {
+    if (!data.groupChatId || !/^-?\d+$/.test(data.groupChatId)) {
+      this.logger.warn(`Cannot send group task notification: groupChatId "${data.groupChatId}" is not numeric`);
+      return;
+    }
+
+    const dueInfo = data.dueDate
+      ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : '';
+
+    const priorityEmoji =
+      data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
+
+    const imageInfo = data.imageUrl ? `\n🖼️ *Image:* _Attached_` : '';
+
+    // If assigned to a specific person, keep description in their private DM
+    const isAssignedToUser = Boolean(data.assigneeName && data.assigneeName !== 'You (Personal)');
+    const descInfo = !isAssignedToUser && data.description ? `\n📄 *Description:* _${this.escapeMarkdown(data.description)}_` : '';
+    const privacyFootnote = isAssignedToUser
+      ? `\n\n🔒 _Details & description sent privately to ${this.escapeMarkdown(data.assigneeName)} via DM._`
+      : `\n\n_This task has been synchronized to your team's group board._`;
+
+    const text =
+      `📌 *New Task Created in ${this.escapeMarkdown(data.workspaceName)}*\n\n` +
+      `📝 *Task:* *${this.escapeMarkdown(data.taskTitle)}*${descInfo}\n` +
+      `${priorityEmoji} *Priority:* \`${data.priority}\`${imageInfo}\n` +
+      `👤 *Assigned to:* ${data.assigneeName ? `*${this.escapeMarkdown(data.assigneeName)}*` : '_Unassigned_'}\n` +
+      `👑 *Created by:* *${this.escapeMarkdown(data.creatorName)}*${dueInfo}` +
+      `${privacyFootnote}`;
+
+    const inlineKeyboard: any[] = [
+      [{ text: '✅ Mark Done', callback_data: `task:done:${data.taskId}` }],
+      [this.getSafeGroupButton('📱 Open in FlowTask Mini App')],
+    ];
+
+    if (data.imageUrl && !data.imageUrl.startsWith('data:')) {
+      return this.sendTelegramPhoto(data.groupChatId, data.imageUrl, text, {
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      });
+    }
+
+    return this.sendTelegramMessage(data.groupChatId, text, {
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async notifyGroupTaskCompleted(data: {
+    groupChatId: string;
+    taskTitle: string;
+    workspaceName: string;
+    completedByName: string;
+  }) {
+    if (!data.groupChatId || !/^-?\d+$/.test(data.groupChatId)) return;
+
+    const text =
+      `🎉 *Task Completed in ${this.escapeMarkdown(data.workspaceName)}!*\n\n` +
+      `✅ *${this.escapeMarkdown(data.completedByName)}* completed: *"${this.escapeMarkdown(data.taskTitle)}"*`;
+
+    return this.sendTelegramMessage(data.groupChatId, text, {
+      reply_markup: {
+        inline_keyboard: [
+          [this.getSafeGroupButton('📱 Open Group Board')],
+        ],
+      },
+    });
+  }
+
   async registerOrSyncTelegramGroup(chat: TgChat, fromUser?: TgUser | null) {
     const chatId = String(chat.id);
     const title = chat.title || 'Telegram Group';
