@@ -144,12 +144,18 @@ export class BillingService {
       }
     }
 
+    if (!dto.planCode) {
+      throw new BadRequestException('Please select a valid plan code to upgrade to');
+    }
+
+    const requestedCode = dto.planCode.trim().toUpperCase();
+
     const plan = await this.prisma.plan.findUnique({
-      where: { code: dto.planCode.toUpperCase() },
+      where: { code: requestedCode },
     });
 
     if (!plan || plan.code === 'FREE') {
-      throw new BadRequestException('Invalid plan selected for upgrade');
+      throw new BadRequestException(`Invalid plan selected for upgrade: "${requestedCode}"`);
     }
 
     const durationDays = dto.durationDays || 30;
