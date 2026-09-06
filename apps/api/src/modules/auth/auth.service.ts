@@ -22,9 +22,9 @@ export class AuthService {
     const botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
     const nodeEnv = this.configService.get<string>('NODE_ENV');
 
-    // In development mode or test account mode, allow mock / dev fallback
+    // In development mode only, allow mock / dev fallback
     let validated = validateTelegramWebAppData(initData, botToken);
-    if (!validated && (nodeEnv === 'development' || initData.startsWith('dev_user_') || initData.startsWith('dev_mock_'))) {
+    if (!validated && nodeEnv === 'development' && (initData.startsWith('dev_user_') || initData.startsWith('dev_mock_'))) {
       if (initData.startsWith('dev_user_jovany') || initData.startsWith('dev_user_jobeman')) {
         validated = {
           user: {

@@ -102,12 +102,8 @@ export class TelegramService {
   }
 
   private getSafeGroupButton(label: string = '📱 Open in FlowTask Mini App') {
-    const rawUrl = this.configService.get<string>('WEB_BASE_URL') || '';
     const botUsername = this.configService.get<string>('TELEGRAM_BOT_USERNAME') || 'flowtaskmanager_bot';
-    if (rawUrl && rawUrl.startsWith('https://')) {
-      return { text: label, url: rawUrl };
-    }
-    return { text: label, url: `https://t.me/${botUsername}` };
+    return { text: label, url: `https://t.me/${botUsername}/app` };
   }
 
   async sendTelegramMessage(

@@ -48,18 +48,26 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
       const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const explicitUser = activeProfile || urlParams?.get('user');
       const targetWsId = urlParams?.get('workspaceId') || urlParams?.get('tgWebAppStartParam');
-      // If running inside Telegram, NEVER fallback to dev_user_jovany
-      const isTg = typeof window !== 'undefined' && Boolean(window.Telegram?.WebApp?.initData);
+      const isLocalhost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
       const actualInitData = initData || (typeof window !== 'undefined' ? window.Telegram?.WebApp?.initData : '');
 
       let payload = actualInitData;
       if (!payload) {
-        if (isTg) {
-          // Inside Telegram WebApp: Wait for initData or report error, DO NOT login as jovany!
+        if (!isLocalhost) {
+          // In production: NEVER log in as Jovany or any dev user!
+          setIsLoading(false);
+          setUser(null);
+          setWorkspaceId(null);
+          apiClient.setToken(null);
+          apiClient.setWorkspaceId(null);
+          setError('Please open FlowTask from within Telegram to access your account.');
           return;
         }
-        // Only outside Telegram in desktop browser localhost/dev:
-        payload = explicitUser ? `dev_user_${explicitUser}` : 'dev_user_jovany';
+        // Only on localhost during local dev testing:
+        payload = explicitUser ? `dev_user_${explicitUser}` : 'dev_user_dev';
       }
 
       try {
@@ -67,6 +75,8 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         const res = await apiClient.authWithTelegram(payload);
         if (res.error) {
           setError(res.error);
+          setUser(null);
+          apiClient.setToken(null);
         } else if (res.data) {
           apiClient.setToken(res.data.accessToken);
           setUser(res.data.user);

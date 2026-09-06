@@ -47,8 +47,13 @@ export class WorkspacesService {
         })
       : [];
 
-    // Find all TelegramChats registered with the bot to ensure bot-initiated groups are available to everyone
+    // Find TelegramChats registered with the bot for team/group workspaces to allow verified group members to join
     const allTgChats = await (this.prisma as any).telegramChat.findMany({
+      where: {
+        workspace: {
+          type: { not: WorkspaceType.PERSONAL },
+        },
+      },
       include: {
         workspace: {
           include: {
@@ -69,7 +74,7 @@ export class WorkspacesService {
     });
 
     for (const tgChat of allTgChats) {
-      if (!tgChat.workspace) continue;
+      if (!tgChat.workspace || tgChat.workspace.type === WorkspaceType.PERSONAL) continue;
       const alreadyMember = memberships.some((m) => m.workspaceId === tgChat.workspace.id);
       if (!alreadyMember) {
         // SECURITY: Only auto-create a workspace membership if we can verify the user is actually a member of the Telegram chat.
@@ -112,7 +117,7 @@ export class WorkspacesService {
           // If already exists or concurrent create, ignore
         }
       }
-      if (!telegramChats.some((c: any) => c.id === tgChat.id)) {
+      if (memberships.some((m) => m.workspaceId === tgChat.workspace?.id) && !telegramChats.some((c: any) => c.id === tgChat.id)) {
         telegramChats.push(tgChat);
       }
     }

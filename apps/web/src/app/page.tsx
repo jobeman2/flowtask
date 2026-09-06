@@ -15,7 +15,7 @@ import { TaskDetailModal } from '../features/tasks/components/task-detail-modal'
 import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, workspaceId, error, subscription } = useAuth();
+  const { user, workspaceId, error, subscription, isLoading } = useAuth();
   useLiveEvents(workspaceId);
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -25,6 +25,41 @@ export default function HomePage() {
   // Plan comes from the user's own account subscription (works cross-device automatically)
   const planCode = subscription?.planCode || 'FREE';
   const isUpgraded = planCode !== 'FREE';
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-3">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-slate-400">Loading FlowTask...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-6 space-y-5">
+        <div className="w-16 h-16 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs">
+          <Sparkles className="w-8 h-8" />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+            Welcome to FlowTask
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            {error || 'FlowTask runs securely inside Telegram. Please open the app via the official Telegram bot to access your account and workspaces.'}
+          </p>
+        </div>
+        <a
+          href="https://t.me/flowtaskmanager_bot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/25 transition-all active:scale-95"
+        >
+          <span>Open in Telegram Bot</span>
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 space-y-4 pb-20 min-h-screen font-sans">

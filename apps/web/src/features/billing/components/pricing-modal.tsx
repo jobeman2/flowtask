@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
@@ -55,17 +55,34 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  // Current plan comes from user's account subscription
-  const currentPlanCode = subscription?.planCode || 'FREE';
+  // Keep subscription data strictly updated from API and auth context
+  const { data: apiSub } = useQuery({
+    queryKey: ['my-subscription'],
+    queryFn: async () => {
+      const res = await apiClient.getMySubscription();
+      return res.data;
+    },
+    enabled: isOpen,
+  });
+
+  const currentPlanCode =
+    apiSub?.plan?.code ||
+    apiSub?.planCode ||
+    subscription?.planCode ||
+    (subscription as any)?.plan?.code ||
+    'FREE';
 
   // 1. Create Payment Order Mutation
   const createOrderMutation = useMutation({
     mutationFn: async (planCode: string) => {
       setErrorMsg(null);
+      if (!planCode || planCode.trim().toUpperCase() === 'FREE') {
+        throw new Error('Free Starter is free and does not require a payment order.');
+      }
       const targetWsId = workspaceId || user?.defaultWorkspaceId || '';
       const res = await apiClient.createPaymentOrder({
         workspaceId: targetWsId,
-        planCode,
+        planCode: planCode.trim().toUpperCase(),
         durationDays: 30,
       });
       if (res.error) throw new Error(res.error);
@@ -390,6 +407,10 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               {plans.map((p) => {
                 const isCurrent = currentPlanCode === p.code;
+                const isFree = p.code === 'FREE';
+                const isLowerTier =
+                  (currentPlanCode === 'PRO' && isFree) ||
+                  (currentPlanCode === 'TEAM' && (isFree || p.code === 'PRO'));
 
                 return (
                   <div
@@ -430,12 +451,48 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
                     <div className="mt-4 pt-2">
                       {isCurrent ? (
+                        isFree ? (
+                          <Button
+                            variant="secondary"
+                            disabled
+                            className="w-full text-xs font-bold py-2 rounded-xl"
+                          >
+                            Active Plan
+                          </Button>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <Button
+                              variant="secondary"
+                              disabled
+                              className="w-full text-xs font-bold py-2 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60"
+                            >
+                              ✓ Active Plan
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => createOrderMutation.mutate(p.code)}
+                              disabled={createOrderMutation.isPending}
+                              className="w-full text-center text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 py-1 transition-colors disabled:opacity-50"
+                            >
+                              {createOrderMutation.isPending ? 'Processing...' : 'Extend / Renew with Telebirr'}
+                            </button>
+                          </div>
+                        )
+                      ) : isFree ? (
                         <Button
-                          variant="secondary"
+                          variant="outline"
                           disabled
-                          className="w-full text-xs font-bold py-2 rounded-xl"
+                          className="w-full text-xs font-bold py-2 rounded-xl opacity-60 cursor-not-allowed text-slate-400 dark:text-slate-500"
                         >
-                          Active Plan
+                          Base Plan Included
+                        </Button>
+                      ) : isLowerTier ? (
+                        <Button
+                          variant="outline"
+                          disabled
+                          className="w-full text-xs font-bold py-2 rounded-xl opacity-60 cursor-not-allowed text-slate-400 dark:text-slate-500"
+                        >
+                          Included in {currentPlanCode}
                         </Button>
                       ) : (
                         <Button
