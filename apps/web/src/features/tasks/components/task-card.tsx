@@ -11,9 +11,6 @@ import {
   Bot,
   User,
   CheckSquare,
-  Zap,
-  FileText,
-  AlertTriangle,
 } from 'lucide-react';
 import { useTelegram } from '../../../hooks/use-telegram';
 
@@ -187,18 +184,16 @@ export function TaskCard({
         triggerHaptic('light');
         onSelect(task.id);
       }}
-      className={`relative rounded-2xl p-4 border transition-all cursor-pointer group shadow-[0_4px_16px_-2px_rgba(15,23,42,0.08),0_1px_4px_rgba(15,23,42,0.04)] hover:shadow-md active:scale-[0.99] ${
+      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] hover:shadow-md active:scale-[0.99] ${
         isDone
-          ? 'bg-slate-100/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-60 border-l-4 border-l-slate-300 dark:border-l-slate-700'
+          ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/80 opacity-70'
           : meta.isMeeting
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-purple-500 hover:border-l-purple-600 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.12)]'
+          ? 'bg-gradient-to-r from-purple-50/40 via-white to-white dark:from-purple-950/20 dark:via-slate-900 dark:to-slate-900 border-purple-200/70 dark:border-purple-900/40 hover:border-purple-300 dark:hover:border-purple-700'
           : meta.isClickUp
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-violet-500 hover:border-l-violet-600 shadow-[0_4px_20px_-4px_rgba(139,92,246,0.12)]'
+          ? 'bg-gradient-to-r from-violet-50/40 via-white to-white dark:from-violet-950/20 dark:via-slate-900 dark:to-slate-900 border-violet-200/70 dark:border-violet-900/40 hover:border-violet-300 dark:hover:border-violet-700'
           : meta.isNotion
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-slate-600 dark:border-l-slate-400 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)]'
-          : task.priority === 'URGENT' || task.priority === 'HIGH'
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-rose-500 hover:border-l-rose-600 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.12)]'
-          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-blue-500 hover:border-blue-400 dark:hover:border-blue-500 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.08)]'
+          ? 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+          : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900/50'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -213,9 +208,9 @@ export function TaskCard({
               isDone
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : meta.isMeeting
-                ? 'border-2 border-purple-400 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
+                ? 'border-2 border-purple-300 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
                 : meta.isClickUp
-                ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
+                ? 'border-2 border-violet-300 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
                 : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
             }`}
           >
@@ -227,36 +222,27 @@ export function TaskCard({
             <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
               {meta.isMeeting && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs">
-                  <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
+                  <Mic className="w-2.5 h-2.5" />
                   <span>Meeting</span>
                 </span>
               )}
 
               {meta.isClickUp && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 shadow-2xs">
-                  <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
-                  <span>ClickUp</span>
+                  <span>⚡ ClickUp</span>
                 </span>
               )}
 
               {meta.isNotion && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs">
-                  <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
-                  <span>Notion</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                  <span>📓 Notion</span>
                 </span>
               )}
 
               {meta.isAi && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
-                  <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
+                  <Bot className="w-2.5 h-2.5" />
                   <span>Flow AI</span>
-                </span>
-              )}
-
-              {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
-                  <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
-                  <span>{dueInfo?.isAlert ? 'Overdue' : 'Urgent'}</span>
                 </span>
               )}
 
