@@ -343,6 +343,65 @@ export function createBot() {
     await handleTaskDetail(ctx, taskId);
   });
 
+  // 10.5 Meeting Notify Action (meeting:notify:<id>)
+  bot.callbackQuery(/^meeting:notify:(.+)$/, async (ctx) => {
+    const taskId = ctx.match[1];
+    const task = await prisma.task.findFirst({ where: { id: taskId } });
+    if (!task) {
+      await ctx.answerCallbackQuery({ text: 'Meeting not found or deleted.' });
+      return;
+    }
+
+    const cleanTitle = task.title.replace(/^\[meeting\]\s*/i, '');
+    let remindAt = task.dueDate ? new Date(new Date(task.dueDate).getTime() - 15 * 60000) : new Date(Date.now() + 15 * 60000);
+    if (remindAt.getTime() <= Date.now()) {
+      remindAt = new Date(Date.now() + 5 * 60000);
+    }
+
+    try {
+      await prisma.reminder.create({
+        data: {
+          taskId,
+          remindAt,
+          type: 'CUSTOM',
+        },
+      });
+    } catch {
+      // Ignore duplicate reminder
+    }
+
+    await ctx.answerCallbackQuery({
+      text: `🔔 Reminder set for "${cleanTitle}"!`,
+      show_alert: true,
+    });
+
+    if (ctx.from?.id) {
+      try {
+        const meetingUrl = task.description?.match(/(?:Join URL|URL|Link):\s*([^\n\r]+)/i)?.[1]?.trim();
+        const dateStr = task.dueDate
+          ? new Date(task.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : 'Scheduled soon';
+        const keyboard = new InlineKeyboard();
+        if (meetingUrl && /^(https?:\/\/|tg:\/\/)/i.test(meetingUrl)) {
+          keyboard.url('🔗 Open Meeting Link', meetingUrl).row();
+        }
+        keyboard.url('📱 Open in FlowTask', botConfig.webAppUrl);
+
+        const safeTitle = cleanTitle.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+        await ctx.api.sendMessage(
+          ctx.from.id,
+          `🔔 *Meeting Reminder Set\\!*\n\n🎙️ *Topic:* *${safeTitle}*\n⏰ *Time:* \`${dateStr}\`\n\nYou're all set\\! You will receive a notification before this meeting starts\\.`,
+          {
+            parse_mode: 'MarkdownV2',
+            reply_markup: keyboard,
+          }
+        );
+      } catch {
+        // Direct DM not opened yet
+      }
+    }
+  });
+
   // 11. Delete Task Action (task:delete_do:<id>)
   bot.callbackQuery(/^task:delete_do:(.+)$/, async (ctx) => {
     const taskId = ctx.match[1];

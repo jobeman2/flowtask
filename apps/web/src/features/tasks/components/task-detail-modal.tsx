@@ -187,6 +187,32 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     },
   });
 
+  // Delete Task Mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async () => {
+      if (!taskId || !workspaceId) return;
+      const res = await apiClient.deleteTask(taskId, workspaceId);
+      if (res?.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('heavy');
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+      onClose();
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to delete task');
+    },
+  });
+
+  const handleDeleteTask = () => {
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      deleteTaskMutation.mutate();
+    }
+  };
+
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setTimeout(() => {
       e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -312,12 +338,23 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
             <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
               Task Overview
             </span>
-            <button
-              onClick={onClose}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleDeleteTask}
+                disabled={deleteTaskMutation.isPending}
+                title="Delete Task"
+                className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -711,8 +748,18 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </form>
               </div>
 
-              {/* Action Button: Mark Done / Complete */}
-              <div className="pt-2">
+              {/* Action Buttons: Delete Task & Mark as Done */}
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteTask}
+                  disabled={deleteTaskMutation.isPending}
+                  className="px-4 py-3.5 rounded-2xl font-extrabold text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -724,7 +771,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     }
                     completeMutation.mutate();
                   }}
-                  className={`w-full py-3.5 rounded-2xl font-extrabold text-xs text-white shadow-md transition-all active:scale-98 ${
+                  className={`flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white shadow-md transition-all active:scale-98 ${
                     isDone
                       ? 'bg-emerald-600 cursor-default'
                       : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25'

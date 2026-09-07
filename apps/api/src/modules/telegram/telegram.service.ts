@@ -403,6 +403,30 @@ export class TelegramService {
       ? `\n⏰ *Due:* ${new Date(data.dueDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
       : '';
 
+    const isMeeting = data.taskTitle.toLowerCase().startsWith('[meeting]');
+    if (isMeeting) {
+      const cleanTitle = data.taskTitle.replace(/^\[meeting\]\s*/i, '').trim();
+      const text =
+        `📅 *Meeting Scheduled Successfully!*\n\n` +
+        `🎙️ *Topic:* *${this.escapeMarkdown(cleanTitle)}*${dueInfo}\n` +
+        `🏢 *Workspace:* *${this.escapeMarkdown(data.workspaceName)}*\n\n` +
+        `_Your meeting has been scheduled and broadcasted to your workspace._`;
+
+      const inlineKeyboard: any[] = [
+        [this.getSafeWebAppButton('📱 View in FlowTask')],
+      ];
+      if (data.taskId) {
+        inlineKeyboard.push([
+          { text: '🔔 Notify Me', callback_data: `meeting:notify:${data.taskId}` },
+        ]);
+      }
+      return this.sendTelegramMessage(data.targetTelegramId, text, {
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      });
+    }
+
     const priorityEmoji =
       data.priority === 'URGENT' ? '🚨' : data.priority === 'HIGH' ? '🔥' : data.priority === 'MEDIUM' ? '⚡' : '☕';
 
@@ -471,6 +495,55 @@ export class TelegramService {
     if (!data.groupChatId || !/^-?\d+$/.test(data.groupChatId)) {
       this.logger.warn(`Cannot send group task notification: groupChatId "${data.groupChatId}" is not numeric`);
       return;
+    }
+
+    const isMeeting = data.taskTitle.toLowerCase().startsWith('[meeting]');
+    if (isMeeting) {
+      const cleanTitle = data.taskTitle.replace(/^\[meeting\]\s*/i, '').trim();
+      const platform = data.description?.match(/Platform:\s*([^\n\r]+)/i)?.[1]?.trim() || 'Online Meeting';
+      const rawUrl = data.description?.match(/(?:Join URL|URL|Link):\s*([^\n\r]+)/i)?.[1]?.trim();
+      const duration = data.description?.match(/Duration:\s*([^\n\r]+)/i)?.[1]?.trim();
+      const agenda = data.description?.match(/Agenda:\s*([\s\S]+)$/i)?.[1]?.trim();
+
+      const timeStr = data.dueDate
+        ? new Date(data.dueDate).toLocaleString([], {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'Scheduled Soon';
+
+      const durationLine = duration ? `\n⏱️ *Duration:* \`${this.escapeMarkdown(duration)}\`` : '';
+      const agendaBlock = agenda ? `\n\n📋 *Agenda:*\n_${this.escapeMarkdown(agenda)}_` : '';
+
+      const text =
+        `📅 *New Meeting Scheduled in ${this.escapeMarkdown(data.workspaceName)}*\n\n` +
+        `🎙️ *Topic:* *${this.escapeMarkdown(cleanTitle)}*\n` +
+        `⏰ *Time:* \`${timeStr}\`${durationLine}\n` +
+        `🌐 *Platform:* ${this.escapeMarkdown(platform)}\n` +
+        `👤 *Host:* *${this.escapeMarkdown(data.creatorName)}*` +
+        `${agendaBlock}\n\n` +
+        `_Tap "Open Link" to join or "Notify Me" to get a reminder._`;
+
+      const isValidUrl = Boolean(rawUrl && /^(https?:\/\/|tg:\/\/)/i.test(rawUrl));
+      const actionRow: any[] = [];
+      if (isValidUrl) {
+        actionRow.push({ text: '🔗 Open Link', url: rawUrl });
+      }
+      actionRow.push({ text: '🔔 Notify Me', callback_data: `meeting:notify:${data.taskId}` });
+
+      const inlineKeyboard: any[] = [
+        actionRow,
+        [this.getSafeGroupButton('📱 Open in FlowTask')],
+      ];
+
+      return this.sendTelegramMessage(data.groupChatId, text, {
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      });
     }
 
     const dueInfo = data.dueDate
