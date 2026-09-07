@@ -11,6 +11,8 @@ import {
   Bot,
   User,
   CheckSquare,
+  Zap,
+  FileText,
 } from 'lucide-react';
 import { useTelegram } from '../../../hooks/use-telegram';
 
@@ -178,39 +180,111 @@ export function TaskCard({
     }
   };
 
+  // Priority config
+  const priorityConfig = {
+    URGENT: { color: 'bg-rose-500', label: 'Urgent', textColor: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/50' },
+    HIGH:   { color: 'bg-orange-400', label: 'High',   textColor: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/50' },
+    MEDIUM: { color: 'bg-amber-400',  label: 'Medium', textColor: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-950/50'  },
+    LOW:    { color: 'bg-slate-400',  label: 'Low',    textColor: 'text-slate-500 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800'     },
+  } as const;
+  const priority = (task.priority as keyof typeof priorityConfig) || 'LOW';
+  const pCfg = priorityConfig[priority] ?? priorityConfig.LOW;
+
   return (
     <div
       onClick={() => {
         triggerHaptic('light');
         onSelect(task.id);
       }}
-      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] hover:shadow-md active:scale-[0.99] ${
+      className={`relative rounded-2xl border transition-all cursor-pointer group overflow-hidden ${
         isDone
-          ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/80 opacity-70'
+          ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800/60 shadow-none opacity-75'
           : meta.isMeeting
-          ? 'bg-gradient-to-r from-purple-50/40 via-white to-white dark:from-purple-950/20 dark:via-slate-900 dark:to-slate-900 border-purple-200/70 dark:border-purple-900/40 hover:border-purple-300 dark:hover:border-purple-700'
+          ? 'bg-white dark:bg-slate-900 border-purple-200/80 dark:border-purple-900/50 shadow-[0_2px_12px_-2px_rgba(168,85,247,0.10)] hover:shadow-[0_4px_20px_-4px_rgba(168,85,247,0.18)] hover:border-purple-300'
           : meta.isClickUp
-          ? 'bg-gradient-to-r from-violet-50/40 via-white to-white dark:from-violet-950/20 dark:via-slate-900 dark:to-slate-900 border-violet-200/70 dark:border-violet-900/40 hover:border-violet-300 dark:hover:border-violet-700'
+          ? 'bg-white dark:bg-slate-900 border-violet-200/80 dark:border-violet-900/50 shadow-[0_2px_12px_-2px_rgba(139,92,246,0.10)] hover:shadow-[0_4px_20px_-4px_rgba(139,92,246,0.18)] hover:border-violet-300'
           : meta.isNotion
-          ? 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
-          : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900/50'
-      }`}
+          ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-slate-300'
+          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05)] hover:shadow-md hover:border-blue-200 dark:hover:border-blue-900/50'
+      } active:scale-[0.99]`}
     >
-      <div className="flex items-start justify-between gap-3">
-        {/* Left: Checkbox & Main Info */}
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          {/* Checkbox button */}
+      {/* Left accent stripe */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[3.5px] rounded-l-2xl ${
+        isDone        ? 'bg-slate-300 dark:bg-slate-700'
+        : meta.isMeeting ? 'bg-purple-500'
+        : meta.isClickUp  ? 'bg-violet-500'
+        : meta.isNotion   ? 'bg-slate-600 dark:bg-slate-400'
+        : priority === 'URGENT' ? 'bg-rose-500'
+        : priority === 'HIGH'   ? 'bg-orange-400'
+        : 'bg-blue-500'
+      }`} />
+
+      <div className="pl-4 pr-3.5 py-3.5">
+        {/* TOP ROW: source badge + priority dot + assignee */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Source badges */}
+            {meta.isMeeting && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+                <Video className="w-2.5 h-2.5" />
+                <span>Meeting</span>
+              </span>
+            )}
+            {meta.isClickUp && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60">
+                <Zap className="w-2.5 h-2.5 fill-violet-600 dark:fill-violet-300" />
+                <span>ClickUp</span>
+              </span>
+            )}
+            {meta.isNotion && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <FileText className="w-2.5 h-2.5" />
+                <span>Notion</span>
+              </span>
+            )}
+            {meta.isAi && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                <Bot className="w-2.5 h-2.5" />
+                <span>Flow AI</span>
+              </span>
+            )}
+
+            {/* Priority dot + label (always shown, skipped if done) */}
+            {!isDone && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${pCfg.bg} ${pCfg.textColor}`}>
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pCfg.color}`} />
+                {pCfg.label}
+              </span>
+            )}
+          </div>
+
+          {/* Assignee avatar or initial */}
+          <div className="shrink-0">
+            {task.assignee?.avatarUrl ? (
+              <img src={task.assignee.avatarUrl} alt={task.assignee.name || 'Assignee'} className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+            ) : task.assignee?.name ? (
+              <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60">
+                {task.assignee.name[0].toUpperCase()}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* MAIN ROW: checkbox + title */}
+        <div className="flex items-start gap-3">
           <button
             type="button"
             onClick={handleCheckboxClick}
             disabled={isDone || isCompleting}
             className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
               isDone
-                ? 'bg-emerald-600 text-white shadow-xs'
+                ? 'bg-emerald-500 text-white shadow-xs'
                 : meta.isMeeting
                 ? 'border-2 border-purple-300 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
                 : meta.isClickUp
                 ? 'border-2 border-violet-300 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
+                : priority === 'URGENT' || priority === 'HIGH'
+                ? 'border-2 border-rose-400 dark:border-rose-500 hover:border-rose-500 hover:scale-105'
                 : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
             }`}
           >
@@ -218,97 +292,65 @@ export function TaskCard({
           </button>
 
           <div className="min-w-0 flex-1">
-            {/* Category / Source Badges */}
-            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-              {meta.isMeeting && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs">
-                  <Mic className="w-2.5 h-2.5" />
-                  <span>Meeting</span>
-                </span>
-              )}
+            {/* Title */}
+            <h4 className={`text-xs font-bold leading-snug tracking-tight break-words ${
+              isDone
+                ? 'line-through text-slate-400 dark:text-slate-500'
+                : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
+            }`}>
+              {meta.cleanTitle}
+            </h4>
 
-              {meta.isClickUp && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 shadow-2xs">
-                  <span>⚡ ClickUp</span>
-                </span>
-              )}
+            {/* Completed banner */}
+            {isDone && (
+              <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-800/40">
+                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                Completed
+              </div>
+            )}
 
-              {meta.isNotion && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                  <span>📓 Notion</span>
-                </span>
-              )}
-
-              {meta.isAi && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
-                  <Bot className="w-2.5 h-2.5" />
-                  <span>Flow AI</span>
+            {/* Sub-meta: project, due date, subtasks, join button */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
+                <span
+                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1"
+                  style={{ backgroundColor: `${projectColor}18`, color: projectColor }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: projectColor }} />
+                  {projectTag}
                 </span>
               )}
 
               {meta.platform && (
-                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Mic className="w-2.5 h-2.5 text-purple-500" />
                   {meta.platform}
                 </span>
               )}
 
               {meta.clickUpSpace && (
-                <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[120px]">
                   {meta.clickUpSpace}
-                </span>
-              )}
-            </div>
-
-            {/* Task Title */}
-            <h4
-              className={`text-xs font-bold leading-snug tracking-tight break-words ${
-                isDone
-                  ? 'line-through text-slate-400 dark:text-slate-500'
-                  : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
-              }`}
-            >
-              {meta.cleanTitle}
-            </h4>
-
-            {/* Sub-meta: Project, Due Date, Subtask counter */}
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
-                <span
-                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1"
-                  style={{
-                    backgroundColor: `${projectColor}15`,
-                    color: projectColor,
-                  }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: projectColor }}
-                  />
-                  <span>{projectTag}</span>
                 </span>
               )}
 
               {dueInfo && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                    dueInfo.isAlert
-                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-                      : dueInfo.isToday
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
-                >
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  dueInfo.isAlert
+                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                    : dueInfo.isToday
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
                   <Calendar className="w-2.5 h-2.5" />
-                  <span>{dueInfo.label}</span>
+                  {dueInfo.label}
                 </span>
               )}
 
               {meta.subtaskCount && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1">
                   <CheckSquare className="w-2.5 h-2.5 text-blue-500" />
-                  <span>
-                    {meta.subtaskCount.completed}/{meta.subtaskCount.total}
-                  </span>
+                  {meta.subtaskCount.completed}/{meta.subtaskCount.total}
                 </span>
               )}
 
@@ -325,31 +367,6 @@ export function TaskCard({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Right side: Assignee Avatar or Priority Pill */}
-        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-          {task.assignee?.avatarUrl ? (
-            <img
-              src={task.assignee.avatarUrl}
-              alt={task.assignee.name || 'Assignee'}
-              className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-            />
-          ) : task.assignee?.name ? (
-            <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center">
-              {task.assignee.name[0].toUpperCase()}
-            </div>
-          ) : (
-            <span
-              className={`w-2 h-2 rounded-full ${
-                task.priority === 'URGENT' || task.priority === 'HIGH'
-                  ? 'bg-rose-500'
-                  : task.priority === 'MEDIUM'
-                  ? 'bg-amber-500'
-                  : 'bg-blue-500'
-              }`}
-            />
-          )}
         </div>
       </div>
     </div>

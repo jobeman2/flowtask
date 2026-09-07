@@ -134,17 +134,17 @@ export function HomeView({
 
   return (
     <div className="space-y-5 pb-32 animate-in fade-in duration-300 font-sans">
-      {/* 1. Hero Focus Card — soft muted indigo/slate palette */}
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-800 via-slate-700 to-indigo-900 p-5 text-white shadow-lg shadow-slate-900/20 border border-slate-600/30">
+      {/* 1. Hero Focus Card — Blue brand palette (softer than full saturation) */}
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-xl shadow-blue-600/25 border border-blue-400/20">
         {/* Subtle decorative glow */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-blue-400/10 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-indigo-300/15 rounded-full blur-xl pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
           {/* Row 1: Greeting + Progress badge — always vertically centered */}
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] font-bold tracking-wider uppercase text-slate-300 border border-white/10">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/15 text-[10px] font-bold tracking-wider uppercase text-blue-100 border border-white/10">
                 <Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
                 <span>Daily Focus</span>
               </span>
@@ -154,9 +154,9 @@ export function HomeView({
             </div>
 
             {/* Progress badge */}
-            <div className="flex flex-col items-center justify-center bg-white/10 border border-white/15 rounded-2xl w-14 h-14 shrink-0">
+            <div className="flex flex-col items-center justify-center bg-white/15 border border-white/20 rounded-2xl w-14 h-14 shrink-0">
               <span className="text-base font-black tracking-tight">{progressPercent}%</span>
-              <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider leading-none mt-0.5">done</span>
+              <span className="text-[9px] font-bold text-blue-100 uppercase tracking-wider leading-none mt-0.5">done</span>
             </div>
           </div>
 
@@ -187,15 +187,15 @@ export function HomeView({
               </div>
             </div>
           ) : (
-            <div className="bg-white/8 rounded-2xl px-3.5 py-2.5 border border-white/10 flex items-center justify-between gap-3">
+            <div className="bg-white/10 rounded-2xl px-3.5 py-2.5 border border-white/15 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <p className="text-xs font-semibold text-slate-200 truncate">All caught up! Great job.</p>
+                <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+                <p className="text-xs font-semibold text-blue-100 truncate">All caught up! Great job.</p>
               </div>
               <button
                 type="button"
                 onClick={onOpenCreate}
-                className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 bg-white text-slate-800 rounded-xl shadow-xs hover:bg-slate-50 transition-all active:scale-95 shrink-0"
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 bg-white text-blue-600 rounded-xl shadow-xs hover:bg-blue-50 transition-all active:scale-95 shrink-0"
               >
                 <Plus className="w-3 h-3 stroke-[3]" />
                 <span>Add</span>
@@ -205,13 +205,13 @@ export function HomeView({
 
           {/* Progress Bar */}
           <div className="space-y-1.5 pt-0.5">
-            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300 h-full rounded-full transition-all duration-700 ease-out"
+                className="bg-gradient-to-r from-white/80 via-blue-100 to-indigo-200 h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_6px_rgba(255,255,255,0.3)]"
                 style={{ width: `${Math.max(5, progressPercent)}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-slate-300 font-semibold px-0.5">
+            <div className="flex justify-between text-[11px] text-blue-100 font-semibold px-0.5">
               <span>{metrics.completed} Completed</span>
               <span>{metrics.active} Pending</span>
             </div>
