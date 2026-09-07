@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
@@ -15,6 +15,9 @@ import {
   FileText,
   Search,
   Check,
+  ChevronDown,
+  FolderKanban,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface CreateTaskSheetProps {
@@ -35,8 +38,31 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [projectId, setProjectId] = useState<string>('');
   const [attachments, setAttachments] = useState<Array<{ name: string; url: string; isImage: boolean }>>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
+
+  // Custom Project Select State
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [projectSearch, setProjectSearch] = useState('');
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setIsProjectDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    // Smooth scroll into view with slight delay to accommodate mobile keyboard layout shifts
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+  };
 
   const setQuickDueDate = (offsetDays: number, hour = 18) => {
     triggerHaptic('light');
@@ -87,6 +113,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         assigneeId: assigneeId || undefined,
         projectId: projectId || undefined,
+        imageUrl: attachments.find((a) => a.isImage)?.url || undefined,
       });
 
       if (res.error) throw new Error(res.error);
@@ -129,11 +156,21 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
     reader.readAsDataURL(file);
   };
 
+  const selectedProject = projects.find((p: any) => p.id === projectId);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          (document.activeElement as HTMLElement)?.blur();
+          onClose();
+        }
+      }}
+    >
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto overscroll-contain no-scrollbar pb-24 sm:pb-5">
         {/* Top Bar */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-base font-bold text-slate-900 dark:text-white">Create Task</h3>
@@ -154,6 +191,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            (document.activeElement as HTMLElement)?.blur();
             createMutation.mutate();
           }}
           className="space-y-4"
@@ -167,9 +205,20 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onFocus={handleInputFocus}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  descriptionInputRef.current?.focus();
+                }
+              }}
               placeholder="What needs to be done?"
               required
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors"
+              enterKeyHint="next"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck={true}
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium transition-all"
             />
           </div>
 
@@ -179,31 +228,139 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               Description
             </label>
             <textarea
+              ref={descriptionInputRef}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add more details..."
+              onFocus={handleInputFocus}
+              placeholder="Add more details, checklists, or links..."
               rows={3}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium resize-none transition-colors"
+              enterKeyHint="done"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck={true}
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium resize-none transition-all"
             />
           </div>
 
-          {/* Project / Category */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Project / Category
+          {/* Project / Category - Modern Custom Select UI */}
+          <div className="space-y-1 relative" ref={projectDropdownRef}>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Project / Category</span>
+              {selectedProject && (
+                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                  Selected
+                </span>
+              )}
             </label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors cursor-pointer appearance-none"
+
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setIsProjectDropdownOpen(!isProjectDropdownOpen);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-all text-left ${
+                isProjectDropdownOpen
+                  ? 'bg-white dark:bg-slate-800 border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
             >
-              <option value="">General / Default</option>
-              {projects.map((p: any) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+                  style={{
+                    backgroundColor: selectedProject ? (selectedProject.color || '#3b82f6') : '#94a3b8',
+                  }}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {selectedProject ? selectedProject.name : 'General / Default Project'}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+                  isProjectDropdownOpen ? 'rotate-180 text-blue-500' : ''
+                }`}
+              />
+            </button>
+
+            {/* Custom Dropdown Picker */}
+            {isProjectDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-150 space-y-1 max-h-56 overflow-y-auto no-scrollbar">
+                {projects.length > 3 && (
+                  <div className="px-1 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search projects..."
+                        value={projectSearch}
+                        onChange={(e) => setProjectSearch(e.target.value)}
+                        className="w-full bg-transparent text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Default / No Project Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setProjectId('');
+                    setIsProjectDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    !projectId
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
+                    <span>General / Default Project</span>
+                  </div>
+                  {!projectId && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 stroke-[2.5]" />}
+                </button>
+
+                {/* Filtered Project Options */}
+                {projects
+                  .filter((p: any) =>
+                    !projectSearch || p.name.toLowerCase().includes(projectSearch.toLowerCase())
+                  )
+                  .map((p: any) => {
+                    const isSelected = projectId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setProjectId(p.id);
+                          setIsProjectDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                          isSelected
+                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: p.color || '#3b82f6' }}
+                          />
+                          <span className="truncate">{p.name}</span>
+                        </div>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 stroke-[2.5] shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
           </div>
 
           {/* Due Date & Quick Time Chips */}
@@ -271,7 +428,8 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                 type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors"
+                onFocus={handleInputFocus}
+                className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors"
               />
             )}
           </div>

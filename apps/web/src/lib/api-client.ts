@@ -236,6 +236,17 @@ class ApiClient {
     });
   }
 
+  async addComment(taskId: string, workspaceId: string, content: string) {
+    return this.request<any>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async getTaskComments(taskId: string, workspaceId: string) {
+    return this.request<any[]>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`);
+  }
+
   async getProjects(workspaceId: string) {
     return this.request<any[]>(`/projects?workspaceId=${workspaceId}`);
   }

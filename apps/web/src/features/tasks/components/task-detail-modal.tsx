@@ -47,37 +47,13 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Subtasks State
-  const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string; completed: boolean }>>([
-    { id: '1', title: 'Prepare requirements and review specs', completed: true },
-    { id: '2', title: 'Execute implementation & testing', completed: true },
-    { id: '3', title: 'QA review and team verification', completed: false },
-  ]);
+  // Subtasks State (initialized empty and populated from real task description/checklists)
+  const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string; completed: boolean }>>([]);
 
-  // Attachments State
-  const [attachments, setAttachments] = useState<AttachmentItem[]>([
-    {
-      id: 'att-1',
-      name: 'Design_System_Mockup.png',
-      url: '/flow-logo.png',
-      type: 'image',
-      size: '240 KB',
-      uploadedAt: '2h ago',
-    },
-    {
-      id: 'att-2',
-      name: 'API_Specification_v2.pdf',
-      url: '#',
-      type: 'document',
-      size: '1.2 MB',
-      uploadedAt: '1h ago',
-    },
-  ]);
+  // Attachments State (initialized empty and populated from real task.imageUrl or uploaded files)
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
 
-  // Comments State
-  const [comments, setComments] = useState<Array<{ id: string; user: string; text: string; time: string }>>([
-    { id: '1', user: 'Flow Bot', text: 'Task dispatched to assignee via Telegram DM.', time: '2h ago' },
-  ]);
+  // Comment input state
   const [newComment, setNewComment] = useState('');
 
   // Fetch Task Details
@@ -90,6 +66,48 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     },
     enabled: Boolean(taskId && workspaceId),
   });
+
+  // Sync state when task data loads or changes
+  React.useEffect(() => {
+    if (!task) return;
+
+    // Attachments: seed from real task image
+    const initialAtts: AttachmentItem[] = [];
+    if (task.imageUrl) {
+      const fileName = task.imageUrl.startsWith('data:')
+        ? 'Task Attachment Photo'
+        : (task.imageUrl.split('/').pop() || 'Task Image');
+      initialAtts.push({
+        id: 'att-main',
+        name: fileName,
+        url: task.imageUrl,
+        type: 'image',
+        size: 'Attached',
+        uploadedAt: task.createdAt
+          ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : 'Attached',
+      });
+    }
+    setAttachments(initialAtts);
+
+    // Subtasks: parse checklist items from description if present (e.g. - [ ] or - [x])
+    if (task.description && (task.description.includes('- [ ]') || task.description.includes('- [x]') || task.description.includes('- [X]'))) {
+      const lines = task.description.split('\n');
+      const parsed: Array<{ id: string; title: string; completed: boolean }> = [];
+      lines.forEach((line: string, idx: number) => {
+        const uncheckedMatch = line.match(/^-\s*\[\s*\]\s*(.+)$/);
+        const checkedMatch = line.match(/^-\s*\[[xX]\]\s*(.+)$/);
+        if (uncheckedMatch) {
+          parsed.push({ id: `sub-${idx}`, title: uncheckedMatch[1].trim(), completed: false });
+        } else if (checkedMatch) {
+          parsed.push({ id: `sub-${idx}`, title: checkedMatch[1].trim(), completed: true });
+        }
+      });
+      setSubtasks(parsed);
+    } else {
+      setSubtasks([]);
+    }
+  }, [task?.id, task?.imageUrl, task?.description, task?.createdAt]);
 
   // Complete Task Mutation
   const completeMutation = useMutation({
@@ -118,10 +136,29 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     },
   });
 
+  // Add Comment Mutation
+  const addCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!taskId || !workspaceId || !content.trim()) return;
+      return apiClient.addComment(taskId, workspaceId, content.trim());
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      setNewComment('');
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+    },
+  });
+
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+  };
+
   if (!taskId) return null;
 
   const isDone = task?.status === 'DONE';
-  const projectTag = task?.project?.name || (task?.labels?.[0]?.name ? task.labels[0].name : 'General Project');
+  const projectTag = task?.project?.name || (task?.labels?.[0]?.name ? task.labels[0].name : 'Default Project');
   const projectColor = task?.project?.color || '#2563eb';
 
   const priorityColor =
@@ -179,6 +216,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         uploadedAt: 'Just now',
       };
       setAttachments([newAtt, ...attachments]);
+
+      // If it is an image and task doesn't have an image, also save to task
+      if (isImg && workspaceId && taskId) {
+        apiClient.updateTask(taskId, workspaceId, { imageUrl: dataUrl }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+          queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+        });
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -186,23 +231,38 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const handleDeleteAttachment = (id: string) => {
     triggerHaptic('medium');
     setAttachments(attachments.filter((a) => a.id !== id));
+    if (id === 'att-main' && workspaceId && taskId) {
+      apiClient.updateTask(taskId, workspaceId, { imageUrl: null }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+        queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      });
+    }
   };
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
-    triggerHaptic('medium');
-    setComments([
-      ...comments,
-      {
-        id: String(Date.now()),
-        user: user?.name || 'You',
-        text: newComment.trim(),
-        time: 'Just now',
-      },
-    ]);
-    setNewComment('');
+    if (!newComment.trim() || addCommentMutation.isPending) return;
+    addCommentMutation.mutate(newComment.trim());
   };
+
+  const commentsList = (task?.comments || []).map((c: any) => ({
+    id: c.id,
+    user: c.author?.name || 'Teammate',
+    avatar: c.author?.avatarUrl,
+    text: c.content,
+    time: c.createdAt
+      ? new Date(c.createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'Just now',
+  }));
+
+  const cleanDescription = task?.description
+    ? task.description.replace(/^-\s*\[[ xX]\]\s*.+$/gm, '').trim() || task.description
+    : null;
 
   return (
     <>
@@ -301,8 +361,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               </div>
 
               {/* Description */}
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 font-medium">
-                {task.description || 'No description provided for this task.'}
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 font-medium whitespace-pre-wrap">
+                {cleanDescription || 'No description provided for this task.'}
               </p>
 
               {/* Key-Value Attributes List */}
@@ -457,20 +517,26 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
                       Checklist & Subtasks
                     </h4>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                      {completedSubtasksCount}/{subtasks.length}
-                    </span>
+                    {subtasks.length > 0 && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                        {completedSubtasksCount}/{subtasks.length}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400">{subtasksPercent}%</span>
+                  {subtasks.length > 0 && (
+                    <span className="text-[10px] font-bold text-slate-400">{subtasksPercent}%</span>
+                  )}
                 </div>
 
                 {/* Progress Line */}
-                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${subtasksPercent}%` }}
-                  />
-                </div>
+                {subtasks.length > 0 && (
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${subtasksPercent}%` }}
+                    />
+                  </div>
+                )}
 
                 {/* Subtask Items */}
                 <div className="space-y-1.5 pt-1">
@@ -491,18 +557,27 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </div>
                   ))}
 
+                  {subtasks.length === 0 && (
+                    <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
+                      No subtasks or checklist items yet.
+                    </div>
+                  )}
+
                   {/* Add Subtask input */}
                   <form onSubmit={handleAddSubtask} className="flex gap-2 pt-1">
                     <input
                       type="text"
                       value={newSubtaskTitle}
                       onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                      onFocus={handleInputFocus}
                       placeholder="+ Add subtask item..."
-                      className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium"
+                      enterKeyHint="done"
+                      autoCapitalize="sentences"
+                      className="flex-1 px-3 py-2 text-[16px] sm:text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium transition-all focus:border-blue-500"
                     />
                     <button
                       type="submit"
-                      className="px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs"
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs hover:bg-blue-700 active:scale-95 transition-all"
                     >
                       Add
                     </button>
@@ -512,28 +587,48 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
               {/* Activity & Discussions Feed */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
-                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
-                    Activity & Discussion
-                  </h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
+                      Activity & Discussion
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    {commentsList.length}
+                  </span>
                 </div>
 
-                <div className="space-y-2 max-h-32 overflow-y-auto no-scrollbar">
-                  {comments.map((c) => (
-                    <div
-                      key={c.id}
-                      className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-0.5 border border-slate-100 dark:border-slate-800"
-                    >
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="font-extrabold text-slate-800 dark:text-slate-200">{c.user}</span>
-                        <span className="text-slate-400 font-medium">{c.time}</span>
-                      </div>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
-                        {c.text}
-                      </p>
+                <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                  {commentsList.length === 0 ? (
+                    <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
+                      No comments or updates yet.
                     </div>
-                  ))}
+                  ) : (
+                    commentsList.map((c: any) => (
+                      <div
+                        key={c.id}
+                        className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-0.5 border border-slate-100 dark:border-slate-800"
+                      >
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            {c.avatar ? (
+                              <img src={c.avatar} alt={c.user} className="w-3.5 h-3.5 rounded-full object-cover" />
+                            ) : (
+                              <span className="w-3.5 h-3.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[8px] font-bold">
+                                {c.user[0]?.toUpperCase()}
+                              </span>
+                            )}
+                            {c.user}
+                          </span>
+                          <span className="text-slate-400 font-medium">{c.time}</span>
+                        </div>
+                        <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed pl-5">
+                          {c.text}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 {/* Add Comment Box */}
@@ -542,12 +637,16 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     type="text"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
+                    onFocus={handleInputFocus}
                     placeholder="Post comment or team note..."
-                    className="flex-1 px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium"
+                    enterKeyHint="send"
+                    autoCapitalize="sentences"
+                    className="flex-1 px-3 py-2 text-[16px] sm:text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium transition-all focus:border-blue-500"
                   />
                   <button
                     type="submit"
-                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-95"
+                    disabled={!newComment.trim() || addCommentMutation.isPending}
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
