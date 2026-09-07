@@ -378,6 +378,7 @@ model PaymentOrder {
   telebirrPhone       String?
   payerName           String?
   transactionId       String?
+  receiptImageUrl     String?
   verifiedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
