@@ -365,3 +365,42 @@ model Subscription {
   @@index([status])
   @@map("subscriptions")
 }
+
+model PaymentOrder {
+  id                  String   @id @default(uuid())
+  orderCode           String   @unique
+  workspaceId         String
+  userId              String
+  planCode            String
+  amountEtb           Float
+  durationDays        Int      @default(30)
+  status              String   @default("PENDING")
+  telebirrPhone       String?
+  payerName           String?
+  transactionId       String?
+  verifiedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([orderCode])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+  @@map("payment_orders")
+}
+
+model TelebirrSmsLog {
+  id             String   @id @default(uuid())
+  sender         String?
+  rawMessage     String
+  extractedTxId  String?
+  extractedAmount Float?
+  isMatched      Boolean  @default(false)
+  matchedOrderId String?
+  receivedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([extractedTxId])
+  @@index([isMatched])
+  @@map("telebirr_sms_logs")
+}

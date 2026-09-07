@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
 
   "scripts": {
-    "build": "prisma generate && tsc",
+    "build": "prisma generate && node prisma/auto-push.js && tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
