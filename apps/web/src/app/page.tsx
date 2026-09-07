@@ -65,7 +65,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col flex-1 space-y-4 pb-20 min-h-screen font-sans">
       {/* 1. Header: Account & Workspace on Left, Status/Upgrade on Right */}
-      <header className="flex items-center justify-between pt-2 pb-2.5 px-1 gap-2 sticky top-0 z-30 bg-[#F8FAFC]/90 dark:bg-[#0B1120]/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/60">
+      <header className="flex items-center justify-between pt-1 pb-3 px-0.5 gap-2 sticky top-0 z-30 bg-[#F8FAFC] dark:bg-[#0B1120] border-b border-slate-100 dark:border-slate-800/80">
         {/* Left Side: Avatar + Workspace Switcher */}
         <div className="flex items-center gap-2 min-w-0">
           {/* User Avatar */}

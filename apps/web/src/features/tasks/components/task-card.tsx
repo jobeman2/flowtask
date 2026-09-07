@@ -187,23 +187,42 @@ export function TaskCard({
         triggerHaptic('light');
         onSelect(task.id);
       }}
-      className={`relative rounded-2xl p-4 border transition-all cursor-pointer group shadow-[0_4px_16px_-2px_rgba(15,23,42,0.08),0_1px_4px_rgba(15,23,42,0.04)] hover:shadow-md active:scale-[0.99] ${
+      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
         isDone
-          ? 'bg-slate-100/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-60 border-l-4 border-l-slate-300 dark:border-l-slate-700'
+          ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-60'
           : meta.isMeeting
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-purple-500 hover:border-l-purple-600 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.12)]'
+          ? 'bg-white dark:bg-slate-800/90 border-purple-200/80 dark:border-purple-900/50 hover:border-purple-300 shadow-[0_3px_14px_-3px_rgba(168,85,247,0.12)]'
           : meta.isClickUp
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-violet-500 hover:border-l-violet-600 shadow-[0_4px_20px_-4px_rgba(139,92,246,0.12)]'
+          ? 'bg-white dark:bg-slate-800/90 border-violet-200/80 dark:border-violet-900/50 hover:border-violet-300 shadow-[0_3px_14px_-3px_rgba(139,92,246,0.12)]'
           : meta.isNotion
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-slate-600 dark:border-l-slate-400 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)]'
+          ? 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 hover:border-slate-300 shadow-[0_3px_14px_-3px_rgba(0,0,0,0.06)]'
           : task.priority === 'URGENT' || task.priority === 'HIGH'
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-rose-500 hover:border-l-rose-600 shadow-[0_4px_20px_-4px_rgba(244,63,94,0.12)]'
-          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 border-l-[5px] border-l-blue-500 hover:border-blue-400 dark:hover:border-blue-500 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.08)]'
+          ? 'bg-white dark:bg-slate-800/90 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-300 shadow-[0_3px_14px_-3px_rgba(244,63,94,0.1)]'
+          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-blue-300 shadow-[0_3px_14px_-3px_rgba(59,130,246,0.08)]'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      {/* Sleek left accent stripe */}
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${
+          isDone
+            ? 'bg-slate-300 dark:bg-slate-700'
+            : meta.isMeeting
+            ? 'bg-purple-500'
+            : meta.isClickUp
+            ? 'bg-violet-500'
+            : meta.isNotion
+            ? 'bg-slate-600 dark:bg-slate-400'
+            : task.priority === 'URGENT' || dueInfo?.isAlert
+            ? 'bg-rose-500'
+            : task.priority === 'HIGH'
+            ? 'bg-orange-500'
+            : 'bg-blue-500'
+        }`}
+      />
+
+      <div className="pl-1.5 flex items-start justify-between gap-3">
         {/* Left: Checkbox & Main Info */}
-        <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="flex items-start gap-2.5 min-w-0 flex-1">
           {/* Checkbox button */}
           <button
             type="button"
@@ -222,56 +241,58 @@ export function TaskCard({
             {isDone && <Check className="w-3 h-3 stroke-[3]" />}
           </button>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 space-y-1">
             {/* Category / Source Badges */}
-            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-              {meta.isMeeting && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs">
-                  <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
-                  <span>Meeting</span>
-                </span>
-              )}
+            {(meta.isMeeting || meta.isClickUp || meta.isNotion || meta.isAi || task.priority === 'URGENT' || dueInfo?.isAlert || meta.platform || meta.clickUpSpace) && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                {meta.isMeeting && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs">
+                    <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
+                    <span>Meeting</span>
+                  </span>
+                )}
 
-              {meta.isClickUp && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 shadow-2xs">
-                  <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
-                  <span>ClickUp</span>
-                </span>
-              )}
+                {meta.isClickUp && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 shadow-2xs">
+                    <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
+                    <span>ClickUp</span>
+                  </span>
+                )}
 
-              {meta.isNotion && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs">
-                  <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
-                  <span>Notion</span>
-                </span>
-              )}
+                {meta.isNotion && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs">
+                    <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
+                    <span>Notion</span>
+                  </span>
+                )}
 
-              {meta.isAi && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
-                  <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
-                  <span>Flow AI</span>
-                </span>
-              )}
+                {meta.isAi && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
+                    <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
+                    <span>Flow AI</span>
+                  </span>
+                )}
 
-              {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
-                  <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
-                  <span>{dueInfo?.isAlert ? 'Overdue' : 'Urgent'}</span>
-                </span>
-              )}
+                {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
+                    <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
+                    <span>{dueInfo?.isAlert ? 'Overdue' : 'Urgent'}</span>
+                  </span>
+                )}
 
-              {meta.platform && (
-                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                  {meta.platform}
-                </span>
-              )}
+                {meta.platform && (
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                    {meta.platform}
+                  </span>
+                )}
 
-              {meta.clickUpSpace && (
-                <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                  {meta.clickUpSpace}
-                </span>
-              )}
-            </div>
+                {meta.clickUpSpace && (
+                  <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                    {meta.clickUpSpace}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Task Title */}
             <h4
@@ -285,7 +306,7 @@ export function TaskCard({
             </h4>
 
             {/* Sub-meta: Project, Due Date, Subtask counter */}
-            <div className="flex flex-wrap items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
               {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
                 <span
                   className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1"
@@ -347,10 +368,10 @@ export function TaskCard({
             <img
               src={task.assignee.avatarUrl}
               alt={task.assignee.name || 'Assignee'}
-              className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+              className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs"
             />
           ) : task.assignee?.name ? (
-            <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs">
               {task.assignee.name[0].toUpperCase()}
             </div>
           ) : (
