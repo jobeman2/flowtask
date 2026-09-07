@@ -187,6 +187,22 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     },
   });
 
+  // Workspaces Query to check User's Role (Owner, Admin, Member)
+  const { data: workspaces = [] } = useQuery({
+    queryKey: ['workspaces', user?.id],
+    queryFn: async () => {
+      const res = await apiClient.getWorkspaces();
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: !!user,
+  });
+
+  const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
+  const userRole = currentWorkspace?.role;
+  const isOwnerOrAdmin = userRole === 'OWNER' || userRole === 'ADMIN';
+  const isCreator = Boolean(task?.creatorId && task.creatorId === user?.id);
+  const canDeleteTask = isOwnerOrAdmin || isCreator;
+
   // Delete Task Mutation
   const deleteTaskMutation = useMutation({
     mutationFn: async () => {
@@ -208,6 +224,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   });
 
   const handleDeleteTask = () => {
+    if (!canDeleteTask) {
+      alert('Only the task creator or a workspace admin can delete this task.');
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this task?')) {
       deleteTaskMutation.mutate();
     }
@@ -339,15 +359,17 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               Task Overview
             </span>
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleDeleteTask}
-                disabled={deleteTaskMutation.isPending}
-                title="Delete Task"
-                className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {canDeleteTask && (
+                <button
+                  type="button"
+                  onClick={handleDeleteTask}
+                  disabled={deleteTaskMutation.isPending}
+                  title="Delete Task"
+                  className="p-1.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
@@ -366,8 +388,25 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               {/* Title & Favorite Star */}
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {task.title?.toLowerCase().startsWith('[meeting]') && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                        🎙️ Meeting
+                      </span>
+                    )}
+                    {task.title?.toLowerCase().startsWith('[clickup]') && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">
+                        ⚡ ClickUp
+                      </span>
+                    )}
+                    {task.title?.toLowerCase().startsWith('[notion]') && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 flex items-center gap-1">
+                        📓 Notion
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                    {task.title}
+                    {task.title.replace(/^\[(meeting|clickup|notion|ai)\]\s*/i, '')}
                   </h3>
                   <div className="flex items-center gap-2">
                     <span
@@ -750,15 +789,17 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
               {/* Action Buttons: Delete Task & Mark as Done */}
               <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDeleteTask}
-                  disabled={deleteTaskMutation.isPending}
-                  className="px-4 py-3.5 rounded-2xl font-extrabold text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete</span>
-                </button>
+                {canDeleteTask && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteTask}
+                    disabled={deleteTaskMutation.isPending}
+                    className="px-4 py-3.5 rounded-2xl font-extrabold text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
