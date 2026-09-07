@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   User,
+  Users,
   Paperclip,
   Trash2,
   FileText,
@@ -18,11 +19,24 @@ import {
   ChevronDown,
   FolderKanban,
   CheckCircle2,
+  UploadCloud,
+  Image as ImageIcon,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 interface CreateTaskSheetProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface AttachmentFile {
+  id: string;
+  name: string;
+  url: string;
+  isImage: boolean;
+  type: 'image' | 'document' | 'audio';
+  size: string;
 }
 
 export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
@@ -34,9 +48,9 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [projectId, setProjectId] = useState<string>('');
-  const [attachments, setAttachments] = useState<Array<{ name: string; url: string; isImage: boolean }>>([]);
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showCustomDate, setShowCustomDate] = useState(false);
 
@@ -46,11 +60,19 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const projectDropdownRef = useRef<HTMLDivElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Close dropdown on outside click
+  // Custom Assignee Multi-Select Dropdown State
+  const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const assigneeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
         setIsProjectDropdownOpen(false);
+      }
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(e.target as Node)) {
+        setIsAssigneeDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -58,7 +80,6 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   }, []);
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // Smooth scroll into view with slight delay to accommodate mobile keyboard layout shifts
     setTimeout(() => {
       e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 250);
@@ -69,7 +90,6 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
     d.setHours(hour, 0, 0, 0);
-    // Format for datetime-local: YYYY-MM-DDTHH:mm
     const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 16);
@@ -98,6 +118,16 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
     enabled: Boolean(workspaceId),
   });
 
+  // Toggle single assignee in multi-select
+  const toggleAssignee = (userId: string) => {
+    triggerHaptic('light');
+    if (assigneeIds.includes(userId)) {
+      setAssigneeIds(assigneeIds.filter((id) => id !== userId));
+    } else {
+      setAssigneeIds([...assigneeIds, userId]);
+    }
+  };
+
   // Create Task Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -111,8 +141,17 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         description: description.trim() || undefined,
         priority,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeId: assigneeIds[0] || undefined,
+        assigneeIds: assigneeIds.length > 0 ? assigneeIds : undefined,
         projectId: projectId || undefined,
+        attachments: attachments.map((a) => ({
+          id: a.id,
+          name: a.name,
+          url: a.url,
+          type: a.type,
+          size: a.size,
+          uploadedAt: 'Just now',
+        })),
         imageUrl: attachments.find((a) => a.isImage)?.url || undefined,
       });
 
@@ -129,7 +168,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       setDescription('');
       setPriority('MEDIUM');
       setDueDate('');
-      setAssigneeId('');
+      setAssigneeIds([]);
       setProjectId('');
       setAttachments([]);
       setErrorMsg(null);
@@ -141,22 +180,40 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
     },
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Multi-File upload handler
+  const handleMultipleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     triggerHaptic('medium');
-    const file = files[0];
-    const isImage = file.type.startsWith('image/');
+    const filesArray = Array.from(files);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAttachments([...attachments, { name: file.name, url: reader.result as string, isImage }]);
-    };
-    reader.readAsDataURL(file);
+    filesArray.forEach((file) => {
+      const isImg = file.type.startsWith('image/');
+      const isAud = file.type.startsWith('audio/');
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAttachments((prev) => [
+          ...prev,
+          {
+            id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
+            name: file.name,
+            url: reader.result as string,
+            isImage: isImg,
+            type: isImg ? 'image' : isAud ? 'audio' : 'document',
+            size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // reset input value so re-selecting same file triggers change
+    e.target.value = '';
   };
 
   const selectedProject = projects.find((p: any) => p.id === projectId);
+  const selectedMembers = members.filter((m: any) => assigneeIds.includes(m.userId));
 
   if (!isOpen) return null;
 
@@ -463,114 +520,295 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
             </div>
           </div>
 
-          {/* Assignee Selection (Quick Teammate Chips & Search) */}
-          <div className="space-y-1.5">
+          {/* Assignee Multi-Select Dropdown with Search */}
+          <div className="space-y-1 relative" ref={assigneeDropdownRef}>
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Assignee
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-purple-500" />
+                <span>Assignees</span>
+                {assigneeIds.length > 0 && (
+                  <span className="text-[10px] text-purple-600 dark:text-purple-400 font-extrabold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60">
+                    ({assigneeIds.length})
+                  </span>
+                )}
               </label>
-              {assigneeId && (
+              {assigneeIds.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
                     triggerHaptic('light');
-                    setAssigneeId('');
+                    setAssigneeIds([]);
                   }}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+                  className="text-[10px] text-slate-400 hover:text-rose-500 font-bold transition-colors"
                 >
-                  Unassign
+                  Clear All
                 </button>
               )}
             </div>
 
-            {/* Teammate quick avatar/username chips */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setAssigneeId('');
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                  !assigneeId
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                }`}
-              >
-                <span>Unassigned</span>
-              </button>
+            {/* Custom Assignee Dropdown Button */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-all text-left ${
+                isAssigneeDropdownOpen
+                  ? 'bg-white dark:bg-slate-800 border-purple-500 ring-2 ring-purple-500/20 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {selectedMembers.length === 0 ? (
+                  <div className="flex items-center gap-2 text-slate-400 font-medium text-xs">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <span>Select Assignees (Unassigned)</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Overlapping Avatars */}
+                    <div className="flex -space-x-1.5 overflow-hidden shrink-0">
+                      {selectedMembers.slice(0, 3).map((m: any) =>
+                        m.user?.avatarUrl ? (
+                          <img
+                            key={m.id}
+                            src={m.user.avatarUrl}
+                            alt={m.user?.name}
+                            className="inline-block h-5 w-5 rounded-full ring-2 ring-white dark:ring-slate-900 object-cover"
+                          />
+                        ) : (
+                          <div
+                            key={m.id}
+                            className="inline-flex h-5 w-5 rounded-full bg-purple-500 text-white items-center justify-center text-[9px] font-bold ring-2 ring-white dark:ring-slate-900"
+                          >
+                            {m.user?.name?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      {selectedMembers.map((m: any) => m.user?.name || 'Teammate').join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {selectedMembers.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                    {selectedMembers.length}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                    isAssigneeDropdownOpen ? 'rotate-180 text-purple-500' : ''
+                  }`}
+                />
+              </div>
+            </button>
 
-              {members.map((m: any) => {
-                const isSelected = assigneeId === m.userId;
-                const name = m.user?.name || 'Teammate';
-                const tgUsername = m.user?.telegramAccount?.username ? `@${m.user.telegramAccount.username}` : '';
-                return (
-                  <button
+            {/* Dropdown Menu */}
+            {isAssigneeDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-150 space-y-1.5 max-h-60 overflow-y-auto no-scrollbar">
+                {/* Search Bar */}
+                <div className="px-1 pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search team members..."
+                      value={assigneeSearch}
+                      onChange={(e) => setAssigneeSearch(e.target.value)}
+                      className="w-full bg-transparent text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
+                    />
+                  </div>
+                  {members.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        if (assigneeIds.length === members.length) {
+                          setAssigneeIds([]);
+                        } else {
+                          setAssigneeIds(members.map((m: any) => m.userId));
+                        }
+                      }}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0 px-1"
+                    >
+                      {assigneeIds.length === members.length ? 'Clear' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Members list with checkboxes */}
+                <div className="space-y-1 max-h-40 overflow-y-auto no-scrollbar">
+                  {members
+                    .filter((m: any) => {
+                      const name = (m.user?.name || '').toLowerCase();
+                      const username = (m.user?.telegramAccount?.username || '').toLowerCase();
+                      const q = assigneeSearch.toLowerCase();
+                      return !q || name.includes(q) || username.includes(q);
+                    })
+                    .map((m: any) => {
+                      const isSelected = assigneeIds.includes(m.userId);
+                      const name = m.user?.name || 'Teammate';
+                      const tgUsername = m.user?.telegramAccount?.username ? `@${m.user.telegramAccount.username}` : '';
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleAssignee(m.userId)}
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            isSelected
+                              ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {m.user?.avatarUrl ? (
+                              <img src={m.user.avatarUrl} alt={name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black shrink-0">
+                                {name[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <div className="min-w-0 text-left">
+                              <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{name}</p>
+                              {tgUsername && <p className="text-[10px] text-slate-400 truncate">{tgUsername}</p>}
+                            </div>
+                          </div>
+
+                          <div
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'bg-purple-600 border-purple-600 text-white'
+                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  {members.length === 0 && (
+                    <div className="p-3 text-center text-xs text-slate-400">No members found in this workspace.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Selected Assignees Pills */}
+            {selectedMembers.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                {selectedMembers.map((m: any) => (
+                  <span
                     key={m.id}
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic('light');
-                      setAssigneeId(m.userId);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                    }`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-semibold border border-purple-200/60 dark:border-purple-800/60"
                   >
-                    {m.user?.avatarUrl ? (
-                      <img src={m.user.avatarUrl} alt={name} className="w-4 h-4 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[9px] font-black">
-                        {name[0]?.toUpperCase()}
-                      </div>
-                    )}
-                    <span className="truncate max-w-[90px]">{tgUsername || name}</span>
-                  </button>
-                );
-              })}
-            </div>
+                    <span>{m.user?.name || 'Teammate'}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleAssignee(m.userId)}
+                      className="p-0.5 hover:text-rose-500 rounded-full"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* 📎 Attachments & Media Upload */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
+          {/* 📎 Attachments & Media Upload - Multiple at once with Modern UI */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Paperclip className="w-3.5 h-3.5 text-blue-500" />
-                Attach File or Photo
-              </span>
-              <label className="cursor-pointer text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline">
-                + Browse
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  accept="image/*,application/pdf,.doc,.docx"
-                />
+                <span>Attachments & Files</span>
+                {attachments.length > 0 && (
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                    {attachments.length}
+                  </span>
+                )}
               </label>
+              {attachments.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setAttachments([]);
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-rose-500 font-bold transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {/* Modern Multi-File Dropzone / Upload Trigger */}
+            <label className="cursor-pointer group flex items-center justify-between p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 transition-all">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center shrink-0">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
+                    Add files or photos
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Select multiple at once (Photos, PDFs, Docs)
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-bold text-[11px] shadow-xs group-hover:border-blue-300">
+                + Browse
+              </span>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleMultipleFileUpload}
+                accept="image/*,application/pdf,audio/*,.doc,.docx,.xls,.xlsx,.zip"
+              />
             </label>
 
+            {/* Attached Files List / Cards */}
             {attachments.length > 0 && (
-              <div className="space-y-1">
-                {attachments.map((att, idx) => (
+              <div className="space-y-1.5 max-h-44 overflow-y-auto no-scrollbar pt-1">
+                {attachments.map((att) => (
                   <div
-                    key={idx}
-                    className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                    key={att.id}
+                    className="flex items-center justify-between p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs hover:border-blue-300 transition-all"
                   >
-                    <div className="flex items-center gap-2 truncate">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       {att.isImage ? (
-                        <img src={att.url} alt="thumbnail" className="w-6 h-6 rounded-md object-cover" />
+                        <img
+                          src={att.url}
+                          alt={att.name}
+                          className="w-8 h-8 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0 bg-white"
+                        />
                       ) : (
-                        <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                        <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
                       )}
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                        {att.name}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">
+                          {att.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          {att.size} • {att.type}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                      className="text-slate-400 hover:text-rose-600 p-1"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        setAttachments(attachments.filter((a) => a.id !== att.id));
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
+                      title="Remove file"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

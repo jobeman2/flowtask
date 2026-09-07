@@ -51,6 +51,15 @@ export class UpdateTaskDto {
   labelIds?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assigneeIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  attachments?: any[];
+
+  @IsOptional()
   @IsString()
   imageUrl?: string;
 }

@@ -71,22 +71,60 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   React.useEffect(() => {
     if (!task) return;
 
-    // Attachments: seed from real task image
+    // Attachments: seed from real task attachments or imageUrl
     const initialAtts: AttachmentItem[] = [];
-    if (task.imageUrl) {
-      const fileName = task.imageUrl.startsWith('data:')
-        ? 'Task Attachment Photo'
-        : (task.imageUrl.split('/').pop() || 'Task Image');
-      initialAtts.push({
-        id: 'att-main',
-        name: fileName,
-        url: task.imageUrl,
-        type: 'image',
-        size: 'Attached',
-        uploadedAt: task.createdAt
-          ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : 'Attached',
+    if (Array.isArray(task.attachments) && task.attachments.length > 0) {
+      task.attachments.forEach((a: any, i: number) => {
+        initialAtts.push({
+          id: a.id || `att-${i}`,
+          name: a.name || `Attachment ${i + 1}`,
+          url: a.url,
+          type: a.type || (a.isImage ? 'image' : 'document'),
+          size: a.size || 'Attached',
+          uploadedAt: a.uploadedAt || (task.createdAt ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Attached'),
+        });
       });
+    } else if (task.imageUrl) {
+      try {
+        if (task.imageUrl.startsWith('[')) {
+          const parsed = JSON.parse(task.imageUrl);
+          parsed.forEach((a: any, i: number) => {
+            initialAtts.push({
+              id: a.id || `att-${i}`,
+              name: a.name || `Attachment ${i + 1}`,
+              url: a.url,
+              type: a.type || (a.isImage ? 'image' : 'document'),
+              size: a.size || 'Attached',
+              uploadedAt: a.uploadedAt || 'Attached',
+            });
+          });
+        } else {
+          const fileName = task.imageUrl.startsWith('data:')
+            ? 'Task Attachment Photo'
+            : (task.imageUrl.split('/').pop() || 'Task Image');
+          initialAtts.push({
+            id: 'att-main',
+            name: fileName,
+            url: task.imageUrl,
+            type: 'image',
+            size: 'Attached',
+            uploadedAt: task.createdAt
+              ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              : 'Attached',
+          });
+        }
+      } catch {
+        initialAtts.push({
+          id: 'att-main',
+          name: 'Task Image',
+          url: task.imageUrl,
+          type: 'image',
+          size: 'Attached',
+          uploadedAt: task.createdAt
+            ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : 'Attached',
+        });
+      }
     }
     setAttachments(initialAtts);
 
@@ -107,7 +145,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     } else {
       setSubtasks([]);
     }
-  }, [task?.id, task?.imageUrl, task?.description, task?.createdAt]);
+  }, [task?.id, task?.imageUrl, task?.attachments, task?.description, task?.createdAt]);
 
   // Complete Task Mutation
   const completeMutation = useMutation({
@@ -200,32 +238,29 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     if (!files || files.length === 0) return;
 
     triggerHaptic('medium');
-    const file = files[0];
-    const isImg = file.type.startsWith('image/');
-    const isAudio = file.type.startsWith('audio/');
+    const filesArray = Array.from(files);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const newAtt: AttachmentItem = {
-        id: String(Date.now()),
-        name: file.name,
-        url: dataUrl,
-        type: isImg ? 'image' : isAudio ? 'audio' : 'document',
-        size: `${Math.round(file.size / 1024)} KB`,
-        uploadedAt: 'Just now',
+    filesArray.forEach((file) => {
+      const isImg = file.type.startsWith('image/');
+      const isAudio = file.type.startsWith('audio/');
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const newAtt: AttachmentItem = {
+          id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
+          name: file.name,
+          url: dataUrl,
+          type: isImg ? 'image' : isAudio ? 'audio' : 'document',
+          size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
+          uploadedAt: 'Just now',
+        };
+        setAttachments((prev) => [newAtt, ...prev]);
       };
-      setAttachments([newAtt, ...attachments]);
+      reader.readAsDataURL(file);
+    });
 
-      // If it is an image and task doesn't have an image, also save to task
-      if (isImg && workspaceId && taskId) {
-        apiClient.updateTask(taskId, workspaceId, { imageUrl: dataUrl }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-          queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-        });
-      }
-    };
-    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleDeleteAttachment = (id: string) => {
@@ -263,6 +298,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const cleanDescription = task?.description
     ? task.description.replace(/^-\s*\[[ xX]\]\s*.+$/gm, '').trim() || task.description
     : null;
+
+  const allAssignees = Array.isArray(task?.assignees) && task.assignees.length > 0
+    ? task.assignees
+    : (task?.assignee ? [task.assignee] : []);
 
   return (
     <>
@@ -390,15 +429,33 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   </span>
                 </div>
 
-                {/* Assignee */}
-                <div className="flex items-center justify-between pt-2">
-                  <span className="font-bold text-slate-500 flex items-center gap-2">
-                    <User className="w-4 h-4 text-purple-500" />
-                    Assignee
+                {/* Assignees */}
+                <div className="flex items-start justify-between pt-2 gap-2">
+                  <span className="font-bold text-slate-500 flex items-center gap-2 shrink-0 pt-0.5">
+                    <Users className="w-4 h-4 text-purple-500" />
+                    Assignees
                   </span>
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200">
-                    {task.assignee?.name || 'Unassigned'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {allAssignees.length === 0 ? (
+                      <span className="font-extrabold text-slate-400">Unassigned</span>
+                    ) : (
+                      allAssignees.map((u: any) => (
+                        <span
+                          key={u.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200/50 dark:border-purple-800/50"
+                        >
+                          {u.avatarUrl ? (
+                            <img src={u.avatarUrl} alt={u.name} className="w-3.5 h-3.5 rounded-full object-cover" />
+                          ) : (
+                            <span className="w-3.5 h-3.5 rounded-full bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 text-[9px] flex items-center justify-center font-black">
+                              {u.name?.[0]?.toUpperCase() || 'U'}
+                            </span>
+                          )}
+                          <span>{u.name}</span>
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
 
                 {/* Team Workspace */}
@@ -426,12 +483,13 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </span>
                   </div>
 
-                  {/* Upload button with hidden file input */}
+                  {/* Upload button with hidden multiple file input */}
                   <label className="cursor-pointer px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 transition-all">
                     <Plus className="w-3 h-3 stroke-[3]" />
                     <span>Upload</span>
                     <input
                       type="file"
+                      multiple
                       className="hidden"
                       onChange={handleFileUpload}
                       accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"

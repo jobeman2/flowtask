@@ -121,9 +121,21 @@ export class TasksService {
 
     const totalPages = Math.ceil(total / limit);
 
+    const formattedTasks = tasks.map((t: any) => {
+      let assignees = t.assignee ? [t.assignee] : [];
+      let attachments: any[] = [];
+      if (t.sourceMessageId && t.sourceMessageId.startsWith('meta:')) {
+        try {
+          const meta = JSON.parse(t.sourceMessageId.slice(5));
+          if (Array.isArray(meta.attachments)) attachments = meta.attachments;
+        } catch {}
+      }
+      return { ...t, assignees, attachments };
+    });
+
     return {
       success: true,
-      data: tasks,
+      data: formattedTasks,
       meta: {
         page,
         limit,
@@ -160,7 +172,62 @@ export class TasksService {
       throw new NotFoundException(`Task with ID ${taskId} not found`);
     }
 
-    return task;
+    let assignees = task.assignee ? [task.assignee] : [];
+    let attachments: any[] = [];
+
+    if (task.imageUrl) {
+      try {
+        if (task.imageUrl.startsWith('[')) {
+          attachments = JSON.parse(task.imageUrl);
+        } else {
+          attachments = [
+            {
+              id: 'att-main',
+              name: 'Task Image',
+              url: task.imageUrl,
+              type: 'image',
+              size: 'Attached',
+              uploadedAt: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Attached',
+            },
+          ];
+        }
+      } catch {
+        attachments = [
+          {
+            id: 'att-main',
+            name: 'Task Image',
+            url: task.imageUrl,
+            type: 'image',
+            size: 'Attached',
+            uploadedAt: task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Attached',
+          },
+        ];
+      }
+    }
+
+    if (task.sourceMessageId && task.sourceMessageId.startsWith('meta:')) {
+      try {
+        const meta = JSON.parse(task.sourceMessageId.slice(5));
+        if (Array.isArray(meta.attachments) && meta.attachments.length > 0) {
+          attachments = meta.attachments;
+        }
+        if (Array.isArray(meta.assigneeIds) && meta.assigneeIds.length > 0) {
+          const extraUsers = await this.prisma.user.findMany({
+            where: { id: { in: meta.assigneeIds } },
+            select: { id: true, name: true, avatarUrl: true },
+          });
+          if (extraUsers.length > 0) {
+            assignees = extraUsers;
+          }
+        }
+      } catch (e) {}
+    }
+
+    return {
+      ...task,
+      assignees,
+      attachments,
+    };
   }
 
   async createTask(dto: CreateTaskDto, creatorId: string) {
@@ -213,7 +280,27 @@ export class TasksService {
       }
     }
 
-    const { labelIds, ...taskData } = dto;
+    const { labelIds, assigneeIds, attachments, ...taskData } = dto;
+
+    const allAssigneeIds: string[] = Array.isArray(assigneeIds) && assigneeIds.length > 0
+      ? assigneeIds
+      : (taskData.assigneeId ? [taskData.assigneeId] : []);
+    const primaryAssigneeId = allAssigneeIds[0] || null;
+
+    const rawAttachments: any[] = Array.isArray(attachments) ? attachments : [];
+    let finalImageUrl = taskData.imageUrl || null;
+    if (rawAttachments.length > 0) {
+      const firstImage = rawAttachments.find((a: any) => a.type === 'image' || a.isImage);
+      finalImageUrl = firstImage ? firstImage.url : (taskData.imageUrl || JSON.stringify(rawAttachments));
+    }
+
+    let metaSourceMessageId = null;
+    if (allAssigneeIds.length > 0 || rawAttachments.length > 0) {
+      metaSourceMessageId = 'meta:' + JSON.stringify({
+        assigneeIds: allAssigneeIds,
+        attachments: rawAttachments,
+      });
+    }
 
     const result = await this.prisma.$transaction(async (tx) => {
       const task = await tx.task.create({
@@ -225,8 +312,9 @@ export class TasksService {
           status: taskData.status,
           priority: taskData.priority,
           creatorId,
-          assigneeId: taskData.assigneeId,
-          imageUrl: taskData.imageUrl || null,
+          assigneeId: primaryAssigneeId,
+          sourceMessageId: metaSourceMessageId,
+          imageUrl: finalImageUrl,
           dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
           isRecurring: Boolean(taskData.isRecurring),
           recurrenceRule: taskData.isRecurring ? taskData.recurrenceRule || 'FREQ=WEEKLY' : null,

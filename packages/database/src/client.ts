@@ -572,9 +572,23 @@ export class MockPrismaClient {
       return res;
     },
     findUniqueOrThrow: async (params: any) => (await this.user.findUnique(params)) || { id: 'demo-user-1', name: 'Alex Rivera' },
-    findMany: async () => {
+    findMany: async ({ where, select }: any = {}) => {
       this.loadFromDisk();
-      return Array.from(this.users.values());
+      let list = Array.from(this.users.values());
+      if (where?.id?.in) {
+        const ids = Array.isArray(where.id.in) ? where.id.in : [where.id.in];
+        list = list.filter((u: any) => ids.includes(u.id));
+      }
+      if (select) {
+        return list.map((u: any) => {
+          const res: any = {};
+          for (const k of Object.keys(select)) {
+            if (select[k]) res[k] = u[k];
+          }
+          return res;
+        });
+      }
+      return list;
     },
     create: async ({ data }: any) => {
       this.loadFromDisk();
