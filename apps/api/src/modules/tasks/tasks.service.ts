@@ -52,8 +52,8 @@ export class TasksService {
       }
 
       if (action === 'COMPLETE') {
-        if (task.assigneeId && !isAssignee) {
-          throw new ForbiddenException('Only the assigned teammate can mark this task as done.');
+        if (task.assigneeId && !isAssignee && !isCreator && !isOwnerOrAdmin) {
+          throw new ForbiddenException('Only the assigned teammate, task creator, or workspace admin can mark this task as done.');
         }
       }
 
@@ -475,7 +475,32 @@ export class TasksService {
       dto.status === 'DONE' ? 'COMPLETE' : 'UPDATE'
     );
 
-    const { labelIds, ...updateFields } = dto;
+    const { labelIds, attachments, assigneeIds, ...updateFields } = dto;
+
+    let newSourceMessageId = existing.sourceMessageId;
+    let newImageUrl = updateFields.imageUrl !== undefined ? updateFields.imageUrl : existing.imageUrl;
+
+    if (attachments !== undefined || assigneeIds !== undefined) {
+      let metaObj: any = {};
+      if (existing.sourceMessageId && existing.sourceMessageId.startsWith('meta:')) {
+        try {
+          metaObj = JSON.parse(existing.sourceMessageId.slice(5));
+        } catch {}
+      }
+      if (attachments !== undefined) {
+        metaObj.attachments = attachments;
+        if (Array.isArray(attachments) && attachments.length > 0) {
+          const firstImg = attachments.find((a: any) => a.type === 'image' || a.isImage);
+          newImageUrl = firstImg ? firstImg.url : (attachments[0].url || JSON.stringify(attachments));
+        } else if (attachments.length === 0) {
+          newImageUrl = null;
+        }
+      }
+      if (assigneeIds !== undefined) {
+        metaObj.assigneeIds = assigneeIds;
+      }
+      newSourceMessageId = 'meta:' + JSON.stringify(metaObj);
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (labelIds !== undefined) {
@@ -491,6 +516,8 @@ export class TasksService {
         where: { id: taskId },
         data: {
           ...updateFields,
+          sourceMessageId: newSourceMessageId,
+          imageUrl: newImageUrl,
           dueDate: updateFields.dueDate ? new Date(updateFields.dueDate) : undefined,
           completedAt:
             updateFields.status === 'DONE' && existing.status !== 'DONE'

@@ -25,6 +25,10 @@ import {
   Building2,
   CheckCircle2,
   Video,
+  Edit3,
+  RotateCcw,
+  Download,
+  Eye,
 } from 'lucide-react';
 import { parseTaskMeta } from './task-card';
 
@@ -49,7 +53,15 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   const [isFavorite, setIsFavorite] = useState(true);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<AttachmentItem | null>(null);
+
+  // Editing Task State for Creator / Admin
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editAssigneeId, setEditAssigneeId] = useState('');
+  const [editPriority, setEditPriority] = useState<string>('MEDIUM');
+  const [editDueDate, setEditDueDate] = useState('');
 
   // Subtasks State (initialized empty and populated from real task description/checklists)
   const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string; completed: boolean }>>([]);
@@ -74,6 +86,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   // Sync state when task data loads or changes
   React.useEffect(() => {
     if (!task) return;
+
+    setEditTitle(task.title || '');
+    setEditDescription(task.description || '');
+    setEditAssigneeId(task.assigneeId || '');
+    setEditPriority(task.priority || 'MEDIUM');
+    setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
 
     // Attachments: seed from real task attachments or imageUrl
     const initialAtts: AttachmentItem[] = [];
@@ -206,6 +224,48 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const isOwnerOrAdmin = userRole === 'OWNER' || userRole === 'ADMIN';
   const isCreator = Boolean(task?.creatorId && task.creatorId === user?.id);
   const canDeleteTask = isOwnerOrAdmin || isCreator;
+  const canEditTask = isOwnerOrAdmin || isCreator;
+
+  // Workspace Members for Assignee selection
+  const { data: members = [] } = useQuery({
+    queryKey: ['workspace-members', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getWorkspaceMembers(workspaceId);
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  // Update Task Mutation (Title, Description, Assignee, Priority, Due Date, etc.)
+  const updateTaskMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      if (!taskId || !workspaceId) return;
+      const res = await apiClient.updateTask(taskId, workspaceId, payload);
+      if (res?.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+      setIsEditing(false);
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to update task');
+    },
+  });
+
+  const persistAttachments = async (newAtts: AttachmentItem[]) => {
+    if (!taskId || !workspaceId) return;
+    try {
+      await apiClient.updateTask(taskId, workspaceId, { attachments: newAtts });
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    } catch {}
+  };
 
   // Delete Task Mutation
   const deleteTaskMutation = useMutation({
@@ -311,6 +371,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
     triggerHaptic('medium');
     const filesArray = Array.from(files);
+    let loadedCount = 0;
+    const newItems: AttachmentItem[] = [];
 
     filesArray.forEach((file) => {
       const isImg = file.type.startsWith('image/');
@@ -327,7 +389,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
           uploadedAt: 'Just now',
         };
-        setAttachments((prev) => [newAtt, ...prev]);
+        newItems.push(newAtt);
+        loadedCount++;
+
+        if (loadedCount === filesArray.length) {
+          const updated = [...newItems, ...attachments];
+          setAttachments(updated);
+          persistAttachments(updated);
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -337,13 +406,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   const handleDeleteAttachment = (id: string) => {
     triggerHaptic('medium');
-    setAttachments(attachments.filter((a) => a.id !== id));
-    if (id === 'att-main' && workspaceId && taskId) {
-      apiClient.updateTask(taskId, workspaceId, { imageUrl: null }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-        queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      });
-    }
+    const updated = attachments.filter((a) => a.id !== id);
+    setAttachments(updated);
+    persistAttachments(updated);
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -385,6 +450,23 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               Task Overview
             </span>
             <div className="flex items-center gap-1.5">
+              {canEditTask && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setIsEditing(!isEditing);
+                  }}
+                  title={isEditing ? 'Close Edit Form' : 'Edit Task'}
+                  className={`p-1.5 rounded-full transition-colors ${
+                    isEditing
+                      ? 'text-blue-600 bg-blue-50 dark:bg-blue-950/60 dark:text-blue-400'
+                      : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              )}
               {canDeleteTask && (
                 <button
                   type="button"
@@ -411,6 +493,112 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
             </div>
           ) : task ? (
             <div className="space-y-4">
+              {/* Edit Task Form (for Creator or Admin) */}
+              {isEditing && (
+                <div className="space-y-3 p-3.5 bg-blue-50/50 dark:bg-blue-950/30 rounded-3xl border border-blue-200 dark:border-blue-800/60 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit Task Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {/* Title */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Task title..."
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={3}
+                      placeholder="Add task description..."
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium text-slate-900 dark:text-white focus:border-blue-500 resize-none"
+                    />
+                  </div>
+
+                  {/* Assignee */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Assignee</label>
+                    <select
+                      value={editAssigneeId}
+                      onChange={(e) => setEditAssigneeId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                    >
+                      <option value="">Unassigned</option>
+                      {members.map((m: any) => (
+                        <option key={m.user?.id} value={m.user?.id}>
+                          {m.user?.name || m.user?.username || 'Member'} ({m.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Priority & Due Date */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Priority</label>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        className="w-full px-2.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                      >
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="URGENT">Urgent</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Due Date</label>
+                      <input
+                        type="datetime-local"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        className="w-full px-2.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!editTitle.trim()) return alert('Task title cannot be empty');
+                      updateTaskMutation.mutate({
+                        title: editTitle.trim(),
+                        description: editDescription.trim(),
+                        assigneeId: editAssigneeId || null,
+                        priority: editPriority,
+                        dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
+                      });
+                    }}
+                    disabled={updateTaskMutation.isPending}
+                    className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 transition-all active:scale-98 disabled:opacity-50"
+                  >
+                    {updateTaskMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              )}
+
               {/* Title & Favorite Star */}
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1.5 min-w-0">
@@ -486,9 +674,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         key={st.id}
                         type="button"
                         onClick={() => {
-                          if (st.id === 'DONE' && task.assigneeId && task.assigneeId !== user?.id) {
+                          if (st.id === 'DONE' && task.assigneeId && task.assigneeId !== user?.id && !isCreator && !isOwnerOrAdmin) {
                             triggerHaptic('heavy');
-                            alert(`Only ${task.assignee?.name || 'the assignee'} can mark this task as done.`);
+                            alert(`Only ${task.assignee?.name || 'the assignee'}, creator, or workspace admin can mark this task as done.`);
                             return;
                           }
                           updateStatusMutation.mutate(st.id);
@@ -530,10 +718,26 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     <Flag className="w-4 h-4 text-amber-500" />
                     Priority
                   </span>
-                  <span className={`font-extrabold flex items-center gap-1.5 ${priorityColor}`}>
-                    <span className={`w-2 h-2 rounded-full ${task.priority === 'HIGH' || task.priority === 'URGENT' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                    {task.priority || 'MEDIUM'}
-                  </span>
+                  {canEditTask ? (
+                    <select
+                      value={task.priority || 'MEDIUM'}
+                      onChange={(e) => {
+                        triggerHaptic('medium');
+                        updateTaskMutation.mutate({ priority: e.target.value });
+                      }}
+                      className={`px-2 py-0.5 text-xs font-extrabold rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none cursor-pointer ${priorityColor}`}
+                    >
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="URGENT">Urgent</option>
+                    </select>
+                  ) : (
+                    <span className={`font-extrabold flex items-center gap-1.5 ${priorityColor}`}>
+                      <span className={`w-2 h-2 rounded-full ${task.priority === 'HIGH' || task.priority === 'URGENT' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                      {task.priority || 'MEDIUM'}
+                    </span>
+                  )}
                 </div>
 
                 {/* Assignees */}
@@ -543,7 +747,23 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     Assignees
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                    {allAssignees.length === 0 ? (
+                    {canEditTask ? (
+                      <select
+                        value={task.assigneeId || ''}
+                        onChange={(e) => {
+                          triggerHaptic('medium');
+                          updateTaskMutation.mutate({ assigneeId: e.target.value || null });
+                        }}
+                        className="px-2 py-0.5 text-xs font-bold rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 outline-none cursor-pointer"
+                      >
+                        <option value="">Unassigned</option>
+                        {members.map((m: any) => (
+                          <option key={m.user?.id} value={m.user?.id}>
+                            {m.user?.name || m.user?.username || 'Member'}
+                          </option>
+                        ))}
+                      </select>
+                    ) : allAssignees.length === 0 ? (
                       <span className="font-extrabold text-slate-400">Unassigned</span>
                     ) : (
                       allAssignees.map((u: any) => (
@@ -681,9 +901,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     >
                       <div
                         className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-                        onClick={() => {
-                          if (att.type === 'image') setPreviewImage(att.url);
-                        }}
+                        onClick={() => setPreviewAttachment(att)}
                       >
                         {att.type === 'image' ? (
                           <img
@@ -713,16 +931,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
                       {/* Actions: View / Delete */}
                       <div className="flex items-center gap-1 shrink-0">
-                        {att.type === 'image' && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImage(att.url)}
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded-lg"
-                            title="Preview Image"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAttachment(att)}
+                          className="p-1 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                          title="Preview Attachment"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteAttachment(att.id)}
@@ -900,25 +1116,37 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isDone) return;
-                    if (task.assigneeId && task.assigneeId !== user?.id) {
-                      triggerHaptic('heavy');
-                      alert(`Only ${task.assignee?.name || 'the assignee'} can complete this task.`);
-                      return;
-                    }
-                    completeMutation.mutate();
-                  }}
-                  className={`flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white shadow-md transition-all active:scale-98 ${
-                    isDone
-                      ? 'bg-emerald-600 cursor-default'
-                      : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/25'
-                  }`}
-                >
-                  {isDone ? '✅ Task Completed' : 'Mark as Done'}
-                </button>
+                {isDone ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('medium');
+                      updateStatusMutation.mutate('IN_PROGRESS');
+                    }}
+                    disabled={updateStatusMutation.isPending}
+                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/25 transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reopen Task</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (task.assigneeId && task.assigneeId !== user?.id && !isCreator && !isOwnerOrAdmin) {
+                        triggerHaptic('heavy');
+                        alert(`Only ${task.assignee?.name || 'the assignee'}, creator, or admin can complete this task.`);
+                        return;
+                      }
+                      completeMutation.mutate();
+                    }}
+                    disabled={completeMutation.isPending}
+                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Mark as Done</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -929,24 +1157,95 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         </div>
       </div>
 
-      {/* Full Screen Image Lightbox Preview */}
-      {previewImage && (
+      {/* Comprehensive Attachment Preview Modal */}
+      {previewAttachment && (
         <div
-          onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 cursor-pointer animate-in fade-in"
+          onClick={() => setPreviewAttachment(null)}
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in font-sans"
         >
-          <div className="relative max-w-lg max-h-[85vh]">
-            <img
-              src={previewImage}
-              alt="Attachment Preview"
-              className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl"
-            />
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-3 -right-3 p-2 bg-slate-900 text-white rounded-full border border-slate-700"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[88vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 min-w-0">
+                <Paperclip className="w-4 h-4 text-blue-500 shrink-0" />
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                  {previewAttachment.name}
+                </h4>
+              </div>
+              <button
+                onClick={() => setPreviewAttachment(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Preview content based on type */}
+            <div className="space-y-3">
+              {previewAttachment.type === 'image' ? (
+                <div className="rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center max-h-[50vh]">
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.name}
+                    className="max-w-full max-h-[50vh] object-contain"
+                  />
+                </div>
+              ) : previewAttachment.type === 'audio' ? (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl space-y-2 text-center">
+                  <Mic className="w-8 h-8 text-purple-500 mx-auto" />
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Audio Recording</p>
+                  <audio controls src={previewAttachment.url} className="w-full" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {previewAttachment.url?.startsWith('data:application/pdf') || previewAttachment.url?.endsWith('.pdf') ? (
+                    <iframe
+                      src={previewAttachment.url}
+                      title={previewAttachment.name}
+                      className="w-full h-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white"
+                    />
+                  ) : (
+                    <div className="p-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                      <FileText className="w-10 h-10 text-blue-500 mx-auto" />
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {previewAttachment.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400">{previewAttachment.size}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons: Open in New Tab / Download / Delete */}
+              <div className="flex items-center gap-2 pt-2">
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download / Open</span>
+                </a>
+
+                {canEditTask && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteAttachment(previewAttachment.id);
+                      setPreviewAttachment(null);
+                    }}
+                    className="p-2.5 rounded-xl text-rose-600 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 transition-colors"
+                    title="Delete Attachment"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -137,7 +137,7 @@ export function WorkspaceSwitcher() {
                     value={ws.id}
                     className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-semibold"
                   >
-                    👥 {ws.name} (Telegram)
+                    {ws.name} (Telegram)
                   </option>
                 ))}
               </optgroup>
@@ -150,7 +150,7 @@ export function WorkspaceSwitcher() {
                   value={ws.id}
                   className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
                 >
-                  {ws.type === 'TEAM' ? '🏢' : '👤'} {ws.name} ({ws.type === 'TEAM' ? 'Team' : 'Personal'})
+                  {ws.name} ({ws.type === 'TEAM' ? 'Team' : 'Personal'})
                 </option>
               ))}
             </optgroup>
