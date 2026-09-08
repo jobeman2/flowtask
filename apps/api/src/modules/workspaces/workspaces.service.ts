@@ -454,6 +454,8 @@ export class WorkspacesService {
           userName: inviteeName,
           workspaceName: workspace.name,
           role: invitation.role,
+          inviterId: invitation.inviterId,
+          ownerId: workspace.ownerId,
         },
       });
 
@@ -465,7 +467,12 @@ export class WorkspacesService {
           entityType: 'WORKSPACE_MEMBER',
           entityId: member.id,
           action: 'INVITATION_ACCEPTED',
-          metadata: { userName: inviteeName, role: invitation.role },
+          metadata: {
+            userName: inviteeName,
+            role: invitation.role,
+            inviterId: invitation.inviterId,
+            ownerId: workspace.ownerId,
+          },
         },
       });
 
@@ -633,6 +640,7 @@ export class WorkspacesService {
           userId: currentUserId,
           userName: leavingUserName,
           workspaceName: workspace.name,
+          ownerId: workspace.ownerId,
         },
       });
 
@@ -644,7 +652,10 @@ export class WorkspacesService {
           entityType: 'WORKSPACE_MEMBER',
           entityId: member.id,
           action: 'MEMBER_LEFT',
-          metadata: { userName: leavingUserName },
+          metadata: {
+            userName: leavingUserName,
+            ownerId: workspace.ownerId,
+          },
         },
       });
 

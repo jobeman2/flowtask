@@ -191,6 +191,10 @@ export default function HomePage() {
           setIsNotificationsOpen(false);
           setActiveNav('PROFILE');
         }}
+        onSelectTask={(taskId) => {
+          setIsNotificationsOpen(false);
+          setSelectedTaskId(taskId);
+        }}
       />
     </div>
   );

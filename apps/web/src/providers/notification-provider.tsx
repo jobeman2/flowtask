@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './telegram-provider';
 import { useTelegram } from '../hooks/use-telegram';
 
@@ -50,9 +50,11 @@ interface NotificationContextType {
     message: string;
     data?: any;
   }) => void;
+  markAsRead: (id: string) => void;
+  dismissNotification: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
-  syncActivityLogs: (logs: any[]) => void;
+  syncActivityLogs: (logs: any[], workspaceOwnerId?: string) => void;
   settings: NotificationSettings;
   updateSettings: (partial: Partial<NotificationSettings>) => void;
 }
@@ -63,6 +65,8 @@ const NotificationContext = createContext<NotificationContextType>({
   activeToast: null,
   dismissToast: () => {},
   addNotification: () => {},
+  markAsRead: () => {},
+  dismissNotification: () => {},
   markAllAsRead: () => {},
   clearAll: () => {},
   syncActivityLogs: () => {},
@@ -74,20 +78,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [readNotifIds, setReadNotifIds] = useState<Set<string>>(new Set());
   const [activeToast, setActiveToast] = useState<AppNotification | null>(null);
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
 
-  const storageKey = user?.id ? `flowtask_notifications_${user.id}` : 'flowtask_notifications_guest';
+  const storageKey = user?.id ? `flowtask_active_notifs_${user.id}` : 'flowtask_active_notifs_guest';
+  const readKey = user?.id ? `flowtask_read_ids_${user.id}` : 'flowtask_read_ids_guest';
   const settingsKey = user?.id ? `flowtask_notif_settings_${user.id}` : 'flowtask_notif_settings_guest';
 
-  // Load notifications and settings from localStorage
+  const readNotifIdsRef = useRef(readNotifIds);
+  readNotifIdsRef.current = readNotifIds;
+
+  // 1. Load active notifications, read IDs, and settings from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    let savedReadIds = new Set<string>();
+    try {
+      const readRaw = localStorage.getItem(readKey);
+      if (readRaw) {
+        const parsed = JSON.parse(readRaw);
+        if (Array.isArray(parsed)) {
+          savedReadIds = new Set(parsed);
+          setReadNotifIds(savedReadIds);
+        }
+      }
+    } catch {}
 
     try {
       const savedNotifs = localStorage.getItem(storageKey);
       if (savedNotifs) {
-        setNotifications(JSON.parse(savedNotifs));
+        const parsed: AppNotification[] = JSON.parse(savedNotifs);
+        // Only keep unread notifications that have not been read/dismissed
+        const filtered = Array.isArray(parsed)
+          ? parsed.filter((n) => !n.read && !savedReadIds.has(n.id))
+          : [];
+        setNotifications(filtered);
       } else {
         setNotifications([]);
       }
@@ -103,17 +129,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch {
       setSettings(DEFAULT_SETTINGS);
     }
-  }, [storageKey, settingsKey]);
-
-  // Save notifications to localStorage
-  const persistNotifications = useCallback((newNotifs: AppNotification[]) => {
-    setNotifications(newNotifs);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(newNotifs.slice(0, 50)));
-      } catch {}
-    }
-  }, [storageKey]);
+  }, [storageKey, readKey, settingsKey]);
 
   // Update Settings
   const updateSettings = useCallback((partial: Partial<NotificationSettings>) => {
@@ -132,6 +148,56 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setActiveToast(null);
   }, []);
 
+  // Mark single notification as read -> DISAPPEARS from active list
+  const markAsRead = useCallback(
+    (id: string) => {
+      setReadNotifIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
+          } catch {}
+        }
+        return next;
+      });
+
+      setNotifications((prev) => {
+        const updated = prev.filter((n) => n.id !== id);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
+    },
+    [readKey, storageKey]
+  );
+
+  const dismissNotification = markAsRead;
+
+  // Mark all as read -> ALL DISAPPEAR from active list
+  const markAllAsRead = useCallback(() => {
+    setNotifications((prev) => {
+      setReadNotifIds((readSet) => {
+        const next = new Set(readSet);
+        prev.forEach((n) => next.add(n.id));
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
+            localStorage.setItem(storageKey, JSON.stringify([]));
+          } catch {}
+        }
+        return next;
+      });
+      return [];
+    });
+  }, [readKey, storageKey]);
+
+  const clearAll = markAllAsRead;
+
+  // Add individual live notification (strictly personalized)
   const addNotification = useCallback(
     (notif: {
       type: AppNotification['type'];
@@ -139,7 +205,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       message: string;
       data?: any;
     }) => {
-      // Check user preferences
+      // 1. Check user alert toggles
       if (notif.type === 'TASK_ASSIGNED' && !settings.taskAssigned) return;
       if (notif.type === 'TASK_CREATED' && !settings.taskCreated) return;
       if (notif.type === 'TASK_COMPLETED' && !settings.taskCompleted) return;
@@ -152,8 +218,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return;
       }
 
+      const notifId =
+        notif.data?.id || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      // 2. If already read or dismissed in past, ignore
+      if (readNotifIdsRef.current.has(notifId)) return;
+
       const newNotif: AppNotification = {
-        id: notif.data?.id || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: notifId,
         type: notif.type,
         title: notif.title,
         message: notif.message,
@@ -163,13 +235,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       };
 
       setNotifications((prev) => {
-        // Prevent duplicate toasts/notifications within 2s for identical title/message
+        // Prevent duplicate toasts/notifications for same ID or identical content within 3s
         if (
           prev.some(
             (p) =>
-              p.title === notif.title &&
-              p.message === notif.message &&
-              Math.abs(new Date(p.timestamp).getTime() - Date.now()) < 3000
+              p.id === newNotif.id ||
+              (p.title === notif.title &&
+                p.message === notif.message &&
+                Math.abs(new Date(p.timestamp).getTime() - Date.now()) < 3000)
           )
         ) {
           return prev;
@@ -184,7 +257,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return updated;
       });
 
-      // Show toast if enabled
+      // Show floating mini toast
       if (settings.toastsEnabled) {
         if (settings.hapticsEnabled) {
           triggerHaptic('light');
@@ -195,73 +268,120 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [settings, triggerHaptic, storageKey]
   );
 
+  // Sync Activity Logs strictly personalized for the logged-in user
   const syncActivityLogs = useCallback(
-    (logs: any[]) => {
-      if (!Array.isArray(logs) || logs.length === 0) return;
+    (logs: any[], workspaceOwnerId?: string) => {
+      if (!Array.isArray(logs) || logs.length === 0 || !user?.id) return;
+
+      const currentUserId = user.id;
+      const currentReadIds = readNotifIdsRef.current;
 
       setNotifications((prev) => {
-        const readMap = new Map<string, boolean>();
-        prev.forEach((p) => {
-          readMap.set(p.id, p.read);
-        });
+        const existingIds = new Set(prev.map((p) => p.id));
+        const newItems: AppNotification[] = [];
 
-        const mapped: AppNotification[] = [];
+        for (const log of logs) {
+          // Never notify user of their own actions
+          if (log.actorId === currentUserId) continue;
 
-        logs.forEach((log) => {
+          // Never re-add notifications the user already read/dismissed
+          if (currentReadIds.has(log.id)) continue;
+
+          // If already in active list, skip
+          if (existingIds.has(log.id)) continue;
+
           const action = log.action;
+          const taskTitle = log.metadata?.title || 'a task';
+          const actorName = log.actor?.name || 'A teammate';
+
           let type: AppNotification['type'] | null = null;
           let title = '';
           let message = '';
 
-          const taskTitle = log.metadata?.title || 'a task';
-          const actorName = log.actor?.name || 'A teammate';
-
           if (action === 'TASK_ASSIGNED') {
-            type = 'TASK_ASSIGNED';
-            const isAssignedToMe = log.metadata?.assigneeId === user?.id;
-            title = isAssignedToMe ? 'Task Assigned To You' : 'Task Assigned';
-            message = isAssignedToMe
-              ? `You were assigned to "${taskTitle}" by ${log.metadata?.assignerName || actorName}`
-              : `"${taskTitle}" was assigned to ${log.metadata?.assigneeName || 'a teammate'}`;
+            const isAssignedToMe =
+              log.metadata?.assigneeId === currentUserId ||
+              (Array.isArray(log.metadata?.assigneeIds) &&
+                log.metadata.assigneeIds.includes(currentUserId));
+
+            // ONLY show TASK_ASSIGNED if the user is the assigned teammate!
+            if (isAssignedToMe) {
+              type = 'TASK_ASSIGNED';
+              title = 'Task Assigned To You';
+              message = `You were assigned to "${taskTitle}" by ${log.metadata?.assignerName || actorName}`;
+            }
           } else if (action === 'TASK_CREATED') {
-            type = 'TASK_CREATED';
-            title = 'New Task Created';
-            message = `"${taskTitle}" was created by ${actorName}`;
+            const isAssignedToMe =
+              log.metadata?.assigneeId === currentUserId ||
+              (Array.isArray(log.metadata?.assigneeIds) &&
+                log.metadata.assigneeIds.includes(currentUserId));
+            const isWorkspaceOwner = workspaceOwnerId && workspaceOwnerId === currentUserId;
+
+            if (isAssignedToMe) {
+              type = 'TASK_CREATED';
+              title = 'New Task Assigned';
+              message = `"${taskTitle}" was created and assigned to you by ${actorName}`;
+            } else if (isWorkspaceOwner) {
+              type = 'TASK_CREATED';
+              title = 'New Task Created';
+              message = `"${taskTitle}" was added to your workspace by ${actorName}`;
+            }
           } else if (action === 'TASK_COMPLETED') {
-            type = 'TASK_COMPLETED';
-            title = 'Task Completed';
-            message = `"${taskTitle}" was marked as done by ${log.metadata?.completedByName || actorName}!`;
+            const isCreator = log.metadata?.creatorId === currentUserId;
+            const isWorkspaceOwner =
+              (log.metadata?.workspaceOwnerId && log.metadata.workspaceOwnerId === currentUserId) ||
+              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+
+            // ONLY notify if current user is the task creator or workspace owner!
+            if (isCreator || isWorkspaceOwner) {
+              type = 'TASK_COMPLETED';
+              title = 'Task Completed';
+              message = `"${taskTitle}" was marked as done by ${log.metadata?.completedByName || actorName}!`;
+            }
           } else if (action === 'INVITATION_ACCEPTED') {
-            type = 'INVITATION_ACCEPTED';
-            title = 'Teammate Joined';
-            message = `${actorName} joined the workspace!`;
+            const isInviter = log.metadata?.inviterId === currentUserId;
+            const isWorkspaceOwner =
+              (log.metadata?.ownerId && log.metadata.ownerId === currentUserId) ||
+              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+
+            // ONLY notify inviter or workspace owner
+            if (isInviter || isWorkspaceOwner) {
+              type = 'INVITATION_ACCEPTED';
+              title = 'Teammate Joined';
+              message = `${actorName} accepted the invitation to join the workspace!`;
+            }
           } else if (action === 'MEMBER_LEFT') {
-            type = 'MEMBER_LEFT';
-            title = 'Member Left';
-            message = `${actorName} left the workspace.`;
+            const isWorkspaceOwner =
+              (log.metadata?.ownerId && log.metadata.ownerId === currentUserId) ||
+              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+
+            // ONLY notify workspace owner
+            if (isWorkspaceOwner) {
+              type = 'MEMBER_LEFT';
+              title = 'Member Left';
+              message = `${actorName} left the workspace.`;
+            }
           }
 
           if (type) {
-            mapped.push({
+            newItems.push({
               id: log.id,
               type,
               title,
               message,
               timestamp: log.createdAt || new Date().toISOString(),
-              read: readMap.has(log.id) ? readMap.get(log.id)! : false,
-              data: log,
+              read: false,
+              data: {
+                ...log,
+                taskId: log.entityType === 'TASK' ? log.entityId : log.metadata?.taskId,
+              },
             });
           }
-        });
+        }
 
-        // Merge mapped items with any local items
-        const combined = [...prev];
-        mapped.forEach((m) => {
-          if (!combined.some((c) => c.id === m.id)) {
-            combined.push(m);
-          }
-        });
+        if (newItems.length === 0) return prev;
 
+        const combined = [...newItems, ...prev];
         combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         const truncated = combined.slice(0, 50);
 
@@ -277,7 +397,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [user?.id, storageKey]
   );
 
-  // Auto-dismiss toast after 3.5s
+  // Auto-dismiss floating toast after 3.5s
   useEffect(() => {
     if (!activeToast) return;
     const timer = setTimeout(() => {
@@ -286,28 +406,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => clearTimeout(timer);
   }, [activeToast]);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => {
-      const updated = prev.map((n) => ({ ...n, read: true }));
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(updated));
-        } catch {}
-      }
-      return updated;
-    });
-  }, [storageKey]);
-
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify([]));
-      } catch {}
-    }
-  }, [storageKey]);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.length;
 
   return (
     <NotificationContext.Provider
@@ -317,6 +416,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         activeToast,
         dismissToast,
         addNotification,
+        markAsRead,
+        dismissNotification,
         markAllAsRead,
         clearAll,
         syncActivityLogs,
@@ -324,7 +425,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         updateSettings,
       }}
     >
-      {children}
     </NotificationContext.Provider>
   );
 }

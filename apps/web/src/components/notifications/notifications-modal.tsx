@@ -15,17 +15,31 @@ import {
   Sliders,
   AlertCircle,
   Clock,
+  Check,
 } from 'lucide-react';
 
 interface NotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenSettings?: () => void;
+  onSelectTask?: (taskId: string) => void;
 }
 
-export function NotificationsModal({ isOpen, onClose, onOpenSettings }: NotificationsModalProps) {
-  const { notifications, unreadCount, markAllAsRead, clearAll, settings, updateSettings } =
-    useNotifications();
+export function NotificationsModal({
+  isOpen,
+  onClose,
+  onOpenSettings,
+  onSelectTask,
+}: NotificationsModalProps) {
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+    settings,
+    updateSettings,
+  } = useNotifications();
   const { triggerHaptic } = useTelegram();
   const [showQuickSettings, setShowQuickSettings] = React.useState(false);
 
@@ -64,6 +78,19 @@ export function NotificationsModal({ isOpen, onClose, onOpenSettings }: Notifica
     }
   };
 
+  const handleNotificationClick = (notif: AppNotification) => {
+    triggerHaptic('light');
+    // Mark as read so it disappears from the active drawer
+    markAsRead(notif.id);
+
+    const targetTaskId =
+      notif.data?.taskId || notif.data?.task?.id || notif.data?.entityId;
+    if (targetTaskId && onSelectTask) {
+      onSelectTask(targetTaskId);
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans">
       <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[85vh] flex flex-col">
@@ -81,7 +108,9 @@ export function NotificationsModal({ isOpen, onClose, onOpenSettings }: Notifica
                 Notifications
               </h3>
               <p className="text-[10px] font-semibold text-slate-400">
-                {unreadCount > 0 ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
+                {unreadCount > 0
+                  ? `${unreadCount} unread update${unreadCount > 1 ? 's' : ''}`
+                  : 'All caught up'}
               </p>
             </div>
           </div>
@@ -181,32 +210,25 @@ export function NotificationsModal({ isOpen, onClose, onOpenSettings }: Notifica
               className="text-slate-400 hover:text-rose-500 font-bold transition-colors flex items-center gap-1"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear</span>
+              <span>Dismiss all</span>
             </button>
           </div>
         )}
 
-        {/* Notifications List */}
+        {/* Notifications List (Unread personalized notifications) */}
         <div className="space-y-2 overflow-y-auto flex-1 no-scrollbar pr-0.5">
           {notifications.map((notif) => (
             <div
               key={notif.id}
-              className={`p-3 rounded-2xl border transition-all flex items-start gap-2.5 ${
-                notif.read
-                  ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800'
-                  : 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-200/80 dark:border-blue-800/80 shadow-2xs'
-              }`}
+              onClick={() => handleNotificationClick(notif)}
+              className="p-3 rounded-2xl border transition-all flex items-start gap-2.5 bg-blue-50/50 dark:bg-blue-950/30 border-blue-200/80 dark:border-blue-800/80 shadow-2xs hover:border-blue-400 dark:hover:border-blue-600 cursor-pointer group"
             >
               <div className="w-7 h-7 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
                 {getIcon(notif.type)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h4
-                    className={`text-xs truncate ${
-                      notif.read ? 'font-bold text-slate-700 dark:text-slate-300' : 'font-extrabold text-slate-900 dark:text-white'
-                    }`}
-                  >
+                  <h4 className="text-xs truncate font-extrabold text-slate-900 dark:text-white">
                     {notif.title}
                   </h4>
                   <span className="text-[9px] text-slate-400 font-medium shrink-0 flex items-center gap-0.5">
@@ -214,23 +236,37 @@ export function NotificationsModal({ isOpen, onClose, onOpenSettings }: Notifica
                     {formatTime(notif.timestamp)}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug mt-0.5">
                   {notif.message}
                 </p>
               </div>
+
+              {/* 1-tap mark as read / dismiss check button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic('light');
+                  markAsRead(notif.id);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors shrink-0 mt-0.5"
+                title="Mark as read & dismiss"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              </button>
             </div>
           ))}
 
           {notifications.length === 0 && (
             <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2 my-auto">
-              <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-                <Bell className="w-4 h-4" />
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-5 h-5" />
               </div>
-              <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                No notifications yet
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                All caught up!
               </p>
-              <p className="text-[10px] text-slate-400">
-                You will be notified when tasks are assigned, completed, or teammates join.
+              <p className="text-[10px] text-slate-400 max-w-[200px] mx-auto leading-relaxed">
+                You have no pending notifications. When tasks are assigned to you or completed, you will see them here.
               </p>
             </div>
           )}

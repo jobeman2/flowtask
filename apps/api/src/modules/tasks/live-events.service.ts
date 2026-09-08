@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Subject, Observable } from 'rxjs';
+import { Subject, Observable, merge, interval } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 
 export interface LiveEventPayload {
@@ -14,7 +14,8 @@ export interface LiveEventPayload {
     | 'INVITATION_ACCEPTED'
     | 'INVITATION_RECEIVED'
     | 'MEMBER_LEFT'
-    | 'WORKSPACE_SYNC';
+    | 'WORKSPACE_SYNC'
+    | 'PING';
   timestamp: string;
   data?: any;
 }
@@ -31,9 +32,23 @@ export class LiveEventsService {
   }
 
   getStream(workspaceId?: string): Observable<{ data: LiveEventPayload }> {
-    return this.events$.asObservable().pipe(
+    const workspaceEvents$ = this.events$.asObservable().pipe(
       filter((e) => !workspaceId || e.workspaceId === workspaceId),
       map((event) => ({ data: event }))
     );
+
+    // Heartbeat ping every 15s to keep SSE connection alive through reverse proxies and Telegram Webview
+    const heartbeat$ = interval(15000).pipe(
+      map(() => ({
+        data: {
+          workspaceId: workspaceId || '',
+          type: 'PING' as const,
+          timestamp: new Date().toISOString(),
+        },
+      }))
+    );
+
+    return merge(workspaceEvents$, heartbeat$);
   }
 }
+

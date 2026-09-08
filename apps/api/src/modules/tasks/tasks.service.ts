@@ -340,7 +340,12 @@ export class TasksService {
           entityType: 'TASK',
           entityId: task.id,
           action: 'TASK_CREATED',
-          metadata: { title: task.title },
+          metadata: {
+            title: task.title,
+            creatorId,
+            assigneeId: task.assigneeId,
+            assigneeIds: allAssigneeIds,
+          },
         },
       });
 
@@ -554,6 +559,10 @@ export class TasksService {
       type: updateFields.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_UPDATED',
       data: {
         ...updated,
+        taskId: updated.id,
+        taskTitle: updated.title,
+        creatorId: updated.creatorId,
+        assigneeId: updated.assigneeId,
         completedById: userId,
       },
     });
@@ -588,6 +597,7 @@ export class TasksService {
           },
         }).catch(() => {});
 
+        // Send Telegram DM notification if assignee has connected telegram account
         if (dto.assigneeId !== userId) {
           let targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
           if (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId)) {
@@ -635,7 +645,11 @@ export class TasksService {
             action: 'TASK_COMPLETED',
             metadata: {
               title: updated.title,
+              creatorId: updated.creatorId,
+              assigneeId: updated.assigneeId,
+              workspaceOwnerId: workspace?.ownerId,
               completedByName: completer?.name || 'A teammate',
+              completedById: userId,
             },
           },
         }).catch(() => {});
