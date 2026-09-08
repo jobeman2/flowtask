@@ -354,16 +354,30 @@ export class TasksService {
       data: result,
     });
 
-    if (dto.assigneeId) {
+    const assigneesToNotify = allAssigneeIds.length > 0 ? allAssigneeIds : (dto.assigneeId ? [dto.assigneeId] : []);
+    for (const aId of assigneesToNotify) {
       this.liveEventsService.emit({
         workspaceId: targetWorkspaceId,
         type: 'TASK_ASSIGNED',
         data: {
           task: result,
-          assigneeId: dto.assigneeId,
+          taskId: result.id,
+          taskTitle: result.title,
+          assigneeId: aId,
           creatorId,
         },
       });
+
+      this.prisma.activityLog.create({
+        data: {
+          workspaceId: targetWorkspaceId,
+          actorId: creatorId,
+          entityType: 'TASK',
+          entityId: result.id,
+          action: 'TASK_ASSIGNED',
+          metadata: { title: result.title, assigneeId: aId },
+        },
+      }).catch(() => {});
     }
 
     // Dispatch notifications asynchronously (non-blocking)
@@ -511,63 +525,130 @@ export class TasksService {
     this.liveEventsService.emit({
       workspaceId,
       type: updateFields.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_UPDATED',
-      data: updated,
+      data: {
+        ...updated,
+        completedById: userId,
+      },
     });
 
     // If task was newly assigned or reassigned to a different teammate
-    if (dto.assigneeId && dto.assigneeId !== existing.assigneeId && dto.assigneeId !== userId) {
+    if (dto.assigneeId && dto.assigneeId !== existing.assigneeId) {
       try {
         const updater = await this.prisma.user.findUnique({ where: { id: userId } });
         const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
-        let targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
-        if (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId)) {
-          const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
-          if (assigneeUserObj?.name) {
-            const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
-            const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
-            if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
-              targetTg = altTg;
-            }
-          }
-        }
 
-        if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
-          await this.telegramService.notifyTaskAssigned({
-            targetTelegramId: targetTg.telegramId,
+        this.liveEventsService.emit({
+          workspaceId,
+          type: 'TASK_ASSIGNED',
+          data: {
+            task: updated,
             taskId: updated.id,
             taskTitle: updated.title,
-            description: updated.description || null,
-            priority: updated.priority,
-            workspaceName: workspace?.name || 'Team Workspace',
+            assigneeId: dto.assigneeId,
             assignerName: updater?.name || 'A teammate',
-            dueDate: updated.dueDate ? new Date(updated.dueDate).toISOString() : null,
-          });
+            creatorId: userId,
+          },
+        });
+
+        this.prisma.activityLog.create({
+          data: {
+            workspaceId,
+            actorId: userId,
+            entityType: 'TASK',
+            entityId: updated.id,
+            action: 'TASK_ASSIGNED',
+            metadata: { title: updated.title, assigneeId: dto.assigneeId, assignerName: updater?.name || 'A teammate' },
+          },
+        }).catch(() => {});
+
+        if (dto.assigneeId !== userId) {
+          let targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } });
+          if (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId)) {
+            const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
+            if (assigneeUserObj?.name) {
+              const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
+              const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
+              if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
+                targetTg = altTg;
+              }
+            }
+          }
+
+          if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
+            await this.telegramService.notifyTaskAssigned({
+              targetTelegramId: targetTg.telegramId,
+              taskId: updated.id,
+              taskTitle: updated.title,
+              description: updated.description || null,
+              priority: updated.priority,
+              workspaceName: workspace?.name || 'Team Workspace',
+              assignerName: updater?.name || 'A teammate',
+              dueDate: updated.dueDate ? new Date(updated.dueDate).toISOString() : null,
+            });
+          }
         }
       } catch {
         // Non-blocking notification
       }
     }
 
-    // If task was marked as DONE, notify creator and group
+    // If task was marked as DONE, notify owner, creator, and group
     if (updateFields.status === 'DONE' && existing.status !== 'DONE') {
       try {
         const completer = await this.prisma.user.findUnique({ where: { id: userId } });
         const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
-        const creatorTg = existing.creatorId
-          ? await this.prisma.telegramAccount.findFirst({ where: { userId: existing.creatorId } })
-          : null;
 
-        // 1. Notify creator if completed by someone else
-        if (creatorTg?.telegramId && /^\d+$/.test(creatorTg.telegramId) && existing.creatorId !== userId) {
-          await this.telegramService.notifyTaskCompleted({
-            targetTelegramId: creatorTg.telegramId,
-            taskTitle: updated.title,
-            workspaceName: workspace?.name || 'Team Workspace',
-            completedByName: completer?.name || 'A teammate',
-          });
+        // Log dedicated TASK_COMPLETED activity
+        this.prisma.activityLog.create({
+          data: {
+            workspaceId,
+            actorId: userId,
+            entityType: 'TASK',
+            entityId: taskId,
+            action: 'TASK_COMPLETED',
+            metadata: {
+              title: updated.title,
+              completedByName: completer?.name || 'A teammate',
+            },
+          },
+        }).catch(() => {});
+
+        // Build list of target users to notify (Workspace Owner + Task Creator)
+        const targetsToNotify = new Set<string>();
+        if (workspace?.ownerId && workspace.ownerId !== userId) {
+          targetsToNotify.add(workspace.ownerId);
+        }
+        if (existing.creatorId && existing.creatorId !== userId) {
+          targetsToNotify.add(existing.creatorId);
         }
 
-        // 2. Broadcast completion to group chat if connected
+        for (const targetUserId of targetsToNotify) {
+          let targetTg = await this.prisma.telegramAccount.findFirst({
+            where: { userId: targetUserId },
+          });
+
+          if (!targetTg?.telegramId || !/^-?\d+$/.test(targetTg.telegramId)) {
+            const userObj = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+            if (userObj?.name) {
+              const cleanName = userObj.name.replace(/^@/, '').toLowerCase();
+              const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
+              if (altTg?.telegramId && /^-?\d+$/.test(altTg.telegramId)) {
+                targetTg = altTg;
+              }
+            }
+          }
+
+          if (targetTg?.telegramId && /^-?\d+$/.test(targetTg.telegramId)) {
+            await this.telegramService.notifyTaskCompleted({
+              targetTelegramId: targetTg.telegramId,
+              taskTitle: updated.title,
+              workspaceName: workspace?.name || 'Team Workspace',
+              completedByName: completer?.name || 'A teammate',
+            });
+          }
+        }
+
+        // Broadcast completion to group chat if connected
         const groupChat = await this.prisma.telegramChat.findFirst({
           where: { workspaceId },
         });

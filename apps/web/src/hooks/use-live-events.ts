@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api-client';
 import { useNotifications } from '../providers/notification-provider';
@@ -8,9 +8,37 @@ import { useAuth } from '../providers/telegram-provider';
 
 export function useLiveEvents(workspaceId?: string | null) {
   const queryClient = useQueryClient();
-  const { addNotification } = useNotifications();
+  const { addNotification, syncActivityLogs } = useNotifications();
   const { user } = useAuth();
 
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const addNotificationRef = useRef(addNotification);
+  addNotificationRef.current = addNotification;
+
+  // 1. Initial sync of workspace activity history into notifications drawer
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    let isMounted = true;
+    apiClient
+      .getActivity(workspaceId)
+      .then((res) => {
+        if (!isMounted) return;
+        const logs = Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+        if (logs.length > 0) {
+          syncActivityLogs(logs);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workspaceId, syncActivityLogs]);
+
+  // 2. Real-time EventSource listener
   useEffect(() => {
     if (!workspaceId || typeof window === 'undefined' || !window.EventSource) {
       return;
@@ -35,22 +63,32 @@ export function useLiveEvents(workspaceId?: string | null) {
               queryClient.invalidateQueries({ queryKey: ['workspaces'] });
               queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
 
+              const currentUser = userRef.current;
+              const notify = addNotificationRef.current;
+
               // In-app Notifications
               if (parsed.type === 'TASK_ASSIGNED') {
-                const isMe = parsed.data?.assigneeId === user?.id;
+                const isMe = parsed.data?.assigneeId === currentUser?.id;
                 const taskTitle = parsed.data?.taskTitle || parsed.data?.task?.title || 'a task';
                 if (isMe) {
-                  addNotification({
+                  notify({
                     type: 'TASK_ASSIGNED',
                     title: 'Task Assigned To You',
                     message: `You were assigned to "${taskTitle}"`,
                     data: parsed.data,
                   });
+                } else {
+                  notify({
+                    type: 'TASK_ASSIGNED',
+                    title: 'Task Assigned',
+                    message: `"${taskTitle}" was assigned to a teammate`,
+                    data: parsed.data,
+                  });
                 }
               } else if (parsed.type === 'TASK_CREATED') {
-                const title = parsed.data?.title;
+                const title = parsed.data?.title || parsed.data?.task?.title;
                 if (title) {
-                  addNotification({
+                  notify({
                     type: 'TASK_CREATED',
                     title: 'New Task Created',
                     message: `"${title}" was added`,
@@ -58,24 +96,25 @@ export function useLiveEvents(workspaceId?: string | null) {
                   });
                 }
               } else if (parsed.type === 'TASK_COMPLETED') {
-                const title = parsed.data?.title;
+                const title = parsed.data?.title || parsed.data?.task?.title;
+                const completerName = parsed.data?.completedByName || 'A teammate';
                 if (title) {
-                  addNotification({
+                  notify({
                     type: 'TASK_COMPLETED',
                     title: 'Task Completed',
-                    message: `"${title}" was marked as done!`,
+                    message: `"${title}" was marked as done by ${completerName}!`,
                     data: parsed.data,
                   });
                 }
               } else if (parsed.type === 'INVITATION_ACCEPTED') {
-                addNotification({
+                notify({
                   type: 'INVITATION_ACCEPTED',
                   title: 'Teammate Joined',
                   message: `${parsed.data?.userName || 'A teammate'} joined the workspace!`,
                   data: parsed.data,
                 });
               } else if (parsed.type === 'MEMBER_LEFT') {
-                addNotification({
+                notify({
                   type: 'MEMBER_LEFT',
                   title: 'Member Left',
                   message: `${parsed.data?.userName || 'A teammate'} left the workspace.`,

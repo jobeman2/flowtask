@@ -52,6 +52,7 @@ interface NotificationContextType {
   }) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
+  syncActivityLogs: (logs: any[]) => void;
   settings: NotificationSettings;
   updateSettings: (partial: Partial<NotificationSettings>) => void;
 }
@@ -64,6 +65,7 @@ const NotificationContext = createContext<NotificationContextType>({
   addNotification: () => {},
   markAllAsRead: () => {},
   clearAll: () => {},
+  syncActivityLogs: () => {},
   settings: DEFAULT_SETTINGS,
   updateSettings: () => {},
 });
@@ -151,7 +153,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       }
 
       const newNotif: AppNotification = {
-        id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: notif.data?.id || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: notif.type,
         title: notif.title,
         message: notif.message,
@@ -160,7 +162,27 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         data: notif.data,
       };
 
-      persistNotifications([newNotif, ...notifications]);
+      setNotifications((prev) => {
+        // Prevent duplicate toasts/notifications within 2s for identical title/message
+        if (
+          prev.some(
+            (p) =>
+              p.title === notif.title &&
+              p.message === notif.message &&
+              Math.abs(new Date(p.timestamp).getTime() - Date.now()) < 3000
+          )
+        ) {
+          return prev;
+        }
+
+        const updated = [newNotif, ...prev].slice(0, 50);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(updated));
+          } catch {}
+        }
+        return updated;
+      });
 
       // Show toast if enabled
       if (settings.toastsEnabled) {
@@ -170,7 +192,89 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setActiveToast(newNotif);
       }
     },
-    [notifications, settings, triggerHaptic, persistNotifications]
+    [settings, triggerHaptic, storageKey]
+  );
+
+  const syncActivityLogs = useCallback(
+    (logs: any[]) => {
+      if (!Array.isArray(logs) || logs.length === 0) return;
+
+      setNotifications((prev) => {
+        const readMap = new Map<string, boolean>();
+        prev.forEach((p) => {
+          readMap.set(p.id, p.read);
+        });
+
+        const mapped: AppNotification[] = [];
+
+        logs.forEach((log) => {
+          const action = log.action;
+          let type: AppNotification['type'] | null = null;
+          let title = '';
+          let message = '';
+
+          const taskTitle = log.metadata?.title || 'a task';
+          const actorName = log.actor?.name || 'A teammate';
+
+          if (action === 'TASK_ASSIGNED') {
+            type = 'TASK_ASSIGNED';
+            const isAssignedToMe = log.metadata?.assigneeId === user?.id;
+            title = isAssignedToMe ? 'Task Assigned To You' : 'Task Assigned';
+            message = isAssignedToMe
+              ? `You were assigned to "${taskTitle}" by ${log.metadata?.assignerName || actorName}`
+              : `"${taskTitle}" was assigned to ${log.metadata?.assigneeName || 'a teammate'}`;
+          } else if (action === 'TASK_CREATED') {
+            type = 'TASK_CREATED';
+            title = 'New Task Created';
+            message = `"${taskTitle}" was created by ${actorName}`;
+          } else if (action === 'TASK_COMPLETED') {
+            type = 'TASK_COMPLETED';
+            title = 'Task Completed';
+            message = `"${taskTitle}" was marked as done by ${log.metadata?.completedByName || actorName}!`;
+          } else if (action === 'INVITATION_ACCEPTED') {
+            type = 'INVITATION_ACCEPTED';
+            title = 'Teammate Joined';
+            message = `${actorName} joined the workspace!`;
+          } else if (action === 'MEMBER_LEFT') {
+            type = 'MEMBER_LEFT';
+            title = 'Member Left';
+            message = `${actorName} left the workspace.`;
+          }
+
+          if (type) {
+            mapped.push({
+              id: log.id,
+              type,
+              title,
+              message,
+              timestamp: log.createdAt || new Date().toISOString(),
+              read: readMap.has(log.id) ? readMap.get(log.id)! : false,
+              data: log,
+            });
+          }
+        });
+
+        // Merge mapped items with any local items
+        const combined = [...prev];
+        mapped.forEach((m) => {
+          if (!combined.some((c) => c.id === m.id)) {
+            combined.push(m);
+          }
+        });
+
+        combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        const truncated = combined.slice(0, 50);
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(truncated));
+          } catch {}
+        }
+
+        return truncated;
+      });
+    },
+    [user?.id, storageKey]
   );
 
   // Auto-dismiss toast after 3.5s
@@ -183,13 +287,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, [activeToast]);
 
   const markAllAsRead = useCallback(() => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    persistNotifications(updated);
-  }, [notifications, persistNotifications]);
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(updated));
+        } catch {}
+      }
+      return updated;
+    });
+  }, [storageKey]);
 
   const clearAll = useCallback(() => {
-    persistNotifications([]);
-  }, [persistNotifications]);
+    setNotifications([]);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify([]));
+      } catch {}
+    }
+  }, [storageKey]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -203,6 +319,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         addNotification,
         markAllAsRead,
         clearAll,
+        syncActivityLogs,
         settings,
         updateSettings,
       }}

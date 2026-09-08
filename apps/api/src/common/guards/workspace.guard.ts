@@ -5,13 +5,28 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../database/prisma.service';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class WorkspaceGuard implements CanActivate {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reflector?: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (this.reflector) {
+      const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (isPublic) {
+        return true;
+      }
+    }
+
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
