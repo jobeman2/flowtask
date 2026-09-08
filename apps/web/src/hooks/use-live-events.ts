@@ -20,18 +20,28 @@ export function useLiveEvents(workspaceId?: string | null) {
   const syncActivityLogsRef = useRef(syncActivityLogs);
   syncActivityLogsRef.current = syncActivityLogs;
 
-  // Retrieve current workspace to know ownerId
-  const { data: workspaces = [] } = useQuery({
+  // Retrieve current workspace to know ownerId safely without crashing
+  const { data: rawWorkspaces } = useQuery({
     queryKey: ['workspaces', user?.id],
     queryFn: async () => {
-      const res = await apiClient.getWorkspaces();
-      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+      try {
+        const res = await apiClient.getWorkspaces();
+        return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+      } catch {
+        return [];
+      }
     },
     enabled: !!user,
     staleTime: 60000,
   });
 
-  const currentWs = workspaces.find((w: any) => w.id === workspaceId);
+  const workspaces: any[] = Array.isArray(rawWorkspaces)
+    ? rawWorkspaces
+    : (rawWorkspaces as any)?.data && Array.isArray((rawWorkspaces as any).data)
+    ? (rawWorkspaces as any).data
+    : [];
+
+  const currentWs = workspaces.find((w: any) => w && w.id === workspaceId);
   const workspaceOwnerId = currentWs?.ownerId;
   const workspaceOwnerIdRef = useRef(workspaceOwnerId);
   workspaceOwnerIdRef.current = workspaceOwnerId;
@@ -40,9 +50,9 @@ export function useLiveEvents(workspaceId?: string | null) {
   const pollActivity = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await apiClient.getActivity(workspaceId, 30);
-      const logs = Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
-      if (logs.length > 0) {
+      const res = await apiClient.getActivity(workspaceId);
+      const logs = Array.isArray(res?.data) ? res.data : (res?.data as any)?.data || [];
+      if (logs.length > 0 && typeof syncActivityLogsRef.current === 'function') {
         syncActivityLogsRef.current(logs, workspaceOwnerIdRef.current);
       }
     } catch {

@@ -179,21 +179,23 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Mark all as read -> ALL DISAPPEAR from active list
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => {
-      setReadNotifIds((readSet) => {
-        const next = new Set(readSet);
-        prev.forEach((n) => next.add(n.id));
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
-            localStorage.setItem(storageKey, JSON.stringify([]));
-          } catch {}
-        }
-        return next;
-      });
-      return [];
+    setReadNotifIds((readSet) => {
+      const next = new Set(readSet instanceof Set ? readSet : []);
+      if (Array.isArray(notifications)) {
+        notifications.forEach((n) => {
+          if (n?.id) next.add(n.id);
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
+          localStorage.setItem(storageKey, JSON.stringify([]));
+        } catch {}
+      }
+      return next;
     });
-  }, [readKey, storageKey]);
+    setNotifications([]);
+  }, [notifications, readKey, storageKey]);
 
   const clearAll = markAllAsRead;
 
@@ -205,6 +207,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       message: string;
       data?: any;
     }) => {
+      if (!notif) return;
       // 1. Check user alert toggles
       if (notif.type === 'TASK_ASSIGNED' && !settings.taskAssigned) return;
       if (notif.type === 'TASK_CREATED' && !settings.taskCreated) return;
@@ -222,7 +225,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         notif.data?.id || `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
       // 2. If already read or dismissed in past, ignore
-      if (readNotifIdsRef.current.has(notifId)) return;
+      const currentReadIds =
+        readNotifIdsRef.current instanceof Set ? readNotifIdsRef.current : new Set<string>();
+      if (currentReadIds.has(notifId)) return;
 
       const newNotif: AppNotification = {
         id: notifId,
@@ -235,20 +240,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       };
 
       setNotifications((prev) => {
+        const safePrev = Array.isArray(prev) ? prev : [];
         // Prevent duplicate toasts/notifications for same ID or identical content within 3s
         if (
-          prev.some(
+          safePrev.some(
             (p) =>
-              p.id === newNotif.id ||
-              (p.title === notif.title &&
-                p.message === notif.message &&
+              p?.id === newNotif.id ||
+              (p?.title === notif.title &&
+                p?.message === notif.message &&
                 Math.abs(new Date(p.timestamp).getTime() - Date.now()) < 3000)
           )
         ) {
-          return prev;
+          return safePrev;
         }
 
-        const updated = [newNotif, ...prev].slice(0, 50);
+        const updated = [newNotif, ...safePrev].slice(0, 50);
         if (typeof window !== 'undefined') {
           try {
             localStorage.setItem(storageKey, JSON.stringify(updated));
@@ -274,21 +280,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (!Array.isArray(logs) || logs.length === 0 || !user?.id) return;
 
       const currentUserId = user.id;
-      const currentReadIds = readNotifIdsRef.current;
+      const currentReadIds =
+        readNotifIdsRef.current instanceof Set ? readNotifIdsRef.current : new Set<string>();
 
-      setNotifications((prev) => {
-        const existingIds = new Set(prev.map((p) => p.id));
-        const newItems: AppNotification[] = [];
+      try {
+        setNotifications((prev) => {
+          const safePrev = Array.isArray(prev) ? prev : [];
+          const existingIds = new Set(safePrev.map((p) => p?.id).filter(Boolean));
+          const newItems: AppNotification[] = [];
 
-        for (const log of logs) {
-          // Never notify user of their own actions
-          if (log.actorId === currentUserId) continue;
+          for (const log of logs) {
+            if (!log || typeof log !== 'object') continue;
+            // Never notify user of their own actions
+            if (log.actorId === currentUserId) continue;
 
-          // Never re-add notifications the user already read/dismissed
-          if (currentReadIds.has(log.id)) continue;
+            // Never re-add notifications the user already read/dismissed
+            if (log.id && currentReadIds.has(log.id)) continue;
 
-          // If already in active list, skip
-          if (existingIds.has(log.id)) continue;
+            // If already in active list, skip
+            if (log.id && existingIds.has(log.id)) continue;
 
           const action = log.action;
           const taskTitle = log.metadata?.title || 'a task';
@@ -393,6 +403,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         return truncated;
       });
+      } catch {
+        // Non-blocking
+      }
     },
     [user?.id, storageKey]
   );
@@ -406,7 +419,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => clearTimeout(timer);
   }, [activeToast]);
 
-  const unreadCount = notifications.length;
+  const unreadCount = Array.isArray(notifications) ? notifications.length : 0;
 
   return (
     <NotificationContext.Provider
@@ -425,6 +438,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         updateSettings,
       }}
     >
+      {children}
     </NotificationContext.Provider>
   );
 }

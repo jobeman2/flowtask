@@ -187,7 +187,7 @@ export function NotificationsModal({
         )}
 
         {/* Action bar (Mark all read, Clear) */}
-        {notifications.length > 0 && (
+        {Array.isArray(notifications) && notifications.length > 0 && (
           <div className="flex items-center justify-between px-0.5 text-[11px]">
             <button
               type="button"
@@ -217,7 +217,7 @@ export function NotificationsModal({
 
         {/* Notifications List (Unread personalized notifications) */}
         <div className="space-y-2 overflow-y-auto flex-1 no-scrollbar pr-0.5">
-          {notifications.map((notif) => (
+          {(Array.isArray(notifications) ? notifications : []).map((notif) => (
             <div
               key={notif.id}
               onClick={() => handleNotificationClick(notif)}
