@@ -20,14 +20,21 @@ import {
   Share2,
   UserX,
   ShieldAlert,
+  Building2,
+  Plus,
+  Send,
+  Settings,
+  ArrowRight,
 } from 'lucide-react';
+import { ManageWorkspaceModal } from '../../workspaces/components/manage-workspace-modal';
 
 export function TeamView() {
-  const { workspaceId, user } = useAuth();
+  const { workspaceId, setWorkspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'MEMBERS' | 'WORKSPACES'>('MEMBERS');
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteIdentifier, setInviteIdentifier] = useState('');
@@ -36,6 +43,15 @@ export function TeamView() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
+  // Workspaces Management State
+  const [isCreatingWs, setIsCreatingWs] = useState(false);
+  const [createWsMode, setCreateWsMode] = useState<'STANDARD' | 'TELEGRAM'>('STANDARD');
+  const [newWsName, setNewWsName] = useState('');
+  const [newWsType, setNewWsType] = useState<'TEAM' | 'PERSONAL'>('TEAM');
+  const [telegramInput, setTelegramInput] = useState('');
+  const [createWsError, setCreateWsError] = useState<string | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -70,6 +86,58 @@ export function TeamView() {
   });
 
   const currentWorkspace = workspaces.find((w: any) => w.id === workspaceId);
+  const tgWorkspaces = useMemo(() => workspaces.filter((w: any) => Boolean(w.telegramChat)), [workspaces]);
+  const otherWorkspaces = useMemo(() => workspaces.filter((w: any) => !w.telegramChat), [workspaces]);
+
+  // Create Workspace Mutation
+  const createWsMutation = useMutation({
+    mutationFn: async () => {
+      if (!newWsName.trim()) return;
+      setCreateWsError(null);
+      const res = await apiClient.createWorkspace(newWsName.trim(), newWsType);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (newWs) => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      if (newWs?.id) {
+        setWorkspaceId(newWs.id);
+      }
+      setNewWsName('');
+      setCreateWsError(null);
+      setIsCreatingWs(false);
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      setCreateWsError(err.message || 'Failed to create workspace');
+    },
+  });
+
+  // Connect Telegram Group Mutation
+  const connectTgMutation = useMutation({
+    mutationFn: async () => {
+      if (!telegramInput.trim()) return;
+      setCreateWsError(null);
+      const res = await apiClient.connectTelegramGroup(telegramInput.trim());
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      if (data?.workspaceId) {
+        setWorkspaceId(data.workspaceId);
+      }
+      setTelegramInput('');
+      setCreateWsError(null);
+      setIsCreatingWs(false);
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      setCreateWsError(err.message || 'Failed to connect Telegram group');
+    },
+  });
 
   // Fetch Team Members
   const { data: members = [], isLoading } = useQuery({
@@ -147,199 +215,431 @@ export function TeamView() {
 
   return (
     <div className="space-y-4 pb-24 font-sans animate-in fade-in duration-300">
-      {/* 1. Header with Invite Action */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-            Workspace Team
-          </h3>
-          <p className="text-xs text-slate-400 font-medium">
-            Manage teammates, roles & AI copilot
-          </p>
-        </div>
-        {canManageMembers && (
+      {/* 1. View Mode Switcher: Team Members vs Workspaces & Groups */}
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
         <button
           type="button"
           onClick={() => {
             triggerHaptic('light');
-            setIsInviteOpen(true);
+            setActiveTab('MEMBERS');
           }}
-          className="p-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === 'MEMBERS'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+          }`}
         >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>Invite</span>
+          <Users className="w-3.5 h-3.5" />
+          <span>Team Members ({members.length + 1})</span>
         </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            setActiveTab('WORKSPACES');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            activeTab === 'WORKSPACES'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span>Workspaces & Groups ({workspaces.length})</span>
+        </button>
       </div>
 
-      {/* Telegram Group Sync Banner if linked */}
-      {currentWorkspace?.telegramChat && (
-        <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-900/60 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Users className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                {currentWorkspace.telegramChat.title || 'Telegram Group'}
-              </div>
-              <div className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-1">
-                <span>Group Synced</span>
-                <span>•</span>
-                <span>{members.length} member{members.length !== 1 ? 's' : ''}</span>
-              </div>
-            </div>
-          </div>
-
-          {canManageMembers && (
-            <button
-              type="button"
-              disabled={syncGroupMutation.isPending}
-              onClick={() => {
-                triggerHaptic('light');
-                syncGroupMutation.mutate();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all shrink-0 active:scale-95"
-            >
-              <RefreshCw className={`w-3 h-3 ${syncGroupMutation.isPending ? 'animate-spin' : ''}`} />
-              <span>{syncGroupMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {syncStatus && (
-        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-semibold animate-in fade-in">
-          {syncStatus}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-semibold text-slate-400">
-          {members.length + 1} active members
-        </span>
-      </div>
-
-      {/* 2. Search Bar */}
-      <div className="relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search team members..."
-          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors"
-        />
-      </div>
-
-      {/* 3. Members List */}
-      <div className="space-y-2.5">
-        {/* 🤖 Permanent Virtual AI Copilot Member */}
-        <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-pink-50/50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center font-bold shadow-md shadow-purple-500/20">
-                <Bot className="w-5 h-5" />
-              </div>
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                  Flow AI
-                </h4>
-                <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
-              </div>
-              <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 truncate">
-                @flowtaskmanager_bot • Autonomous PM
+      {/* TAB 1: TEAM MEMBERS */}
+      {activeTab === 'MEMBERS' && (
+        <div className="space-y-4">
+          {/* Header with Invite Action */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                Workspace Team
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                {currentWorkspace?.name || 'Current Workspace'} • {members.length + 1} members
               </p>
             </div>
+            {canManageMembers && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsInviteOpen(true);
+                }}
+                className="p-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Invite</span>
+              </button>
+            )}
           </div>
 
-          <div className="shrink-0">
-            <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs">
-              AI Copilot
-            </span>
-          </div>
-        </div>
-
-        {/* Human Team Members */}
-        {filteredMembers.map((member: any) => {
-          const isOwner = member.role === 'OWNER';
-          const isAdmin = member.role === 'ADMIN';
-          const memberName = member.user?.name || 'Teammate';
-          const username = member.user?.telegramAccount?.username
-            ? `@${member.user.telegramAccount.username}`
-            : member.user?.email || 'Member';
-
-          return (
-            <div
-              key={member.id}
-              className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3"
-            >
-              {/* Avatar + Info */}
-              <div className="flex items-center gap-3 min-w-0">
-                {member.user?.avatarUrl ? (
-                  <img
-                    src={member.user.avatarUrl}
-                    alt={memberName}
-                    className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
-                    {memberName[0]?.toUpperCase()}
+          {/* Telegram Group Sync Banner if linked */}
+          {currentWorkspace?.telegramChat && (
+            <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-900/60 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {currentWorkspace.telegramChat.title || 'Telegram Group'}
                   </div>
-                )}
+                  <div className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-1">
+                    <span>Group Synced</span>
+                    <span>•</span>
+                    <span>{members.length} member{members.length !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+              </div>
+
+              {canManageMembers && (
+                <button
+                  type="button"
+                  disabled={syncGroupMutation.isPending}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    syncGroupMutation.mutate();
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all shrink-0 active:scale-95"
+                >
+                  <RefreshCw className={`w-3 h-3 ${syncGroupMutation.isPending ? 'animate-spin' : ''}`} />
+                  <span>{syncGroupMutation.isPending ? 'Syncing...' : 'Sync Members'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {syncStatus && (
+            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-semibold animate-in fade-in">
+              {syncStatus}
+            </div>
+          )}
+
+          {/* Quick link to switch workspaces */}
+          <div
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveTab('WORKSPACES');
+            }}
+            className="px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs cursor-pointer hover:border-blue-300 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <Building2 className="w-3.5 h-3.5 text-blue-500" />
+              <span>Workspace: <strong className="text-slate-800 dark:text-slate-200">{currentWorkspace?.name || 'Default'}</strong></span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+              <span>View all ({workspaces.length})</span>
+              <ArrowRight className="w-3 h-3" />
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search team members..."
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Members List */}
+          <div className="space-y-2.5">
+            {/* 🤖 Permanent Virtual AI Copilot Member */}
+            <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-pink-50/50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center font-bold shadow-md shadow-purple-500/20">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                </div>
 
                 <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {memberName}
-                  </h4>
-                  <p className="text-[11px] font-medium text-slate-400 truncate">
-                    {username}
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                      Flow AI
+                    </h4>
+                    <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  </div>
+                  <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 truncate">
+                    @flowtaskmanager_bot • Autonomous PM
                   </p>
                 </div>
               </div>
 
-              {/* Role Badge & Actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                    isOwner
-                      ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/50'
-                      : isAdmin
-                      ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/50'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  {isOwner ? 'Owner' : isAdmin ? 'Admin' : 'Member'}
+              <div className="shrink-0">
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs">
+                  AI Copilot
                 </span>
-
-                {canManageMembers && !isOwner && member.userId !== user?.id && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic('medium');
-                      setMemberToRemove({ id: member.id, name: memberName });
-                    }}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                    title="Remove from workspace"
-                  >
-                    <UserX className="w-3.5 h-3.5" />
-                  </button>
-                )}
               </div>
             </div>
-          );
-        })}
 
-        {filteredMembers.length === 0 && !isLoading && (
-          <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 font-medium">
-            No team members found.
+            {/* Human Team Members */}
+            {filteredMembers.map((member: any) => {
+              const isOwner = member.role === 'OWNER';
+              const isAdmin = member.role === 'ADMIN';
+              const memberName = member.user?.name || 'Teammate';
+              const username = member.user?.telegramAccount?.username
+                ? `@${member.user.telegramAccount.username}`
+                : member.user?.email || 'Member';
+
+              return (
+                <div
+                  key={member.id}
+                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3"
+                >
+                  {/* Avatar + Info */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {member.user?.avatarUrl ? (
+                      <img
+                        src={member.user.avatarUrl}
+                        alt={memberName}
+                        className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
+                        {memberName[0]?.toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {memberName}
+                      </h4>
+                      <p className="text-[11px] font-medium text-slate-400 truncate">
+                        {username}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Role Badge & Actions */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                        isOwner
+                          ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/50'
+                          : isAdmin
+                          ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/50'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {isOwner ? 'Owner' : isAdmin ? 'Admin' : 'Member'}
+                    </span>
+
+                    {canManageMembers && !isOwner && member.userId !== user?.id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('medium');
+                          setMemberToRemove({ id: member.id, name: memberName });
+                        }}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title="Remove from workspace"
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredMembers.length === 0 && !isLoading && (
+              <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 font-medium">
+                No team members found.
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* TAB 2: WORKSPACES & GROUPS MANAGEMENT */}
+      {activeTab === 'WORKSPACES' && (
+        <div className="space-y-4">
+          {/* Header with Actions */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                Workspaces & Groups
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                See all your teams & connected Telegram groups
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setCreateWsMode('STANDARD');
+                  setCreateWsError(null);
+                  setIsCreatingWs(true);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+              >
+                <Plus className="w-3 h-3" />
+                <span>New</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setCreateWsMode('TELEGRAM');
+                  setCreateWsError(null);
+                  setIsCreatingWs(true);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+              >
+                <Send className="w-3 h-3" />
+                <span>+ Group</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Summary Cards */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs">
+              <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Building2 className="w-3 h-3 text-blue-500" />
+                <span>Active Board</span>
+              </div>
+              <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                {currentWorkspace?.name || 'Workspace'}
+              </div>
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Currently active</span>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs">
+              <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Users className="w-3 h-3 text-sky-500" />
+                <span>Total Teams</span>
+              </div>
+              <div className="text-base font-black text-slate-900 dark:text-white leading-none">
+                {workspaces.length}
+              </div>
+              <div className="text-[10px] text-slate-400 font-semibold mt-1">
+                {tgWorkspaces.length} Telegram • {otherWorkspaces.length} standard
+              </div>
+            </div>
+          </div>
+
+          {/* Workspaces List */}
+          <div className="space-y-2.5">
+            {workspaces.map((ws: any) => {
+              const isCurrent = ws.id === workspaceId;
+              const hasTelegram = Boolean(ws.telegramChat);
+              const memberCount = ws._count?.members || ws.members?.length || (isCurrent ? members.length : 1);
+              const isOwner = ws.ownerId === user?.id;
+
+              return (
+                <div
+                  key={ws.id}
+                  onClick={() => {
+                    if (!isCurrent) {
+                      triggerHaptic('medium');
+                      setWorkspaceId(ws.id);
+                    }
+                  }}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                    isCurrent
+                      ? 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/80 shadow-[0_2px_12px_-2px_rgba(59,130,246,0.15)]'
+                      : 'bg-white dark:bg-slate-900/90 border-slate-100 dark:border-slate-800/80 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs shadow-xs ${
+                          hasTelegram
+                            ? 'bg-sky-500 text-white'
+                            : isCurrent
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        {hasTelegram ? <Users className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {ws.name}
+                          </h4>
+                          {isCurrent && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-blue-600 text-white text-[9px] font-black uppercase">
+                              Active
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
+                          {hasTelegram && (
+                            <span className="text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-0.5">
+                              <span>Telegram: {ws.telegramChat.title || ws.name}</span>
+                            </span>
+                          )}
+                          <span>•</span>
+                          <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">
+                            {isOwner ? 'Owner' : 'Member'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      {isCurrent ? (
+                        <div className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200 dark:border-emerald-800/60">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>Active</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerHaptic('medium');
+                            setWorkspaceId(ws.id);
+                          }}
+                          className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 text-[10px] font-bold transition-all"
+                        >
+                          Switch
+                        </button>
+                      )}
+
+                      {isCurrent && canManageMembers && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerHaptic('light');
+                            setIsManageModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Workspace Settings"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 4. Invite Member Bottom Sheet (Portaled to document.body) */}
       {isInviteOpen && mounted && createPortal(
@@ -501,6 +801,159 @@ export function TeamView() {
         </div>,
         document.body
       )}
+
+      {/* 5. Create Workspace / Connect Telegram Group Modal */}
+      {isCreatingWs && mounted && createPortal(
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                  {createWsMode === 'TELEGRAM' ? <Users className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                </div>
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  {createWsMode === 'TELEGRAM' ? 'Connect Telegram Group' : 'Create Workspace'}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreatingWs(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mode Switcher */}
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateWsMode('STANDARD');
+                  setCreateWsError(null);
+                }}
+                className={`flex-1 py-1.5 rounded-lg transition-all ${
+                  createWsMode === 'STANDARD'
+                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Standard Workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateWsMode('TELEGRAM');
+                  setCreateWsError(null);
+                }}
+                className={`flex-1 py-1.5 rounded-lg transition-all ${
+                  createWsMode === 'TELEGRAM'
+                    ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Telegram Group
+              </button>
+            </div>
+
+            {createWsError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                {createWsError}
+              </div>
+            )}
+
+            {createWsMode === 'STANDARD' ? (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Workspace Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newWsName}
+                    onChange={(e) => setNewWsName(e.target.value)}
+                    placeholder="e.g. Marketing Team, Operations"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewWsType('TEAM')}
+                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                        newWsType === 'TEAM'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Team
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewWsType('PERSONAL')}
+                      className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                        newWsType === 'PERSONAL'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Personal
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={createWsMutation.isPending || !newWsName.trim()}
+                  onClick={() => createWsMutation.mutate()}
+                  className="w-full py-2.5 rounded-2xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-98 transition-all disabled:opacity-50"
+                >
+                  {createWsMutation.isPending ? 'Creating...' : 'Create Workspace'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Telegram Group Link or Chat ID
+                  </label>
+                  <input
+                    type="text"
+                    value={telegramInput}
+                    onChange={(e) => setTelegramInput(e.target.value)}
+                    placeholder="https://t.me/your_group or -1001234567890"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
+                  />
+                  <p className="text-[10px] text-slate-400 pt-0.5">
+                    Make sure the bot @flowtaskmanager_bot is added as admin to the Telegram group.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={connectTgMutation.isPending || !telegramInput.trim()}
+                  onClick={() => connectTgMutation.mutate()}
+                  className="w-full py-2.5 rounded-2xl font-bold text-xs text-white bg-sky-500 hover:bg-sky-600 shadow-md shadow-sky-500/20 active:scale-98 transition-all disabled:opacity-50"
+                >
+                  {connectTgMutation.isPending ? 'Connecting...' : 'Connect Group'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 6. Manage Workspace Settings Modal */}
+      <ManageWorkspaceModal
+        isOpen={isManageModalOpen}
+        onClose={() => setIsManageModalOpen(false)}
+      />
     </div>
   );
 }

@@ -187,23 +187,23 @@ export function TaskCard({
         triggerHaptic('light');
         onSelect(task.id);
       }}
-      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05),0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
+      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
         isDone
-          ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-60'
+          ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-65'
           : meta.isMeeting
-          ? 'bg-white dark:bg-slate-800/90 border-purple-200/80 dark:border-purple-900/50 hover:border-purple-300 shadow-[0_3px_14px_-3px_rgba(168,85,247,0.12)]'
+          ? 'bg-white dark:bg-slate-800/90 border-purple-200/80 dark:border-purple-900/50 hover:border-purple-300 shadow-[0_3px_12px_-3px_rgba(168,85,247,0.12)]'
           : meta.isClickUp
-          ? 'bg-white dark:bg-slate-800/90 border-violet-200/80 dark:border-violet-900/50 hover:border-violet-300 shadow-[0_3px_14px_-3px_rgba(139,92,246,0.12)]'
+          ? 'bg-white dark:bg-slate-800/90 border-violet-200/80 dark:border-violet-900/50 hover:border-violet-300 shadow-[0_3px_12px_-3px_rgba(139,92,246,0.12)]'
           : meta.isNotion
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 hover:border-slate-300 shadow-[0_3px_14px_-3px_rgba(0,0,0,0.06)]'
+          ? 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 hover:border-slate-300 shadow-[0_3px_12px_-3px_rgba(0,0,0,0.05)]'
           : task.priority === 'URGENT' || task.priority === 'HIGH'
-          ? 'bg-white dark:bg-slate-800/90 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-300 shadow-[0_3px_14px_-3px_rgba(244,63,94,0.1)]'
-          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-blue-300 shadow-[0_3px_14px_-3px_rgba(59,130,246,0.08)]'
+          ? 'bg-white dark:bg-slate-800/90 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-300 shadow-[0_3px_12px_-3px_rgba(244,63,94,0.1)]'
+          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-blue-300 shadow-[0_3px_12px_-3px_rgba(59,130,246,0.07)]'
       }`}
     >
-      {/* Sleek left accent stripe */}
+      {/* Sleek left accent indicator pill (does not touch corners) */}
       <div
-        className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${
+        className={`absolute left-0.5 top-3 bottom-3 w-1 rounded-full ${
           isDone
             ? 'bg-slate-300 dark:bg-slate-700'
             : meta.isMeeting
@@ -220,83 +220,31 @@ export function TaskCard({
         }`}
       />
 
-      <div className="pl-1.5 flex items-start justify-between gap-3">
-        {/* Left: Checkbox & Main Info */}
-        <div className="flex items-start gap-2.5 min-w-0 flex-1">
-          {/* Checkbox button */}
-          <button
-            type="button"
-            onClick={handleCheckboxClick}
-            disabled={isDone || isCompleting}
-            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-              isDone
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : meta.isMeeting
-                ? 'border-2 border-purple-400 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
-                : meta.isClickUp
-                ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
-                : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
-            }`}
-          >
-            {isDone && <Check className="w-3 h-3 stroke-[3]" />}
-          </button>
+      <div className="flex items-start gap-2.5 pl-1.5">
+        {/* Checkbox button */}
+        <button
+          type="button"
+          onClick={handleCheckboxClick}
+          disabled={isDone || isCompleting}
+          className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+            isDone
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : meta.isMeeting
+              ? 'border-2 border-purple-400 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
+              : meta.isClickUp
+              ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
+              : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
+          }`}
+        >
+          {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+        </button>
 
-          <div className="min-w-0 flex-1 space-y-1">
-            {/* Category / Source Badges */}
-            {(meta.isMeeting || meta.isClickUp || meta.isNotion || meta.isAi || task.priority === 'URGENT' || dueInfo?.isAlert || meta.platform || meta.clickUpSpace) && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                {meta.isMeeting && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 shadow-2xs">
-                    <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
-                    <span>Meeting</span>
-                  </span>
-                )}
-
-                {meta.isClickUp && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 shadow-2xs">
-                    <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
-                    <span>ClickUp</span>
-                  </span>
-                )}
-
-                {meta.isNotion && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs">
-                    <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
-                    <span>Notion</span>
-                  </span>
-                )}
-
-                {meta.isAi && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
-                    <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
-                    <span>Flow AI</span>
-                  </span>
-                )}
-
-                {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
-                    <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
-                    <span>{dueInfo?.isAlert ? 'Overdue' : 'Urgent'}</span>
-                  </span>
-                )}
-
-                {meta.platform && (
-                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                    {meta.platform}
-                  </span>
-                )}
-
-                {meta.clickUpSpace && (
-                  <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                    {meta.clickUpSpace}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Task Title */}
+        {/* Main Content Area */}
+        <div className="min-w-0 flex-1">
+          {/* Top Line: Title + Assignee Avatar */}
+          <div className="flex items-start justify-between gap-2">
             <h4
-              className={`text-xs font-bold leading-snug tracking-tight break-words ${
+              className={`text-[13px] font-bold leading-snug tracking-tight break-words ${
                 isDone
                   ? 'line-through text-slate-400 dark:text-slate-500'
                   : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
@@ -305,86 +253,128 @@ export function TaskCard({
               {meta.cleanTitle}
             </h4>
 
-            {/* Sub-meta: Project, Due Date, Subtask counter */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
-                <span
-                  className="text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1"
-                  style={{
-                    backgroundColor: `${projectColor}15`,
-                    color: projectColor,
-                  }}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: projectColor }}
-                  />
-                  <span>{projectTag}</span>
-                </span>
-              )}
-
-              {dueInfo && (
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                    dueInfo.isAlert
-                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
-                      : dueInfo.isToday
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  <Calendar className="w-2.5 h-2.5" />
-                  <span>{dueInfo.label}</span>
-                </span>
-              )}
-
-              {meta.subtaskCount && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                  <CheckSquare className="w-2.5 h-2.5 text-blue-500" />
-                  <span>
-                    {meta.subtaskCount.completed}/{meta.subtaskCount.total}
-                  </span>
-                </span>
-              )}
-
-              {meta.joinUrl && /^(https?:\/\/|tg:\/\/)/i.test(meta.joinUrl) && (
-                <button
-                  type="button"
-                  onClick={handleJoinClick}
-                  className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1 shadow-xs transition-colors"
-                >
-                  <Video className="w-2.5 h-2.5" />
-                  <span>Join Call</span>
-                  <ExternalLink className="w-2.5 h-2.5 opacity-80" />
-                </button>
-              )}
-            </div>
+            {/* Assignee Avatar / Initial or subtle priority dot */}
+            {task.assignee?.avatarUrl ? (
+              <img
+                src={task.assignee.avatarUrl}
+                alt={task.assignee.name || 'Assignee'}
+                className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0 mt-0.5"
+              />
+            ) : task.assignee?.name ? (
+              <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs shrink-0 mt-0.5">
+                {task.assignee.name[0].toUpperCase()}
+              </div>
+            ) : (task.priority === 'URGENT' || task.priority === 'HIGH') ? (
+              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1.5" />
+            ) : null}
           </div>
-        </div>
 
-        {/* Right side: Assignee Avatar or Priority Pill */}
-        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-          {task.assignee?.avatarUrl ? (
-            <img
-              src={task.assignee.avatarUrl}
-              alt={task.assignee.name || 'Assignee'}
-              className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs"
-            />
-          ) : task.assignee?.name ? (
-            <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs">
-              {task.assignee.name[0].toUpperCase()}
-            </div>
-          ) : (
-            <span
-              className={`w-2 h-2 rounded-full ${
-                task.priority === 'URGENT' || task.priority === 'HIGH'
-                  ? 'bg-rose-500'
-                  : task.priority === 'MEDIUM'
-                  ? 'bg-amber-500'
-                  : 'bg-blue-500'
-              }`}
-            />
-          )}
+          {/* Bottom Line: Badges & Metadata (Clean compact chips) */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            {/* Category / Source Badges */}
+            {meta.isMeeting && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 shadow-2xs">
+                <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
+                <span>Meeting</span>
+              </span>
+            )}
+
+            {meta.isClickUp && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-50 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200/80 dark:border-violet-800/80 shadow-2xs">
+                <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
+                <span>ClickUp</span>
+              </span>
+            )}
+
+            {meta.isNotion && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
+                <span>Notion</span>
+              </span>
+            )}
+
+            {meta.isAi && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
+                <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
+                <span>Flow AI</span>
+              </span>
+            )}
+
+            {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
+                <AlertTriangle className="w-2.5 h-2.5 text-rose-500" />
+                <span>{dueInfo?.isAlert ? 'Overdue' : 'Urgent'}</span>
+              </span>
+            )}
+
+            {/* Project Tag */}
+            {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md"
+                style={{
+                  backgroundColor: `${projectColor}15`,
+                  color: projectColor,
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: projectColor }}
+                />
+                <span>{projectTag}</span>
+              </span>
+            )}
+
+            {/* Due Date */}
+            {dueInfo && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                  dueInfo.isAlert
+                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                    : dueInfo.isToday
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                <Calendar className="w-2.5 h-2.5" />
+                <span>{dueInfo.label}</span>
+              </span>
+            )}
+
+            {/* Subtasks Counter */}
+            {meta.subtaskCount && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                <CheckSquare className="w-2.5 h-2.5 text-blue-500" />
+                <span>
+                  {meta.subtaskCount.completed}/{meta.subtaskCount.total}
+                </span>
+              </span>
+            )}
+
+            {meta.platform && (
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                {meta.platform}
+              </span>
+            )}
+
+            {meta.clickUpSpace && (
+              <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                {meta.clickUpSpace}
+              </span>
+            )}
+
+            {/* Join Call Action Button for Meetings */}
+            {meta.joinUrl && /^(https?:\/\/|tg:\/\/)/i.test(meta.joinUrl) && (
+              <button
+                type="button"
+                onClick={handleJoinClick}
+                className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-colors"
+              >
+                <Video className="w-2.5 h-2.5" />
+                <span>Join</span>
+                <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
