@@ -214,13 +214,17 @@ export function useLiveEvents(workspaceId?: string | null) {
           }
         };
 
+        let retryCount = 0;
         eventSource.onerror = () => {
           if (eventSource) {
             eventSource.close();
             eventSource = null;
           }
-          // Retry connection after 5 seconds
-          reconnectTimeout = setTimeout(connect, 5000);
+          // Retry connection up to 3 times, then rely smoothly on live polling
+          if (retryCount < 3) {
+            retryCount++;
+            reconnectTimeout = setTimeout(connect, 10000);
+          }
         };
       } catch {
         // Non-blocking fallback to regular React Query polling

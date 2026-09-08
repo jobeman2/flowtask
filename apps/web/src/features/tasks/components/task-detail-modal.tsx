@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
   Star,
@@ -49,6 +50,7 @@ interface AttachmentItem {
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
+  const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
 
   const [isFavorite, setIsFavorite] = useState(true);
@@ -279,6 +281,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       triggerHaptic('heavy');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+
+      const deletedTitle = task?.title || 'Task';
+      addNotification({
+        type: 'SYSTEM',
+        title: 'Task Deleted',
+        message: `"${deletedTitle}" has been removed`,
+      });
+
       onClose();
     },
     onError: (err: any) => {

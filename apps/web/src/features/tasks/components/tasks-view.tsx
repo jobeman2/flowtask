@@ -286,9 +286,9 @@ export function TasksView({
             {filteredTasks.length === 0 && !isTasksLoading && (
               <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2.5">
                 <p className="text-xs font-bold text-slate-500">
-                  {categoryFilter === 'ALL'
+                  {activeFilter === 'ALL'
                     ? 'No tasks match your filter.'
-                    : `No ${categoryFilter.toLowerCase()} items found.`}
+                    : `No tasks in ${activeFilter.toLowerCase().replace('_', ' ')} found.`}
                 </p>
                 <button
                   type="button"

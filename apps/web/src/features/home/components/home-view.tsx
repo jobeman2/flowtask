@@ -97,10 +97,13 @@ export function HomeView({
       return d >= now && d <= todayEnd;
     }).length;
 
+    const activeCount = tasks.length > 0 ? activeTasks.length : stats?.totalActive || 0;
+    const completedCount = tasks.length > 0 ? completed : stats?.completed || 0;
+
     return {
-      active: activeTasks.length || stats?.totalActive || 0,
+      active: activeCount,
       inProgress,
-      completed: completed || stats?.completed || 0,
+      completed: completedCount,
       dueToday: dueToday || stats?.dueToday || 0,
     };
   }, [tasks, stats]);
@@ -204,14 +207,14 @@ export function HomeView({
             </div>
           )}
 
-          {/* Progress Bar */}
-          <div className="space-y-1.5 pt-0.5">
-            <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-white/80 via-blue-100 to-indigo-200 h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_6px_rgba(255,255,255,0.3)]"
-                style={{ width: `${Math.max(5, progressPercent)}%` }}
-              />
-            </div>
+            {/* Progress Bar */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="w-full bg-black/20 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-white/80 via-blue-100 to-indigo-200 h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_6px_rgba(255,255,255,0.3)]"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             <div className="flex justify-between text-[11px] text-blue-100 font-semibold px-0.5">
               <span>{metrics.completed} Completed</span>
               <span>{metrics.active} Pending</span>

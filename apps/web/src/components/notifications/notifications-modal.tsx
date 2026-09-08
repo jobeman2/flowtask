@@ -49,6 +49,8 @@ export function NotificationsModal({
     switch (type) {
       case 'TASK_ASSIGNED':
         return <UserPlus className="w-4 h-4 text-blue-500" />;
+      case 'TASK_CREATED':
+        return <Check className="w-4 h-4 text-sky-500" />;
       case 'TASK_COMPLETED':
         return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       case 'INVITATION_ACCEPTED':

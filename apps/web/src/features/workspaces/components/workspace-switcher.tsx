@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { useNotifications } from '../../../providers/notification-provider';
 import { PricingModal } from '../../billing/components/pricing-modal';
 import { Layers, Plus, Users, User, X, Building2, Crown, Sparkles } from 'lucide-react';
 import { Button } from '@flowtask/ui';
@@ -13,6 +14,7 @@ import { Button } from '@flowtask/ui';
 export function WorkspaceSwitcher() {
   const { user, workspaceId, setWorkspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
+  const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
 
   const [mounted, setMounted] = useState(false);
@@ -61,6 +63,12 @@ export function WorkspaceSwitcher() {
       if (newWs?.id) {
         setWorkspaceId(newWs.id);
       }
+      const wsName = newWs?.name || newWsName.trim() || 'New workspace';
+      addNotification({
+        type: 'SYSTEM',
+        title: 'Workspace Created',
+        message: `Workspace "${wsName}" is ready!`,
+      });
       setNewWsName('');
       setErrorMessage(null);
       setIsCreating(false);
@@ -85,6 +93,11 @@ export function WorkspaceSwitcher() {
       if (data?.workspaceId) {
         setWorkspaceId(data.workspaceId);
       }
+      addNotification({
+        type: 'SYSTEM',
+        title: 'Workspace Connected',
+        message: 'Telegram group workspace linked successfully!',
+      });
       setTelegramInput('');
       setErrorMessage(null);
       setIsCreating(false);

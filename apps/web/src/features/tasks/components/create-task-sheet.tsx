@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
   Calendar,
@@ -42,6 +43,7 @@ interface AttachmentFile {
 export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
+  const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState('');
@@ -158,11 +160,19 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       if (res.error) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+
+      const taskName = data?.title || title.trim() || 'New task';
+      addNotification({
+        type: 'TASK_CREATED',
+        title: 'Task Created',
+        message: `"${taskName}" created successfully`,
+        data: { taskId: data?.id },
+      });
 
       setTitle('');
       setDescription('');
