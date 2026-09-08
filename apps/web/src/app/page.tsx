@@ -13,15 +13,22 @@ import { MoreView } from '../features/more/components/more-view';
 import { CreateTaskSheet } from '../features/tasks/components/create-task-sheet';
 import { TaskDetailModal } from '../features/tasks/components/task-detail-modal';
 import { PendingInvitationsBanner } from '../features/workspaces/components/pending-invitations';
-import { Sparkles } from 'lucide-react';
+import { ToastContainer } from '../components/notifications/toast-container';
+import { NotificationsModal } from '../components/notifications/notifications-modal';
+import { useNotifications } from '../providers/notification-provider';
+import { useTelegram } from '../hooks/use-telegram';
+import { Sparkles, Bell } from 'lucide-react';
 
 export default function HomePage() {
   const { user, workspaceId, error, subscription, isLoading } = useAuth();
+  const { unreadCount } = useNotifications();
+  const { triggerHaptic } = useTelegram();
   useLiveEvents(workspaceId);
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Plan comes from the user's own account subscription (works cross-device automatically)
   const planCode = subscription?.planCode || 'FREE';
@@ -88,12 +95,27 @@ export default function HomePage() {
           <WorkspaceSwitcher />
         </div>
 
-        {/* Right Side: Plan Badge */}
+        {/* Right Side: Notifications Bell & Plan Badge */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setIsNotificationsOpen(true);
+            }}
+            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-all relative border border-slate-200/60 dark:border-slate-700/60 shadow-2xs active:scale-95"
+            title="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsPricingOpen(true)}
-            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border transition-all flex items-center gap-1 shadow-2xs ${
+            className={`text-[10px] font-extrabold px-2.5 py-1.5 rounded-full border transition-all flex items-center gap-1 shadow-2xs ${
               isUpgraded
                 ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
@@ -158,6 +180,17 @@ export default function HomePage() {
       <PricingModal
         isOpen={isPricingOpen}
         onClose={() => setIsPricingOpen(false)}
+      />
+
+      {/* 5. Notification Toast & Drawer */}
+      <ToastContainer />
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onOpenSettings={() => {
+          setIsNotificationsOpen(false);
+          setActiveNav('PROFILE');
+        }}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { DM_Sans } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '../providers/query-provider';
 import { TelegramProvider } from '../providers/telegram-provider';
+import { NotificationProvider } from '../providers/notification-provider';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -41,9 +42,11 @@ export default function RootLayout({
       <body className={`${dmSans.className} min-h-screen bg-[#F8FAFC] text-slate-900 antialiased dark:bg-[#0B1120] dark:text-slate-50 font-sans selection:bg-blue-500 selection:text-white`}>
         <QueryProvider>
           <TelegramProvider>
-            <main className="max-w-md mx-auto min-h-screen flex flex-col p-4">
-              {children}
-            </main>
+            <NotificationProvider>
+              <main className="max-w-md mx-auto min-h-screen flex flex-col p-4">
+                {children}
+              </main>
+            </NotificationProvider>
           </TelegramProvider>
         </QueryProvider>
       </body>

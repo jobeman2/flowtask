@@ -61,8 +61,19 @@ export function useTelegram() {
     }
   }, []);
 
-  const triggerHaptic = (type: 'light' | 'medium' | 'heavy' = 'light') => {
-    webApp?.HapticFeedback?.impactOccurred(type);
+  const triggerHaptic = (
+    type: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' | 'error' | 'success' | 'warning' = 'light'
+  ) => {
+    if (!webApp?.HapticFeedback) return;
+    try {
+      if (type === 'error' || type === 'success' || type === 'warning') {
+        webApp.HapticFeedback.notificationOccurred(type);
+      } else {
+        webApp.HapticFeedback.impactOccurred(type);
+      }
+    } catch {
+      // Non-blocking fallback
+    }
   };
 
   return {

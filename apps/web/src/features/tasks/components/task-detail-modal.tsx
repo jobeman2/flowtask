@@ -22,7 +22,11 @@ import {
   Plus,
   Trash2,
   ExternalLink,
+  Building2,
+  CheckCircle2,
+  Video,
 } from 'lucide-react';
+import { parseTaskMeta } from './task-card';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -263,20 +267,42 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     });
   };
 
-  const completedSubtasksCount = subtasks.filter((s) => s.completed).length;
-  const subtasksPercent = subtasks.length > 0 ? Math.round((completedSubtasksCount / subtasks.length) * 100) : 0;
+  const meta = parseTaskMeta(task);
+
+  const persistSubtasksToTask = async (newSubtasks: Array<{ id: string; title: string; completed: boolean }>) => {
+    if (!taskId || !workspaceId) return;
+    const baseDesc = (task?.description || '')
+      .split('\n')
+      .filter((line: string) => !/^-\s*\[[ xX]\]/.test(line))
+      .join('\n')
+      .trim();
+
+    const checklistStr = newSubtasks.map((s) => `- [${s.completed ? 'x' : ' '}] ${s.title}`).join('\n');
+    const fullDesc = baseDesc ? `${baseDesc}\n\n${checklistStr}` : checklistStr;
+
+    try {
+      await apiClient.updateTask(taskId, workspaceId, { description: fullDesc });
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    } catch {}
+  };
 
   const handleToggleSubtask = (id: string) => {
     triggerHaptic('light');
-    setSubtasks(subtasks.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s)));
+    const updated = subtasks.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s));
+    setSubtasks(updated);
+    persistSubtasksToTask(updated);
   };
 
   const handleAddSubtask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
     triggerHaptic('medium');
-    setSubtasks([...subtasks, { id: String(Date.now()), title: newSubtaskTitle.trim(), completed: false }]);
+    const updated = [...subtasks, { id: String(Date.now()), title: newSubtaskTitle.trim(), completed: false }];
+    setSubtasks(updated);
     setNewSubtaskTitle('');
+    persistSubtasksToTask(updated);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,24 +415,29 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {task.title?.toLowerCase().startsWith('[meeting]') && (
+                    {meta.isMeeting && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
-                        🎙️ Meeting
+                        🎙️ Meeting {meta.platform ? `(${meta.platform})` : ''}
                       </span>
                     )}
-                    {task.title?.toLowerCase().startsWith('[clickup]') && (
+                    {meta.isClickUp && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">
-                        ⚡ ClickUp
+                        ⚡ ClickUp {meta.clickUpSpace ? `(${meta.clickUpSpace})` : ''}
                       </span>
                     )}
-                    {task.title?.toLowerCase().startsWith('[notion]') && (
+                    {meta.isNotion && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 flex items-center gap-1">
                         📓 Notion
                       </span>
                     )}
+                    {meta.isAi && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                        🤖 Flow AI
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                    {task.title.replace(/^\[(meeting|clickup|notion|ai)\]\s*/i, '')}
+                    {meta.cleanTitle || task.title}
                   </h3>
                   <div className="flex items-center gap-2">
                     <span
@@ -534,16 +565,84 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   </div>
                 </div>
 
+                {/* Created By */}
+                <div className="flex items-center justify-between pt-2">
+                  <span className="font-bold text-slate-500 flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-500" />
+                    Created By
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {task.creator?.avatarUrl ? (
+                      <img src={task.creator.avatarUrl} alt={task.creator.name} className="w-4 h-4 rounded-full object-cover" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-[9px] flex items-center justify-center font-black">
+                        {task.creator?.name?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                    <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                      {task.creator?.name || 'Workspace Member'}
+                    </span>
+                    {task.createdAt && (
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        • {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Team Workspace */}
                 <div className="flex items-center justify-between pt-2">
                   <span className="font-bold text-slate-500 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-500" />
-                    Team
+                    <Building2 className="w-4 h-4 text-emerald-500" />
+                    Workspace
                   </span>
                   <span className="font-extrabold text-slate-800 dark:text-slate-200">
                     {task.workspace?.name || 'Flow Workspace'}
                   </span>
                 </div>
+
+                {/* Meeting Details & Join Link */}
+                {meta.isMeeting && (
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="font-bold text-indigo-500 flex items-center gap-2">
+                      <Video className="w-4 h-4 text-indigo-500" />
+                      Meeting
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                        {meta.platform || 'Call'} {meta.duration ? `(${meta.duration})` : ''}
+                      </span>
+                      {meta.joinUrl && (
+                        <a
+                          href={meta.joinUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black shadow-xs transition-colors"
+                        >
+                          Join <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Completed On Timestamp */}
+                {task.status === 'DONE' && task.completedAt && (
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      Completed
+                    </span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                      {new Date(task.completedAt).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* 📎 Attachments & Media Gallery */}

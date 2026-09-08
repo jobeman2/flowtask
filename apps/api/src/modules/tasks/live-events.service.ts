@@ -4,7 +4,17 @@ import { filter, map } from 'rxjs/operators';
 
 export interface LiveEventPayload {
   workspaceId: string;
-  type: 'TASK_CREATED' | 'TASK_UPDATED' | 'TASK_COMPLETED' | 'TASK_DELETED' | 'MEMBER_INVITED' | 'WORKSPACE_SYNC';
+  type:
+    | 'TASK_CREATED'
+    | 'TASK_UPDATED'
+    | 'TASK_COMPLETED'
+    | 'TASK_DELETED'
+    | 'TASK_ASSIGNED'
+    | 'MEMBER_INVITED'
+    | 'INVITATION_ACCEPTED'
+    | 'INVITATION_RECEIVED'
+    | 'MEMBER_LEFT'
+    | 'WORKSPACE_SYNC';
   timestamp: string;
   data?: any;
 }

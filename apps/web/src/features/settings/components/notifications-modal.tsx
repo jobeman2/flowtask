@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
   Bell,
@@ -11,6 +12,9 @@ import {
   AlertTriangle,
   Sun,
   Save,
+  Sparkles,
+  Users,
+  UserCheck,
 } from 'lucide-react';
 
 interface NotificationsModalProps {
@@ -20,6 +24,7 @@ interface NotificationsModalProps {
 
 export function NotificationsModal({ isOpen, onClose }: NotificationsModalProps) {
   const { triggerHaptic } = useTelegram();
+  const { settings: notifSettings, updateSettings } = useNotifications();
 
   // Local state persisted in localStorage
   const [telegramDMs, setTelegramDMs] = useState(true);
@@ -90,6 +95,103 @@ export function NotificationsModal({ isOpen, onClose }: NotificationsModalProps)
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Section 0: In-App Mini Toast Alerts */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+            <span>In-App Mini Toasts</span>
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 lowercase">live banner alerts</span>
+          </h4>
+
+          <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 space-y-3">
+            {/* Master Toast Toggle */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5 min-w-0">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Floating Toast Alerts
+                </span>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Show animated top notification popups inside Telegram
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  updateSettings({ toastsEnabled: !notifSettings.toastsEnabled });
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
+                  notifSettings.toastsEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform transform ${
+                    notifSettings.toastsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Task Assignments Toast */}
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <div className="space-y-0.5 min-w-0">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-500" />
+                  Task Assignments
+                </span>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Toast when someone assigns a task to you
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  updateSettings({ taskAssigned: !notifSettings.taskAssigned });
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
+                  notifSettings.taskAssigned ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform transform ${
+                    notifSettings.taskAssigned ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Team & Invitations Activity */}
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+              <div className="space-y-0.5 min-w-0">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-purple-500" />
+                  Team Activity & Joins
+                </span>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Toast when invitations are accepted or members join
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  updateSettings({ teamActivity: !notifSettings.teamActivity });
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
+                  notifSettings.teamActivity ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform transform ${
+                    notifSettings.teamActivity ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Section 1: Telegram Direct Messages */}

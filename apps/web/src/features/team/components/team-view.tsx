@@ -44,6 +44,35 @@ export function TeamView() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
 
+  // Invite History for 1-tap easy inviting
+  const [inviteHistory, setInviteHistory] = useState<Array<{ name: string; username: string }>>([]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(`flowtask_invite_history_${user?.id}`);
+      if (saved) setInviteHistory(JSON.parse(saved));
+    } catch {}
+  }, [user?.id]);
+
+  const saveToInviteHistory = (rawIdentifier: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const clean = rawIdentifier.replace(/^@/, '').trim();
+      if (!clean) return;
+      setInviteHistory((prev) => {
+        const updated = [
+          { name: `@${clean}`, username: clean },
+          ...prev.filter((i) => i.username.toLowerCase() !== clean.toLowerCase()),
+        ].slice(0, 8);
+        try {
+          localStorage.setItem(`flowtask_invite_history_${user?.id}`, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    } catch {}
+  };
+
   // Workspaces Management State
   const [isCreatingWs, setIsCreatingWs] = useState(false);
   const [createWsMode, setCreateWsMode] = useState<'STANDARD' | 'TELEGRAM'>('STANDARD');
@@ -169,6 +198,7 @@ export function TeamView() {
     },
     onSuccess: () => {
       triggerHaptic('medium');
+      saveToInviteHistory(inviteIdentifier);
       queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
       setInviteIdentifier('');
       setInviteError(null);
@@ -724,6 +754,31 @@ export function TeamView() {
                 placeholder="@username (e.g. @john_doe)"
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium"
               />
+
+              {/* 1-Tap Recent Collaborators */}
+              {inviteHistory.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Recent Collaborators
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {inviteHistory.map((item) => (
+                      <button
+                        key={item.username}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setInviteIdentifier(`@${item.username}`);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/60 dark:hover:text-blue-400 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 active:scale-95"
+                      >
+                        <UserPlus className="w-3 h-3 text-blue-500" />
+                        <span>@{item.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">

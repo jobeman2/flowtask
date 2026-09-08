@@ -106,6 +106,10 @@ export class TelegramService {
     return { text: label, url: `https://t.me/${botUsername}/app` };
   }
 
+  async sendDirectMessage(telegramId: string, text: string, options?: { reply_markup?: unknown; parse_mode?: string }) {
+    return this.sendTelegramMessage(telegramId, text, options);
+  }
+
   async sendTelegramMessage(
     telegramId: string,
     text: string,

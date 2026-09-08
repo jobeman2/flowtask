@@ -158,6 +158,7 @@ export class TasksService {
       include: {
         creator: { select: { id: true, name: true, avatarUrl: true } },
         assignee: { select: { id: true, name: true, avatarUrl: true } },
+        workspace: { select: { id: true, name: true } },
         project: true,
         labels: { include: { label: true } },
         comments: {
@@ -352,6 +353,18 @@ export class TasksService {
       type: 'TASK_CREATED',
       data: result,
     });
+
+    if (dto.assigneeId) {
+      this.liveEventsService.emit({
+        workspaceId: targetWorkspaceId,
+        type: 'TASK_ASSIGNED',
+        data: {
+          task: result,
+          assigneeId: dto.assigneeId,
+          creatorId,
+        },
+      });
+    }
 
     // Dispatch notifications asynchronously (non-blocking)
     try {

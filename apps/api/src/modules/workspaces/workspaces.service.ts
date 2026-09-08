@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { WorkspaceType, WorkspaceRole, InvitationStatus } from '@flowtask/database';
 import { ConfigService } from '@nestjs/config';
+import { LiveEventsService } from '../tasks/live-events.service';
 
 @Injectable()
 export class WorkspacesService {
@@ -16,6 +17,7 @@ export class WorkspacesService {
     private prisma: PrismaService,
     private telegramService: TelegramService,
     private configService: ConfigService,
+    private liveEventsService: LiveEventsService,
   ) {}
 
   async listUserWorkspaces(userId: string) {
@@ -437,6 +439,58 @@ export class WorkspacesService {
       },
     });
 
+    // Notify inviter and workspace owner via Telegram DM & SSE
+    try {
+      const invitee = await this.prisma.user.findUnique({ where: { id: userId } });
+      const workspace = invitation.workspace;
+      const inviteeName = invitee?.name || 'Teammate';
+
+      // 1. Emit live real-time event to all connected workspace clients
+      this.liveEventsService.emit({
+        workspaceId: invitation.workspaceId,
+        type: 'INVITATION_ACCEPTED',
+        data: {
+          userId,
+          userName: inviteeName,
+          workspaceName: workspace.name,
+          role: invitation.role,
+        },
+      });
+
+      // 2. Log in Activity Log
+      await (this.prisma as any).activityLog.create({
+        data: {
+          workspaceId: invitation.workspaceId,
+          actorId: userId,
+          entityType: 'WORKSPACE_MEMBER',
+          entityId: member.id,
+          action: 'INVITATION_ACCEPTED',
+          metadata: { userName: inviteeName, role: invitation.role },
+        },
+      });
+
+      // 3. Send Telegram Bot notification to inviter
+      const targetsToNotify: string[] = [];
+      if (invitation.inviterId && invitation.inviterId !== userId) {
+        targetsToNotify.push(invitation.inviterId);
+      }
+      if (workspace.ownerId && workspace.ownerId !== userId && !targetsToNotify.includes(workspace.ownerId)) {
+        targetsToNotify.push(workspace.ownerId);
+      }
+
+      for (const targetUserId of targetsToNotify) {
+        const tgAccount = await this.prisma.telegramAccount.findFirst({
+          where: { userId: targetUserId },
+        });
+        if (tgAccount?.telegramId) {
+          const msg = `🎉 *${inviteeName}* accepted your invitation and joined *${workspace.name}*!`;
+          await this.telegramService.sendDirectMessage(tgAccount.telegramId, msg);
+        }
+      }
+    } catch (err: any) {
+      // Non-blocking notification
+    }
+
     return {
       success: true,
       member,
@@ -565,6 +619,48 @@ export class WorkspacesService {
     await this.prisma.workspaceMember.delete({
       where: { id: member.id },
     });
+
+    // Notify workspace owner via Telegram DM & live event
+    try {
+      const leavingUser = await this.prisma.user.findUnique({ where: { id: currentUserId } });
+      const leavingUserName = leavingUser?.name || 'Teammate';
+
+      // 1. Emit live real-time event to workspace
+      this.liveEventsService.emit({
+        workspaceId,
+        type: 'MEMBER_LEFT',
+        data: {
+          userId: currentUserId,
+          userName: leavingUserName,
+          workspaceName: workspace.name,
+        },
+      });
+
+      // 2. Log in Activity Log
+      await (this.prisma as any).activityLog.create({
+        data: {
+          workspaceId,
+          actorId: currentUserId,
+          entityType: 'WORKSPACE_MEMBER',
+          entityId: member.id,
+          action: 'MEMBER_LEFT',
+          metadata: { userName: leavingUserName },
+        },
+      });
+
+      // 3. Send Telegram bot notification to workspace owner
+      if (workspace.ownerId && workspace.ownerId !== currentUserId) {
+        const ownerTg = await this.prisma.telegramAccount.findFirst({
+          where: { userId: workspace.ownerId },
+        });
+        if (ownerTg?.telegramId) {
+          const msg = `👋 *${leavingUserName}* has left the workspace *${workspace.name}*.`;
+          await this.telegramService.sendDirectMessage(ownerTg.telegramId, msg);
+        }
+      }
+    } catch (err: any) {
+      // Non-blocking
+    }
 
     return { success: true, message: 'Successfully left the workspace' };
   }
