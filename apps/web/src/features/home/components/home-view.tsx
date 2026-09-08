@@ -80,7 +80,7 @@ export function HomeView({
     return 'Good evening';
   }, []);
 
-  const firstName = user?.name ? user.name.split(' ')[0] : 'Teammate';
+  const firstName = user?.name ? String(user.name).split(' ')[0] : 'Teammate';
 
   // Calculate Metrics
   const metrics = useMemo(() => {
@@ -131,6 +131,7 @@ export function HomeView({
 
   // Active highlighted priority task (from my tasks)
   const activeFocusTask = myTasks.find((t: any) => t.status === 'IN_PROGRESS') || myTasks[0];
+  const activeFocusMeta = activeFocusTask ? parseTaskMeta(activeFocusTask) : null;
 
   return (
     <div className="space-y-5 pb-32 animate-in fade-in duration-300 font-sans">
@@ -161,25 +162,25 @@ export function HomeView({
           </div>
 
           {/* Row 2: Active task banner or all-done state */}
-          {activeFocusTask ? (
+          {activeFocusTask && activeFocusMeta ? (
             <div
               onClick={() => onSelectTask(activeFocusTask.id)}
               className="bg-white/8 hover:bg-white/12 backdrop-blur-md rounded-2xl p-3 border border-white/10 cursor-pointer transition-all flex items-center justify-between gap-3 group"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300">
-                  {activeFocusTask.title?.toLowerCase().startsWith('[meeting]') ? (
+                  {activeFocusMeta.isMeeting ? (
                     <><Video className="w-3 h-3 text-purple-300 shrink-0" /><span className="text-purple-200">Next Meeting</span></>
-                  ) : activeFocusTask.title?.toLowerCase().startsWith('[clickup]') ? (
+                  ) : activeFocusMeta.isClickUp ? (
                     <><Zap className="w-3 h-3 text-violet-300 shrink-0 fill-violet-300" /><span className="text-violet-200">ClickUp Task</span></>
-                  ) : activeFocusTask.title?.toLowerCase().startsWith('[notion]') ? (
+                  ) : activeFocusMeta.isNotion ? (
                     <><FileText className="w-3 h-3 text-slate-300 shrink-0" /><span className="text-slate-200">Notion Task</span></>
                   ) : (
                     <><Clock className="w-3 h-3 text-sky-300 shrink-0" /><span className="text-sky-200">Current Task</span></>
                   )}
                 </div>
                 <h4 className="text-xs font-bold truncate text-white mt-0.5 group-hover:text-indigo-100 transition-colors">
-                  {activeFocusTask.title?.replace(/^\[(meeting|clickup|notion|ai)\]\s*/i, '')}
+                  {activeFocusMeta.cleanTitle || 'Untitled Task'}
                 </h4>
               </div>
               <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">

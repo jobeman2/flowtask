@@ -89,9 +89,9 @@ export function TasksView({
       // Search Filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesTitle = t.title.toLowerCase().includes(q);
-        const matchesProject = t.project?.name?.toLowerCase().includes(q);
-        const matchesAssignee = t.assignee?.name?.toLowerCase().includes(q);
+        const matchesTitle = (t.title || '').toLowerCase().includes(q);
+        const matchesProject = (t.project?.name || '').toLowerCase().includes(q);
+        const matchesAssignee = (t.assignee?.name || '').toLowerCase().includes(q);
         if (!matchesTitle && !matchesProject && !matchesAssignee) return false;
       }
 

@@ -8,7 +8,7 @@ import { useTelegram } from '../../../hooks/use-telegram';
 import { Check, X, Users } from 'lucide-react';
 
 export function PendingInvitationsBanner() {
-  const { user, selectWorkspace } = useAuth();
+  const { user, setWorkspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
@@ -33,7 +33,7 @@ export function PendingInvitationsBanner() {
       queryClient.invalidateQueries({ queryKey: ['pending-invitations'] });
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
       if (data?.workspace?.id) {
-        selectWorkspace(data.workspace.id);
+        setWorkspaceId(data.workspace.id);
       }
     },
     onError: (err: any) => {

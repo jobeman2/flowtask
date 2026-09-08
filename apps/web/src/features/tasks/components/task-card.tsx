@@ -34,6 +34,21 @@ export interface TaskItemMeta {
 }
 
 export function parseTaskMeta(task: any): TaskItemMeta {
+  if (!task) {
+    return {
+      category: 'TASK',
+      cleanTitle: '',
+      isMeeting: false,
+      isClickUp: false,
+      isNotion: false,
+      isAi: false,
+      platform: null,
+      joinUrl: null,
+      duration: null,
+      clickUpSpace: null,
+      subtaskCount: null,
+    };
+  }
   const rawTitle = (task.title || '').trim();
   const desc = task.description || '';
   const projName = task.project?.name || '';
@@ -254,17 +269,17 @@ export function TaskCard({
             </h4>
 
             {/* Assignee Avatar / Initial or subtle priority dot */}
-            {task.assignee?.avatarUrl ? (
+            {task?.assignee?.avatarUrl ? (
               <img
                 src={task.assignee.avatarUrl}
-                alt={task.assignee.name || 'Assignee'}
+                alt={task.assignee?.name || 'Assignee'}
                 className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0 mt-0.5"
               />
-            ) : task.assignee?.name ? (
+            ) : task?.assignee?.name ? (
               <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs shrink-0 mt-0.5">
-                {task.assignee.name[0].toUpperCase()}
+                {task.assignee.name?.[0]?.toUpperCase() || 'U'}
               </div>
-            ) : (task.priority === 'URGENT' || task.priority === 'HIGH') ? (
+            ) : (task?.priority === 'URGENT' || task?.priority === 'HIGH') ? (
               <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1.5" />
             ) : null}
           </div>

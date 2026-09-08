@@ -405,7 +405,7 @@ export function TeamView() {
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
-                        {memberName[0]?.toUpperCase()}
+                        {memberName?.[0]?.toUpperCase() || 'U'}
                       </div>
                     )}
 
@@ -585,7 +585,7 @@ export function TeamView() {
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
                           {hasTelegram && (
                             <span className="text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-0.5">
-                              <span>Telegram: {ws.telegramChat.title || ws.name}</span>
+                              <span>Telegram: {ws.telegramChat?.title || ws.name || 'Group'}</span>
                             </span>
                           )}
                           <span>•</span>
