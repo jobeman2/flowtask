@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
+  Zap,
 } from 'lucide-react';
 
 interface CreateMeetingModalProps {
@@ -54,27 +55,27 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
       const scheduledDateTime = new Date(year, month - 1, day, hours, minutes);
 
       let finalUrl = meetingUrl.trim();
-      let platformLabel = '🎙️ Telegram Voice Call';
+      let platformLabel = 'Telegram Voice Call';
 
       if (platform === 'GOOGLE_MEET') {
-        platformLabel = '🌐 Google Meet';
+        platformLabel = 'Google Meet';
         if (!finalUrl) finalUrl = 'https://meet.google.com/new';
       } else if (platform === 'ZOOM') {
-        platformLabel = '💻 Zoom Call';
+        platformLabel = 'Zoom Call';
         if (!finalUrl) finalUrl = 'https://zoom.us/join';
       } else if (platform === 'IN_PERSON') {
-        platformLabel = '🏢 In-Person Office Room';
+        platformLabel = 'In-Person Office Room';
         if (!finalUrl) finalUrl = 'Meeting Room A';
       } else {
         if (!finalUrl) finalUrl = 'Telegram Group Call';
       }
 
       const description =
-        `🎙️ Platform: ${platformLabel}\n` +
-        `🔗 Join URL: ${finalUrl}\n` +
-        `⏱️ Duration: ${duration}\n` +
-        `👤 Host: ${user?.name || 'Team Lead'}\n\n` +
-        `📋 Agenda:\n${agenda.trim()}`;
+        `Platform: ${platformLabel}\n` +
+        `Join URL: ${finalUrl}\n` +
+        `Duration: ${duration}\n` +
+        `Host: ${user?.name || 'Team Lead'}\n\n` +
+        `Agenda:\n${agenda.trim()}`;
 
       const res = await apiClient.createTask({
         workspaceId,
@@ -115,7 +116,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-500 text-white flex items-center justify-center font-extrabold shadow-md shadow-indigo-500/20">
+            <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
@@ -164,7 +165,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Sprint Planning, Client Demo, Design Review"
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium transition-colors"
+            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors"
           />
         </div>
 
@@ -176,7 +177,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
           <div className="grid grid-cols-2 gap-2">
             {[
               { id: 'TELEGRAM', label: 'Telegram Call', icon: Mic, color: 'text-sky-500' },
-              { id: 'GOOGLE_MEET', label: 'Google Meet', icon: Video, color: 'text-emerald-500' },
+              { id: 'GOOGLE_MEET', label: 'Google Meet', icon: Video, color: 'text-blue-500' },
               { id: 'ZOOM', label: 'Zoom Video', icon: Video, color: 'text-blue-500' },
               { id: 'IN_PERSON', label: 'In-Person Room', icon: MapPin, color: 'text-rose-500' },
             ].map((p) => {
@@ -192,7 +193,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
                   }}
                   className={`p-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
                     isSel
-                      ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 shadow-xs'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-700 dark:text-blue-300 shadow-xs'
                       : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -208,7 +209,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         {platform !== 'TELEGRAM' && (
           <div className="space-y-1.5">
             <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Link className="w-3.5 h-3.5 text-indigo-500" />
+              <Link className="w-3.5 h-3.5 text-blue-500" />
               <span>{platform === 'IN_PERSON' ? 'Room / Location' : 'Call Link / URL'}</span>
             </label>
             <input
@@ -222,7 +223,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
                   ? 'https://zoom.us/j/123456789'
                   : 'Meeting Room 3B, 2nd Floor'
               }
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors"
             />
           </div>
         )}
@@ -231,27 +232,27 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1">
             <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-indigo-500" />
+              <Calendar className="w-3 h-3 text-blue-500" />
               Date
             </label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 font-medium"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             />
           </div>
 
           <div className="space-y-1">
             <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-emerald-500" />
+              <Clock className="w-3 h-3 text-blue-500" />
               Time
             </label>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 font-medium"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             />
           </div>
 
@@ -262,7 +263,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
             <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-indigo-500 font-medium"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             >
               <option value="15m">15 mins</option>
               <option value="30m">30 mins</option>
@@ -277,19 +278,20 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-purple-500" />
+              <FileText className="w-3.5 h-3.5 text-blue-500" />
               Agenda & Key Points
             </span>
-            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
-              ⚡ Converts to tasks
+            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              Converts to tasks
             </span>
           </label>
           <textarea
             rows={2}
             value={agenda}
             onChange={(e) => setAgenda(e.target.value)}
-            placeholder="• Topic 1\n• Topic 2"
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 font-medium resize-none leading-relaxed"
+            placeholder="• Topic 1&#10;• Topic 2"
+            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium resize-none leading-relaxed"
           />
         </div>
 
@@ -299,7 +301,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
             type="button"
             disabled={createMeetingMutation.isPending}
             onClick={() => createMeetingMutation.mutate()}
-            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-95 shadow-md shadow-indigo-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             <Calendar className="w-4 h-4" />
             <span>
@@ -313,3 +315,5 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
     </div>
   );
 }
+
+

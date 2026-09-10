@@ -30,6 +30,8 @@ import {
   RotateCcw,
   Download,
   Eye,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 import { parseTaskMeta } from './task-card';
 
@@ -614,23 +616,27 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {meta.isMeeting && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
-                        🎙️ Meeting {meta.platform ? `(${meta.platform})` : ''}
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                        <Video className="w-3 h-3" />
+                        Meeting {meta.platform ? `(${meta.platform})` : ''}
                       </span>
                     )}
                     {meta.isClickUp && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1">
-                        ⚡ ClickUp {meta.clickUpSpace ? `(${meta.clickUpSpace})` : ''}
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                        <Zap className="w-3 h-3" />
+                        ClickUp {meta.clickUpSpace ? `(${meta.clickUpSpace})` : ''}
                       </span>
                     )}
                     {meta.isNotion && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 flex items-center gap-1">
-                        📓 Notion
+                        <FileText className="w-3 h-3" />
+                        Notion
                       </span>
                     )}
                     {meta.isAi && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                        🤖 Flow AI
+                        <Sparkles className="w-3 h-3" />
+                        Flow AI
                       </span>
                     )}
                   </div>
@@ -753,7 +759,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 {/* Assignees */}
                 <div className="flex items-start justify-between pt-2 gap-2">
                   <span className="font-bold text-slate-500 flex items-center gap-2 shrink-0 pt-0.5">
-                    <Users className="w-4 h-4 text-purple-500" />
+                    <Users className="w-4 h-4 text-blue-500" />
                     Assignees
                   </span>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -764,7 +770,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                           triggerHaptic('medium');
                           updateTaskMutation.mutate({ assigneeId: e.target.value || null });
                         }}
-                        className="px-2 py-0.5 text-xs font-bold rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 outline-none cursor-pointer"
+                        className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 outline-none cursor-pointer"
                       >
                         <option value="">Unassigned</option>
                         {members.map((m: any) => (
@@ -779,12 +785,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       allAssignees.map((u: any) => (
                         <span
                           key={u.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200/50 dark:border-purple-800/50"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200/50 dark:border-blue-800/50"
                         >
                           {u.avatarUrl ? (
                             <img src={u.avatarUrl} alt={u.name} className="w-3.5 h-3.5 rounded-full object-cover" />
                           ) : (
-                            <span className="w-3.5 h-3.5 rounded-full bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 text-[9px] flex items-center justify-center font-black">
+                            <span className="w-3.5 h-3.5 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-[9px] flex items-center justify-center font-black">
                               {u.name?.[0]?.toUpperCase() || 'U'}
                             </span>
                           )}
@@ -834,12 +840,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 {/* Meeting Details & Join Link */}
                 {meta.isMeeting && (
                   <div className="flex items-center justify-between pt-2">
-                    <span className="font-bold text-indigo-500 flex items-center gap-2">
-                      <Video className="w-4 h-4 text-indigo-500" />
+                    <span className="font-bold text-blue-500 flex items-center gap-2">
+                      <Video className="w-4 h-4 text-blue-500" />
                       Meeting
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                      <span className="font-bold text-blue-600 dark:text-blue-400 text-xs">
                         {meta.platform || 'Call'} {meta.duration ? `(${meta.duration})` : ''}
                       </span>
                       {meta.joinUrl && (
@@ -847,7 +853,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                           href={meta.joinUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black shadow-xs transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black shadow-xs transition-colors"
                         >
                           Join <ExternalLink className="w-3 h-3" />
                         </a>
@@ -920,7 +926,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0 bg-white"
                           />
                         ) : att.type === 'audio' ? (
-                          <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center shrink-0">
                             <Mic className="w-4 h-4" />
                           </div>
                         ) : (
@@ -1134,7 +1140,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       updateStatusMutation.mutate('IN_PROGRESS');
                     }}
                     disabled={updateStatusMutation.isPending}
-                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/25 transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-98 flex items-center justify-center gap-1.5"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Reopen Task</span>
@@ -1204,7 +1210,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </div>
               ) : previewAttachment.type === 'audio' ? (
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl space-y-2 text-center">
-                  <Mic className="w-8 h-8 text-purple-500 mx-auto" />
+                  <Mic className="w-8 h-8 text-blue-500 mx-auto" />
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Audio Recording</p>
                   <audio controls src={previewAttachment.url} className="w-full" />
                 </div>
