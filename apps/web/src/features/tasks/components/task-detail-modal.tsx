@@ -85,6 +85,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       return res.data;
     },
     enabled: Boolean(taskId && workspaceId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Sync state when task data loads or changes
@@ -171,19 +173,21 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     } else {
       setSubtasks([]);
     }
-  }, [task?.id, task?.imageUrl, task?.attachments, task?.description, task?.createdAt]);
+  }, [task?.id, task?.imageUrl, task?.attachments, task?.description, task?.createdAt, task?.status]);
 
   // Complete Task Mutation
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!taskId || !workspaceId) return;
-      return apiClient.completeTask(taskId, workspaceId);
+      // Use updateTask with status:DONE for reliability (same as status pipeline)
+      return apiClient.updateTask(taskId, workspaceId, { status: 'DONE' });
     },
     onSuccess: () => {
-      triggerHaptic('medium');
+      triggerHaptic('heavy');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+      addNotification({ type: 'TASK_COMPLETED', title: 'Task Completed', message: `"${task?.title || 'Task'}" marked as done` });
     },
   });
 
@@ -193,10 +197,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       if (!taskId || !workspaceId) return;
       return apiClient.updateTask(taskId, workspaceId, { status });
     },
-    onSuccess: () => {
+    onSuccess: (_data, status) => {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+      if (status === 'IN_PROGRESS') {
+        addNotification({ type: 'SYSTEM', title: 'Task Reopened', message: 'Task moved back to In Progress' });
+      }
     },
   });
 
@@ -265,7 +273,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const persistAttachments = async (newAtts: AttachmentItem[]) => {
     if (!taskId || !workspaceId) return;
     try {
-      await apiClient.updateTask(taskId, workspaceId, { attachments: newAtts });
+      // Backend stores attachments in the imageUrl field as JSON array
+      const imageUrl = newAtts.length > 0 ? JSON.stringify(newAtts) : null;
+      await apiClient.updateTask(taskId, workspaceId, { imageUrl });
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
     } catch {}
