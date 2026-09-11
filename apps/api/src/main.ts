@@ -105,7 +105,7 @@ async function bootstrap() {
 
   // Global prefix
   app.setGlobalPrefix('api/v1', {
-    exclude: ['health', 'health/ready'],
+    exclude: ['/', 'health', 'health/ready'],
   });
 
   // 3. Request Payload Sanitization & Anti-Tampering

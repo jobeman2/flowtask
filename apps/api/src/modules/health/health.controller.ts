@@ -2,12 +2,23 @@ import { Controller, Get } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
 import { PrismaService } from '../../database/prisma.service';
 
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(private prisma: PrismaService) {}
 
   @Public()
   @Get()
+  rootCheck() {
+    return {
+      status: 'ok',
+      service: 'FlowTask API',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Public()
+  @Get('health')
   checkLiveness() {
     return {
       status: 'ok',
@@ -17,7 +28,7 @@ export class HealthController {
   }
 
   @Public()
-  @Get('ready')
+  @Get('health/ready')
   async checkReadiness() {
     let dbStatus = 'healthy';
     try {
