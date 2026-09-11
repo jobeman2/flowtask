@@ -52,7 +52,7 @@ function compressImageFile(file: File): Promise<string> {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        const maxDim = 1280;
+        const maxDim = 960;
 
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -69,7 +69,7 @@ function compressImageFile(file: File): Promise<string> {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.78));
+          resolve(canvas.toDataURL('image/jpeg', 0.70));
         } else {
           resolve(e.target?.result as string);
         }
@@ -311,12 +311,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     if (!taskId || !workspaceId) return;
     try {
       setIsUploading(true);
-      const firstImg = newAtts.find((a) => a.type === 'image');
-      const imageUrl = firstImg ? firstImg.url : (newAtts.length > 0 ? newAtts[0].url : null);
-      await apiClient.updateTask(taskId, workspaceId, {
+      const jsonStr = newAtts.length > 0 ? JSON.stringify(newAtts) : null;
+      const res = await apiClient.updateTask(taskId, workspaceId, {
         attachments: newAtts,
-        imageUrl,
+        imageUrl: jsonStr,
       });
+      if (res?.error) {
+        throw new Error(res.error);
+      }
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
@@ -943,9 +945,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     )}
                   </div>
 
-                  {/* Upload button with hidden multiple file input */}
-                  <label
-                    className={`cursor-pointer px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 transition-all ${
+                  {/* Upload button with overlay file input for iOS compatibility */}
+                  <div
+                    className={`relative overflow-hidden cursor-pointer px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 transition-all ${
                       isUploading ? 'opacity-50 pointer-events-none' : ''
                     }`}
                   >
@@ -958,12 +960,15 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     <input
                       type="file"
                       multiple
-                      className="hidden"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       onChange={handleFileUpload}
-                      accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"
+                      onClick={(e) => {
+                        (e.target as HTMLInputElement).value = '';
+                      }}
+                      accept="image/*,application/pdf,audio/*,.doc,.docx"
                       disabled={isUploading}
                     />
-                  </label>
+                  </div>
                 </div>
 
                 {/* Attachments List */}
@@ -1028,8 +1033,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   ))}
 
                   {attachments.length === 0 && (
-                    <label
-                      className={`cursor-pointer block p-3.5 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors ${
+                    <div
+                      className={`relative overflow-hidden cursor-pointer block p-4 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors ${
                         isUploading ? 'opacity-50 pointer-events-none' : ''
                       }`}
                     >
@@ -1042,12 +1047,15 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       <input
                         type="file"
                         multiple
-                        className="hidden"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         onChange={handleFileUpload}
-                        accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"
+                        onClick={(e) => {
+                          (e.target as HTMLInputElement).value = '';
+                        }}
+                        accept="image/*,application/pdf,audio/*,.doc,.docx"
                         disabled={isUploading}
                       />
-                    </label>
+                    </div>
                   )}
                 </div>
               </div>

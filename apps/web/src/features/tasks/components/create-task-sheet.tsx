@@ -806,7 +806,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
             </div>
 
             {/* Modern Multi-File Dropzone / Upload Trigger */}
-            <label className="cursor-pointer group flex items-center justify-between p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 transition-all">
+            <div className="relative overflow-hidden cursor-pointer group flex items-center justify-between p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 transition-all">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center shrink-0">
                   <UploadCloud className="w-4 h-4" />
@@ -826,11 +826,14 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               <input
                 type="file"
                 multiple
-                className="hidden"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 onChange={handleMultipleFileUpload}
+                onClick={(e) => {
+                  (e.target as HTMLInputElement).value = '';
+                }}
                 accept="image/*,application/pdf,audio/*,.doc,.docx,.xls,.xlsx,.zip"
               />
-            </label>
+            </div>
 
             {/* Attached Files List / Cards */}
             {attachments.length > 0 && (
