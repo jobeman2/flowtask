@@ -394,8 +394,8 @@ export function TaskList() {
                           )}
 
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            {(task.description?.includes('🤖') || task.description?.includes('AI Project Manager') || task.title?.includes('[AI]')) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 shadow-2xs">
+                            {(task.description?.includes('AI Project Manager') || task.title?.includes('[AI]')) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 shadow-2xs">
                                 <Bot className="w-3 h-3" />
                                 <span>Flow AI</span>
                               </span>
@@ -434,7 +434,7 @@ export function TaskList() {
                               <span
                                 className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
                                   task.assigneeId === currentUser?.id
-                                    ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-300 dark:border-indigo-700 shadow-xs'
+                                    ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-bold border border-blue-300 dark:border-blue-700 shadow-xs'
                                     : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40'
                                 }`}
                               >
@@ -447,14 +447,14 @@ export function TaskList() {
                                 ) : (
                                   <User className="w-2.5 h-2.5" />
                                 )}
-                                <span>{task.assigneeId === currentUser?.id ? '👤 Assigned to You' : task.assignee.name || 'Assigned'}</span>
+                                <span>{task.assigneeId === currentUser?.id ? 'Assigned to You' : task.assignee.name || 'Assigned'}</span>
                               </span>
                             )}
 
                             {task.imageUrl && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                                 <ImageIcon className="w-3 h-3" />
-                                <span>Image</span>
+                                <span>Attachment</span>
                               </span>
                             )}
 

@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   Check,
+  CheckCheck,
   Calendar,
   Clock,
   Video,
@@ -16,6 +17,31 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useTelegram } from '../../../hooks/use-telegram';
+
+export function isTaskSeen(task: any): boolean {
+  if (!task) return false;
+  if (task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW') return true;
+  if (Array.isArray(task.comments) && task.comments.length > 0) return true;
+  if (task.completedAt) return true;
+  if (typeof window !== 'undefined') {
+    try {
+      const seen = JSON.parse(localStorage.getItem('flowtask_seen_tasks') || '[]');
+      if (Array.isArray(seen) && seen.includes(task.id)) return true;
+    } catch {}
+  }
+  return false;
+}
+
+export function markTaskSeen(taskId: string) {
+  if (typeof window === 'undefined' || !taskId) return;
+  try {
+    const seen = JSON.parse(localStorage.getItem('flowtask_seen_tasks') || '[]');
+    if (!seen.includes(taskId)) {
+      seen.push(taskId);
+      localStorage.setItem('flowtask_seen_tasks', JSON.stringify(seen.slice(-500)));
+    }
+  } catch {}
+}
 
 export type TaskCategory = 'ALL' | 'TASK' | 'MEETING' | 'CLICKUP' | 'NOTION';
 
@@ -87,7 +113,8 @@ export function parseTaskMeta(task: any): TaskItemMeta {
   let joinUrl: string | null = null;
   let duration: string | null = null;
   if (isMeeting) {
-    platform = desc.match(/Platform:\s*([^\n\r]+)/i)?.[1]?.trim() || null;
+    const rawPlat = desc.match(/Platform:\s*([^\n\r]+)/i)?.[1]?.trim() || null;
+    platform = rawPlat ? rawPlat.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim() : null;
     joinUrl = desc.match(/(?:Join URL|URL|Link):\s*([^\n\r]+)/i)?.[1]?.trim() || null;
     duration = desc.match(/Duration:\s*([^\n\r]+)/i)?.[1]?.trim() || null;
   }
@@ -149,6 +176,7 @@ export function TaskCard({
   const { triggerHaptic } = useTelegram();
   const meta = parseTaskMeta(task);
   const isDone = task.status === 'DONE';
+  const isSeen = isTaskSeen(task);
 
   // Format Due Date
   const formatDue = (dateStr?: string | null) => {
@@ -200,13 +228,14 @@ export function TaskCard({
     <div
       onClick={() => {
         triggerHaptic('light');
+        markTaskSeen(task.id);
         onSelect(task.id);
       }}
       className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
         isDone
           ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-65'
           : meta.isMeeting
-          ? 'bg-white dark:bg-slate-800/90 border-purple-200/80 dark:border-purple-900/50 hover:border-purple-300 shadow-[0_3px_12px_-3px_rgba(168,85,247,0.12)]'
+          ? 'bg-white dark:bg-slate-800/90 border-blue-200/80 dark:border-blue-900/50 hover:border-blue-300 shadow-[0_3px_12px_-3px_rgba(59,130,246,0.12)]'
           : meta.isClickUp
           ? 'bg-white dark:bg-slate-800/90 border-violet-200/80 dark:border-violet-900/50 hover:border-violet-300 shadow-[0_3px_12px_-3px_rgba(139,92,246,0.12)]'
           : meta.isNotion
@@ -222,7 +251,7 @@ export function TaskCard({
           isDone
             ? 'bg-slate-300 dark:bg-slate-700'
             : meta.isMeeting
-            ? 'bg-purple-500'
+            ? 'bg-blue-600'
             : meta.isClickUp
             ? 'bg-violet-500'
             : meta.isNotion
@@ -245,7 +274,7 @@ export function TaskCard({
             isDone
               ? 'bg-emerald-600 text-white shadow-xs'
               : meta.isMeeting
-              ? 'border-2 border-purple-400 dark:border-purple-600 hover:border-purple-500 hover:scale-105'
+              ? 'border-2 border-blue-400 dark:border-blue-600 hover:border-blue-500 hover:scale-105'
               : meta.isClickUp
               ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
               : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
@@ -256,7 +285,7 @@ export function TaskCard({
 
         {/* Main Content Area */}
         <div className="min-w-0 flex-1">
-          {/* Top Line: Title + Assignee Avatar */}
+          {/* Top Line: Title + Telegram Double Ticks + Assignee Avatar */}
           <div className="flex items-start justify-between gap-2">
             <h4
               className={`text-[13px] font-bold leading-snug tracking-tight break-words ${
@@ -268,28 +297,42 @@ export function TaskCard({
               {meta.cleanTitle}
             </h4>
 
-            {/* Assignee Avatar / Initial or subtle priority dot */}
-            {task?.assignee?.avatarUrl ? (
-              <img
-                src={task.assignee.avatarUrl}
-                alt={task.assignee?.name || 'Assignee'}
-                className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0 mt-0.5"
-              />
-            ) : task?.assignee?.name ? (
-              <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs shrink-0 mt-0.5">
-                {task.assignee.name?.[0]?.toUpperCase() || 'U'}
+            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+              {/* Telegram-style Seen / Opened Ticks */}
+              <div
+                className="flex items-center"
+                title={isSeen ? 'Seen by assignee' : 'Delivered'}
+              >
+                {isSeen ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-blue-500 stroke-[2.5]" />
+                ) : (
+                  <Check className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 stroke-[2]" />
+                )}
               </div>
-            ) : (task?.priority === 'URGENT' || task?.priority === 'HIGH') ? (
-              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1.5" />
-            ) : null}
+
+              {/* Assignee Avatar / Initial or subtle priority dot */}
+              {task?.assignee?.avatarUrl ? (
+                <img
+                  src={task.assignee.avatarUrl}
+                  alt={task.assignee?.name || 'Assignee'}
+                  className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+                />
+              ) : task?.assignee?.name ? (
+                <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs shrink-0">
+                  {task.assignee.name?.[0]?.toUpperCase() || 'U'}
+                </div>
+              ) : (task?.priority === 'URGENT' || task?.priority === 'HIGH') ? (
+                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+              ) : null}
+            </div>
           </div>
 
           {/* Bottom Line: Badges & Metadata (Clean compact chips) */}
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {/* Category / Source Badges */}
             {meta.isMeeting && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 shadow-2xs">
-                <Video className="w-2.5 h-2.5 text-purple-600 dark:text-purple-300" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 shadow-2xs">
+                <Video className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                 <span>Meeting</span>
               </span>
             )}
@@ -366,8 +409,9 @@ export function TaskCard({
             )}
 
             {meta.platform && (
-              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                {meta.platform}
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate max-w-[150px]">
+                <Mic className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                <span className="truncate">{meta.platform}</span>
               </span>
             )}
 
@@ -382,7 +426,7 @@ export function TaskCard({
               <button
                 type="button"
                 onClick={handleJoinClick}
-                className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-colors"
+                className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
               >
                 <Video className="w-2.5 h-2.5" />
                 <span>Join</span>

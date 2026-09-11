@@ -47,7 +47,8 @@ export function MeetingDetailModal({
 
   // Extract Platform from description
   const platformMatch = description.match(/Platform:\s*([^\n]+)/i);
-  const platform = platformMatch ? platformMatch[1].trim() : '🎙️ Telegram Voice Call';
+  const rawPlatform = platformMatch ? platformMatch[1].trim() : 'Telegram Voice Call';
+  const platform = rawPlatform.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim() || 'Telegram Voice Call';
 
   // Extract Duration from description
   const durationMatch = description.match(/Duration:\s*([^\n]+)/i);
@@ -184,22 +185,22 @@ export function MeetingDetailModal({
         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-indigo-500" />
+              <Clock className="w-4 h-4 text-blue-500" />
               <span>{formattedDate}</span>
             </div>
-            <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">
+            <span className="text-blue-600 dark:text-blue-400 font-extrabold">
               {formattedTime} ({duration})
             </span>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
             <div className="flex items-center gap-1.5">
-              {platform.includes('Google') ? (
-                <Video className="w-3.5 h-3.5 text-emerald-500" />
-              ) : platform.includes('In-Person') ? (
+              {platform.toLowerCase().includes('google') ? (
+                <Video className="w-3.5 h-3.5 text-blue-500" />
+              ) : platform.toLowerCase().includes('in-person') || platform.toLowerCase().includes('office') ? (
                 <MapPin className="w-3.5 h-3.5 text-rose-500" />
               ) : (
-                <Mic className="w-3.5 h-3.5 text-sky-500" />
+                <Mic className="w-3.5 h-3.5 text-blue-500" />
               )}
               <span>{platform}</span>
             </div>

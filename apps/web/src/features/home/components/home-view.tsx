@@ -173,7 +173,7 @@ export function HomeView({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300">
                   {activeFocusMeta.isMeeting ? (
-                    <><Video className="w-3 h-3 text-purple-300 shrink-0" /><span className="text-purple-200">Next Meeting</span></>
+                    <><Video className="w-3 h-3 text-blue-300 shrink-0" /><span className="text-blue-200">Next Meeting</span></>
                   ) : activeFocusMeta.isClickUp ? (
                     <><Zap className="w-3 h-3 text-violet-300 shrink-0 fill-violet-300" /><span className="text-violet-200">ClickUp Task</span></>
                   ) : activeFocusMeta.isNotion ? (
@@ -290,8 +290,8 @@ export function HomeView({
               onClick={() => { triggerHaptic('light'); setMeetingFilter(true); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all flex items-center gap-1 ${
                 meetingFilter
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100'
               }`}
             >
               <Video className="w-3 h-3 shrink-0" />

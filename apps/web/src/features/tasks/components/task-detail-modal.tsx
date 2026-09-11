@@ -8,7 +8,6 @@ import { useTelegram } from '../../../hooks/use-telegram';
 import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
-  Star,
   Calendar,
   Flag,
   User,
@@ -34,6 +33,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { parseTaskMeta } from './task-card';
+import { MeetingDetailModal } from '../../meetings/components/meeting-detail-modal';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -47,6 +47,8 @@ interface AttachmentItem {
   type: 'image' | 'document' | 'audio';
   size?: string;
   uploadedAt: string;
+  uploaderId?: string;
+  uploaderName?: string;
 }
 
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
@@ -55,7 +57,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
 
-  const [isFavorite, setIsFavorite] = useState(true);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [previewAttachment, setPreviewAttachment] = useState<AttachmentItem | null>(null);
 
@@ -351,6 +352,23 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   const meta = parseTaskMeta(task);
 
+  if (task && meta.isMeeting) {
+    return (
+      <MeetingDetailModal
+        isOpen={Boolean(taskId)}
+        onClose={onClose}
+        meetingTask={task}
+      />
+    );
+  }
+
+  const canDeleteAttachment = (att?: AttachmentItem | null) => {
+    if (!att) return false;
+    if (isOwnerOrAdmin || isCreator) return true;
+    if (att.uploaderId && user?.id && att.uploaderId === user.id) return true;
+    return false;
+  };
+
   const persistSubtasksToTask = async (newSubtasks: Array<{ id: string; title: string; completed: boolean }>) => {
     if (!taskId || !workspaceId) return;
     const baseDesc = (task?.description || '')
@@ -410,14 +428,18 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           type: isImg ? 'image' : isAudio ? 'audio' : 'document',
           size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
           uploadedAt: 'Just now',
+          uploaderId: user?.id,
+          uploaderName: user?.name || user?.username || 'You',
         };
         newItems.push(newAtt);
         loadedCount++;
 
         if (loadedCount === filesArray.length) {
-          const updated = [...newItems, ...attachments];
-          setAttachments(updated);
-          persistAttachments(updated);
+          setAttachments((prev) => {
+            const updated = [...newItems, ...prev];
+            persistAttachments(updated);
+            return updated;
+          });
         }
       };
       reader.readAsDataURL(file);
@@ -427,6 +449,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   };
 
   const handleDeleteAttachment = (id: string) => {
+    const target = attachments.find((a) => a.id === id);
+    if (target && !canDeleteAttachment(target)) {
+      triggerHaptic('heavy');
+      alert('Only the member who attached this file or a workspace admin can remove it.');
+      return;
+    }
     triggerHaptic('medium');
     const updated = attachments.filter((a) => a.id !== id);
     setAttachments(updated);
@@ -666,22 +694,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: projectColor }} />
                       {projectTag}
                     </span>
-                    <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                      #Task-{task.id.slice(-4).toUpperCase()}
-                    </span>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setIsFavorite(!isFavorite);
-                  }}
-                  className="p-1 text-amber-400 hover:text-amber-500 transition-colors shrink-0"
-                >
-                  <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-400' : ''}`} />
-                </button>
               </div>
 
               {/* Workflow Stage Pipeline Switcher */}
@@ -965,22 +979,32 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAttachment(att.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                          title="Remove Attachment"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canDeleteAttachment(att) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAttachment(att.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                            title="Remove Attachment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
 
                   {attachments.length === 0 && (
-                    <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
-                      No files attached yet.
-                    </div>
+                    <label className="cursor-pointer block p-3.5 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors">
+                      <Plus className="w-4 h-4 mx-auto mb-1 text-slate-400" />
+                      <span>Tap to attach photos, documents or voice files</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"
+                      />
+                    </label>
                   )}
                 </div>
               </div>
@@ -1257,7 +1281,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   <span>Download / Open</span>
                 </a>
 
-                {canEditTask && (
+                {canDeleteAttachment(previewAttachment) && (
                   <button
                     type="button"
                     onClick={() => {

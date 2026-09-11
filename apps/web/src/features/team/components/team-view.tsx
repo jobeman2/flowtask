@@ -503,7 +503,7 @@ export function TeamView() {
                 See all your teams & connected Telegram groups
               </p>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -512,9 +512,9 @@ export function TeamView() {
                   setCreateWsError(null);
                   setIsCreatingWs(true);
                 }}
-                className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>New</span>
               </button>
               <button
@@ -525,9 +525,9 @@ export function TeamView() {
                   setCreateWsError(null);
                   setIsCreatingWs(true);
                 }}
-                className="px-2.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
               >
-                <Send className="w-3 h-3" />
+                <Send className="w-3.5 h-3.5" />
                 <span>+ Group</span>
               </button>
             </div>
@@ -551,7 +551,7 @@ export function TeamView() {
 
             <div className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs">
               <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">
-                <Users className="w-3 h-3 text-sky-500" />
+                <Users className="w-3 h-3 text-blue-500" />
                 <span>Total Teams</span>
               </div>
               <div className="text-base font-black text-slate-900 dark:text-white leading-none">
@@ -569,6 +569,7 @@ export function TeamView() {
               const isCurrent = ws.id === workspaceId;
               const hasTelegram = Boolean(ws.telegramChat);
               const memberCount = ws._count?.members || ws.members?.length || (isCurrent ? members.length : 1);
+              const taskCount = ws.taskCount ?? ws._count?.tasks ?? 0;
               const isOwner = ws.ownerId === user?.id;
 
               return (
@@ -591,7 +592,7 @@ export function TeamView() {
                       <div
                         className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs shadow-xs ${
                           hasTelegram
-                            ? 'bg-sky-500 text-white'
+                            ? 'bg-blue-500 text-white'
                             : isCurrent
                             ? 'bg-blue-600 text-white'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -605,21 +606,20 @@ export function TeamView() {
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {ws.name}
                           </h4>
-                          {isCurrent && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-blue-600 text-white text-[9px] font-black uppercase">
-                              Active
-                            </span>
-                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
                           {hasTelegram && (
-                            <span className="text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-0.5">
+                            <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-0.5">
                               <span>Telegram: {ws.telegramChat?.title || ws.name || 'Group'}</span>
                             </span>
                           )}
                           <span>•</span>
                           <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                          <span>•</span>
+                          <span className="text-slate-500 dark:text-slate-400 font-medium">
+                            {taskCount} task{taskCount !== 1 ? 's' : ''}
+                          </span>
                           <span>•</span>
                           <span className="font-semibold text-slate-600 dark:text-slate-300">
                             {isOwner ? 'Owner' : 'Member'}
@@ -630,37 +630,45 @@ export function TeamView() {
 
                     <div className="shrink-0 flex items-center gap-1.5">
                       {isCurrent ? (
-                        <div className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200 dark:border-emerald-800/60">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                          <span>Active</span>
-                        </div>
+                        <>
+                          <div className="px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200 dark:border-emerald-800/60">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Active</span>
+                          </div>
+                          {canManageMembers && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                triggerHaptic('light');
+                                setIsManageModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              title="Workspace Settings"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerHaptic('medium');
-                            setWorkspaceId(ws.id);
-                          }}
-                          className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 text-[10px] font-bold transition-all"
-                        >
-                          Switch
-                        </button>
-                      )}
-
-                      {isCurrent && canManageMembers && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerHaptic('light');
-                            setIsManageModalOpen(true);
-                          }}
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          title="Workspace Settings"
-                        >
-                          <Settings className="w-3.5 h-3.5" />
-                        </button>
+                        <>
+                          {taskCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-[10px] font-bold border border-blue-100 dark:border-blue-900/40">
+                              {taskCount}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              triggerHaptic('medium');
+                              setWorkspaceId(ws.id);
+                            }}
+                            className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 text-[10px] font-bold transition-all"
+                          >
+                            Switch
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
