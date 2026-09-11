@@ -253,14 +253,13 @@ export function TeamView() {
             triggerHaptic('light');
             setActiveTab('MEMBERS');
           }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${
             activeTab === 'MEMBERS'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          <Users className="w-3.5 h-3.5" />
-          <span>Team Members ({members.length + 1})</span>
+          Members ({members.length + 1})
         </button>
         <button
           type="button"
@@ -268,28 +267,28 @@ export function TeamView() {
             triggerHaptic('light');
             setActiveTab('WORKSPACES');
           }}
-          className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${
             activeTab === 'WORKSPACES'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          <Building2 className="w-3.5 h-3.5" />
-          <span>Workspaces & Groups ({workspaces.length})</span>
+          Workspaces ({workspaces.length})
         </button>
       </div>
+
 
       {/* TAB 1: TEAM MEMBERS */}
       {activeTab === 'MEMBERS' && (
         <div className="space-y-4">
           {/* Header with Invite Action */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                Workspace Team
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                Team Members
               </h3>
-              <p className="text-xs text-slate-400 font-medium">
-                {currentWorkspace?.name || 'Current Workspace'} • {members.length + 1} members
+              <p className="text-[11px] text-slate-400 font-medium">
+                {currentWorkspace?.name || 'Current Workspace'} — {members.length + 1} members
               </p>
             </div>
             {canManageMembers && (
@@ -299,9 +298,9 @@ export function TeamView() {
                   triggerHaptic('light');
                   setIsInviteOpen(true);
                 }}
-                className="p-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs active:scale-95 transition-all shrink-0"
               >
-                <UserPlus className="w-3.5 h-3.5" />
+                <UserPlus className="w-3 h-3" />
                 <span>Invite</span>
               </button>
             )}
@@ -309,9 +308,9 @@ export function TeamView() {
 
           {/* Telegram Group Sync Banner if linked */}
           {currentWorkspace?.telegramChat && (
-            <div className="bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-900/60 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
+            <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                   <Users className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
@@ -494,16 +493,16 @@ export function TeamView() {
       {activeTab === 'WORKSPACES' && (
         <div className="space-y-4">
           {/* Header with Actions */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                Workspaces & Groups
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                Workspaces
               </h3>
-              <p className="text-xs text-slate-400 font-medium">
-                See all your teams & connected Telegram groups
+              <p className="text-[11px] text-slate-400 font-medium">
+                Teams & connected Telegram groups
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -512,9 +511,9 @@ export function TeamView() {
                   setCreateWsError(null);
                   setIsCreatingWs(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                className="px-2.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all active:scale-95"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 <span>New</span>
               </button>
               <button
@@ -525,10 +524,10 @@ export function TeamView() {
                   setCreateWsError(null);
                   setIsCreatingWs(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+                className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 font-bold text-[11px] flex items-center gap-1 transition-all active:scale-95"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>+ Group</span>
+                <Send className="w-3 h-3" />
+                <span>Link Group</span>
               </button>
             </div>
           </div>

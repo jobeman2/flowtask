@@ -389,7 +389,6 @@ export class TasksService {
     try {
       const creator = await this.prisma.user.findUnique({ where: { id: creatorId } });
       const workspace = await this.prisma.workspace.findUnique({ where: { id: targetWorkspaceId } });
-      const creatorTg = await this.prisma.telegramAccount.findFirst({ where: { userId: creatorId } });
 
       let targetTg = dto.assigneeId
         ? await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } })
@@ -422,39 +421,6 @@ export class TasksService {
           workspaceName: workspace?.name || 'Team Workspace',
           assignerName: creator?.name || 'A teammate',
           dueDate: dto.dueDate || null,
-        });
-      }
-
-      // 2. Send DM confirmation to the creator
-      if (creatorTg?.telegramId && /^\d+$/.test(creatorTg.telegramId)) {
-        await this.telegramService.notifyTaskCreatedForCreator({
-          targetTelegramId: creatorTg.telegramId,
-          taskId: result.id,
-          taskTitle: dto.title,
-          priority: dto.priority || 'MEDIUM',
-          workspaceName: workspace?.name || 'Team Workspace',
-          assigneeName: assigneeUser?.name || (dto.assigneeId === creatorId ? 'You' : null),
-          dueDate: dto.dueDate || null,
-        });
-      }
-
-      // 3. If workspace is linked to a Telegram Group, broadcast to the group chat
-      const groupChat = await this.prisma.telegramChat.findFirst({
-        where: { workspaceId: targetWorkspaceId },
-      });
-
-      if (groupChat?.chatId && /^-?\d+$/.test(groupChat.chatId)) {
-        await this.telegramService.notifyGroupTaskCreated({
-          groupChatId: groupChat.chatId,
-          taskId: result.id,
-          taskTitle: dto.title,
-          description: dto.description || null,
-          priority: dto.priority || 'MEDIUM',
-          workspaceName: workspace?.name || groupChat.title || 'Group Board',
-          creatorName: creator?.name || 'A teammate',
-          assigneeName: assigneeUser?.name || null,
-          dueDate: dto.dueDate || null,
-          imageUrl: result.imageUrl || dto.imageUrl || null,
         });
       }
     } catch (e: any) {

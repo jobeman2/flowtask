@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import {
   X,
-  Calendar,
   Clock,
   Video,
   Mic,
   MapPin,
-  Zap,
   ExternalLink,
-  CheckCircle2,
   Trash2,
-  ListTodo,
+  Users,
 } from 'lucide-react';
 
 interface MeetingDetailModalProps {
@@ -30,12 +27,9 @@ export function MeetingDetailModal({
   onClose,
   meetingTask,
 }: MeetingDetailModalProps) {
-  const { workspaceId, user } = useAuth();
+  const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
-
-  const [convertedCount, setConvertedCount] = useState<number | null>(null);
-  const [isConverting, setIsConverting] = useState(false);
 
   // Extract Meeting Details
   const title = meetingTask?.title ? meetingTask.title.replace(/^\[Meeting\]\s*/i, '') : 'Team Meeting';
@@ -58,6 +52,16 @@ export function MeetingDetailModal({
   const hostMatch = description.match(/Host:\s*([^\n]+)/i);
   const host = hostMatch ? hostMatch[1].trim() : (meetingTask?.creator?.name || 'Team Lead');
 
+  // Extract actual agenda/description content (strip the metadata header)
+  const agendaContent = description
+    .replace(/^(🎙️\s*)?Platform:[^\n]+\n/i, '')
+    .replace(/^(🔗\s*)?Join URL:[^\n]+\n/i, '')
+    .replace(/^(⏱️\s*)?Duration:[^\n]+\n/i, '')
+    .replace(/^(👤\s*)?Host:[^\n]+\n/i, '')
+    .replace(/^\n+/, '')
+    .replace(/^Agenda:\s*\n?/i, '')
+    .trim();
+
   // Format Date & Time
   const dueDateObj = meetingTask?.dueDate ? new Date(meetingTask.dueDate) : new Date();
   const formattedDate = dueDateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -77,205 +81,118 @@ export function MeetingDetailModal({
     },
   });
 
-  // Complete / End Meeting Mutation
-  const completeMutation = useMutation({
-    mutationFn: async () => {
-      if (!workspaceId || !meetingTask?.id) return;
-      return apiClient.completeTask(meetingTask.id, workspaceId);
-    },
-    onSuccess: () => {
-      triggerHaptic('medium');
-      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-      onClose();
-    },
-  });
-
-  // Convert Agenda Action Items into Real FlowTask Tasks
-  const handleConvertToTasks = async () => {
-    if (!workspaceId || !description) return;
-    setIsConverting(true);
-    triggerHaptic('medium');
-
-    try {
-      // Find bullet points or numbered items
-      const lines = description.split('\n');
-      const actionItems: string[] = [];
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (
-          trimmed.startsWith('•') ||
-          trimmed.startsWith('-') ||
-          trimmed.startsWith('*') ||
-          /^\d+\./.test(trimmed)
-        ) {
-          const cleanItem = trimmed.replace(/^([•\-*]|\d+\.)\s*/, '').trim();
-          if (cleanItem && !cleanItem.toLowerCase().includes('agenda')) {
-            actionItems.push(cleanItem);
-          }
-        }
-      }
-
-      if (actionItems.length === 0) {
-        actionItems.push(`Follow up on ${title}`);
-      }
-
-      let count = 0;
-      for (const item of actionItems) {
-        await apiClient.createTask({
-          workspaceId,
-          title: item,
-          description: `Action item generated from meeting: "${title}"`,
-          priority: 'MEDIUM',
-          assigneeId: user?.id,
-        });
-        count++;
-      }
-
-      triggerHaptic('heavy');
-      setConvertedCount(count);
-      setIsConverting(false);
-      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-    } catch {
-      setIsConverting(false);
-    }
-  };
-
   if (!isOpen || !meetingTask) return null;
 
   const isLink = meetingUrl && (meetingUrl.startsWith('http://') || meetingUrl.startsWith('https://'));
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in font-sans">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar">
-        {/* Top Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                Scheduled Meeting
-              </span>
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight mt-0.5">
-                {title}
-              </h3>
-            </div>
+    <div
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm font-sans"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[88dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">
+              Meeting
+            </p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+              {title}
+            </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 ml-3"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Action Items Converted Banner */}
-        {convertedCount !== null && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Created {convertedCount} Action Item Tasks on Kanban Board!</span>
-          </div>
-        )}
-
-        {/* Date, Time & Duration Card */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-500" />
-              <span>{formattedDate}</span>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+          {/* Date, Time & Duration */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-500" />
+                <span>{formattedDate}</span>
+              </div>
+              <span className="text-blue-600 dark:text-blue-400 font-extrabold">
+                {formattedTime} ({duration})
+              </span>
             </div>
-            <span className="text-blue-600 dark:text-blue-400 font-extrabold">
-              {formattedTime} ({duration})
-            </span>
-          </div>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-            <div className="flex items-center gap-1.5">
-              {platform.toLowerCase().includes('google') ? (
-                <Video className="w-3.5 h-3.5 text-blue-500" />
-              ) : platform.toLowerCase().includes('in-person') || platform.toLowerCase().includes('office') ? (
-                <MapPin className="w-3.5 h-3.5 text-rose-500" />
-              ) : (
-                <Mic className="w-3.5 h-3.5 text-blue-500" />
-              )}
-              <span>{platform}</span>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+              <div className="flex items-center gap-1.5">
+                {platform.toLowerCase().includes('google') ? (
+                  <Video className="w-3.5 h-3.5 text-blue-500" />
+                ) : platform.toLowerCase().includes('in-person') || platform.toLowerCase().includes('office') ? (
+                  <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                ) : (
+                  <Mic className="w-3.5 h-3.5 text-blue-500" />
+                )}
+                <span>{platform}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                <span>{host}</span>
+              </div>
             </div>
-            <span>Host: {host}</span>
           </div>
-        </div>
 
-        {/* Join Call Action Button */}
-        {isLink ? (
-          <a
-            href={meetingUrl!}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => triggerHaptic('heavy')}
-            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all flex items-center justify-center gap-2"
-          >
-            <Video className="w-4 h-4" />
-            <span>Join Video Conference</span>
-            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-          </a>
-        ) : (
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Mic className="w-4 h-4 text-blue-600" />
-              <span>Telegram Group Voice Chat</span>
-            </div>
-            <span className="text-[10px] bg-blue-200/60 dark:bg-blue-900 px-2 py-0.5 rounded-full font-extrabold">
-              Open Group Call
-            </span>
-          </div>
-        )}
-
-        {/* Agenda Section */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <ListTodo className="w-3.5 h-3.5 text-blue-500" />
-              Meeting Agenda & Discussion
-            </h4>
-            <button
-              type="button"
-              disabled={isConverting}
-              onClick={handleConvertToTasks}
-              className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/50 px-2.5 py-1 rounded-xl hover:bg-blue-100 transition-all flex items-center gap-1"
+          {/* Join Call Button */}
+          {isLink ? (
+            <a
+              href={meetingUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => triggerHaptic('heavy')}
+              className="w-full py-3 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              <Zap className="w-3 h-3" />
-              <span>{isConverting ? 'Creating...' : 'Convert to Tasks'}</span>
-            </button>
-          </div>
+              <Video className="w-4 h-4" />
+              <span>Join Video Conference</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+            </a>
+          ) : (
+            <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs font-bold flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-blue-600" />
+                <span>Telegram Group Voice Chat</span>
+              </div>
+              <span className="text-[10px] bg-blue-200/60 dark:bg-blue-900 px-2.5 py-1 rounded-full font-extrabold">
+                Open Group Call
+              </span>
+            </div>
+          )}
 
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-medium leading-relaxed max-h-32 overflow-y-auto no-scrollbar">
-            {description.replace(/^(🎙️ )?Platform:[^\n]+\n(🔗 )?Join URL:[^\n]+\n(⏱️ )?Duration:[^\n]+\n(👤 )?Host:[^\n]+\n\n/i, '') || '• Review sprint progress and deliverables\n• Discuss blockers and timeline'}
-          </div>
+          {/* Description / Agenda — only show if there is actual content */}
+          {agendaContent && (
+            <div className="space-y-1.5">
+              <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-0.5">
+                Details
+              </h4>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-medium leading-relaxed">
+                {agendaContent}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Bottom Controls */}
-        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-          <button
-            type="button"
-            disabled={completeMutation.isPending}
-            onClick={() => completeMutation.mutate()}
-            className="py-2.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Mark Completed</span>
-          </button>
-
+        {/* Fixed Bottom — Delete only */}
+        <div className="p-4 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
           <button
             type="button"
             disabled={deleteMutation.isPending}
-            onClick={() => deleteMutation.mutate()}
-            className="py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5"
+            onClick={() => {
+              if (confirm('Delete this meeting?')) {
+                deleteMutation.mutate();
+              }
+            }}
+            className="w-full py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-            <span>Delete Meeting</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{deleteMutation.isPending ? 'Deleting...' : 'Delete Meeting'}</span>
           </button>
         </div>
       </div>
