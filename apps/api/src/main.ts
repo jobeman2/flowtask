@@ -2,22 +2,23 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
-import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, {
+  const adapter = new ExpressAdapter();
+  // Support large image/file attachment uploads (up to 50MB)
+  adapter.useBodyParser('json', false, { limit: '50mb' });
+  adapter.useBodyParser('urlencoded', false, { limit: '50mb', extended: true });
+
+  const app = await NestFactory.create(AppModule, adapter, {
     bodyParser: false,
   });
-
-  // Support large image/file attachment uploads (up to 50MB)
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ limit: '50mb', extended: true }));
 
   const configService = app.get(ConfigService);
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
