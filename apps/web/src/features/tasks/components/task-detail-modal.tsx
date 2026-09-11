@@ -31,9 +31,55 @@ import {
   Eye,
   Zap,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { parseTaskMeta } from './task-card';
 import { MeetingDetailModal } from '../../meetings/components/meeting-detail-modal';
+
+function compressImageFile(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1280;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.78));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -57,7 +103,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
 
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<AttachmentItem | null>(null);
 
   // Editing Task State for Creator / Admin
@@ -67,9 +113,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [editAssigneeId, setEditAssigneeId] = useState('');
   const [editPriority, setEditPriority] = useState<string>('MEDIUM');
   const [editDueDate, setEditDueDate] = useState('');
-
-  // Subtasks State (initialized empty and populated from real task description/checklists)
-  const [subtasks, setSubtasks] = useState<Array<{ id: string; title: string; completed: boolean }>>([]);
 
   // Attachments State (initialized empty and populated from real task.imageUrl or uploaded files)
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
@@ -156,24 +199,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       }
     }
     setAttachments(initialAtts);
-
-    // Subtasks: parse checklist items from description if present (e.g. - [ ] or - [x])
-    if (task.description && (task.description.includes('- [ ]') || task.description.includes('- [x]') || task.description.includes('- [X]'))) {
-      const lines = task.description.split('\n');
-      const parsed: Array<{ id: string; title: string; completed: boolean }> = [];
-      lines.forEach((line: string, idx: number) => {
-        const uncheckedMatch = line.match(/^-\s*\[\s*\]\s*(.+)$/);
-        const checkedMatch = line.match(/^-\s*\[[xX]\]\s*(.+)$/);
-        if (uncheckedMatch) {
-          parsed.push({ id: `sub-${idx}`, title: uncheckedMatch[1].trim(), completed: false });
-        } else if (checkedMatch) {
-          parsed.push({ id: `sub-${idx}`, title: checkedMatch[1].trim(), completed: true });
-        }
-      });
-      setSubtasks(parsed);
-    } else {
-      setSubtasks([]);
-    }
   }, [task?.id, task?.imageUrl, task?.attachments, task?.description, task?.createdAt, task?.status]);
 
   // Auto-progress: when task is opened, if it's TODO, auto-move to IN_PROGRESS
@@ -285,12 +310,22 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const persistAttachments = async (newAtts: AttachmentItem[]) => {
     if (!taskId || !workspaceId) return;
     try {
-      // Backend stores attachments in the imageUrl field as JSON array
-      const imageUrl = newAtts.length > 0 ? JSON.stringify(newAtts) : null;
-      await apiClient.updateTask(taskId, workspaceId, { imageUrl });
+      setIsUploading(true);
+      const firstImg = newAtts.find((a) => a.type === 'image');
+      const imageUrl = firstImg ? firstImg.url : (newAtts.length > 0 ? newAtts[0].url : null);
+      await apiClient.updateTask(taskId, workspaceId, {
+        attachments: newAtts,
+        imageUrl,
+      });
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-    } catch {}
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    } catch (err: any) {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to save attachment');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Delete Task Mutation
@@ -380,83 +415,51 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     return false;
   };
 
-  const persistSubtasksToTask = async (newSubtasks: Array<{ id: string; title: string; completed: boolean }>) => {
-    if (!taskId || !workspaceId) return;
-    const baseDesc = (task?.description || '')
-      .split('\n')
-      .filter((line: string) => !/^-\s*\[[ xX]\]/.test(line))
-      .join('\n')
-      .trim();
-
-    const checklistStr = newSubtasks.map((s) => `- [${s.completed ? 'x' : ' '}] ${s.title}`).join('\n');
-    const fullDesc = baseDesc ? `${baseDesc}\n\n${checklistStr}` : checklistStr;
-
-    try {
-      await apiClient.updateTask(taskId, workspaceId, { description: fullDesc });
-      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-    } catch {}
-  };
-
-  const handleToggleSubtask = (id: string) => {
-    triggerHaptic('light');
-    const updated = subtasks.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s));
-    setSubtasks(updated);
-    persistSubtasksToTask(updated);
-  };
-
-  const handleAddSubtask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSubtaskTitle.trim()) return;
-    triggerHaptic('medium');
-    const updated = [...subtasks, { id: String(Date.now()), title: newSubtaskTitle.trim(), completed: false }];
-    setSubtasks(updated);
-    setNewSubtaskTitle('');
-    persistSubtasksToTask(updated);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     triggerHaptic('medium');
+    setIsUploading(true);
     const filesArray = Array.from(files);
-    let loadedCount = 0;
     const newItems: AttachmentItem[] = [];
 
-    filesArray.forEach((file) => {
-      const isImg = file.type.startsWith('image/');
-      const isAudio = file.type.startsWith('audio/');
+    try {
+      for (const file of filesArray) {
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`"${file.name}" is larger than 10MB limit.`);
+          continue;
+        }
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
+        const isImg = file.type.startsWith('image/');
+        const isAudio = file.type.startsWith('audio/');
+        const dataUrl = await compressImageFile(file);
+
         const newAtt: AttachmentItem = {
           id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
           name: file.name,
           url: dataUrl,
           type: isImg ? 'image' : isAudio ? 'audio' : 'document',
-          size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
+          size: `${Math.max(1, Math.round((dataUrl.length * 0.75) / 1024))} KB`,
           uploadedAt: 'Just now',
           uploaderId: user?.id,
           uploaderName: user?.name || user?.username || 'You',
         };
         newItems.push(newAtt);
-        loadedCount++;
+      }
 
-        if (loadedCount === filesArray.length) {
-          setAttachments((prev) => {
-            const updated = [...newItems, ...prev];
-            persistAttachments(updated);
-            return updated;
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    e.target.value = '';
+      if (newItems.length > 0) {
+        const updated = [...newItems, ...attachments];
+        setAttachments(updated);
+        await persistAttachments(updated);
+      }
+    } catch (err: any) {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to upload attachment');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleDeleteAttachment = (id: string) => {
@@ -503,13 +506,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans">
-        <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar">
-          {/* Top Header */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-              Task Overview
-            </span>
+      <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm font-sans">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/60 dark:border-slate-800 max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+          {/* Top Fixed Header */}
+          <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">Task Details</p>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Task Overview</h3>
+            </div>
             <div className="flex items-center gap-1.5">
               {canEditTask && (
                 <button
@@ -541,12 +545,15 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               )}
               <button
                 onClick={onClose}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
           {isLoading ? (
             <div className="py-12 text-center text-xs text-slate-400 animate-pulse font-medium">
@@ -928,18 +935,33 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                       {attachments.length}
                     </span>
+                    {isUploading && (
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 animate-pulse">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Uploading...
+                      </span>
+                    )}
                   </div>
 
                   {/* Upload button with hidden multiple file input */}
-                  <label className="cursor-pointer px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 transition-all">
-                    <Plus className="w-3 h-3 stroke-[3]" />
-                    <span>Upload</span>
+                  <label
+                    className={`cursor-pointer px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center gap-1 transition-all ${
+                      isUploading ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Plus className="w-3 h-3 stroke-[3]" />
+                    )}
+                    <span>{isUploading ? 'Uploading...' : 'Upload'}</span>
                     <input
                       type="file"
                       multiple
                       className="hidden"
                       onChange={handleFileUpload}
                       accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"
+                      disabled={isUploading}
                     />
                   </label>
                 </div>
@@ -1006,93 +1028,27 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   ))}
 
                   {attachments.length === 0 && (
-                    <label className="cursor-pointer block p-3.5 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors">
-                      <Plus className="w-4 h-4 mx-auto mb-1 text-slate-400" />
-                      <span>Tap to attach photos, documents or voice files</span>
+                    <label
+                      className={`cursor-pointer block p-3.5 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors ${
+                        isUploading ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      {isUploading ? (
+                        <Loader2 className="w-4 h-4 mx-auto mb-1 text-blue-500 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 mx-auto mb-1 text-slate-400" />
+                      )}
+                      <span>{isUploading ? 'Saving files...' : 'Tap to attach photos, documents or voice files'}</span>
                       <input
                         type="file"
                         multiple
                         className="hidden"
                         onChange={handleFileUpload}
                         accept="image/*,application/pdf,audio/*,.doc,.docx,.zip"
+                        disabled={isUploading}
                       />
                     </label>
                   )}
-                </div>
-              </div>
-
-              {/* Subtasks Checklist Section */}
-              <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
-                      Checklist & Subtasks
-                    </h4>
-                    {subtasks.length > 0 && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                        {completedSubtasksCount}/{subtasks.length}
-                      </span>
-                    )}
-                  </div>
-                  {subtasks.length > 0 && (
-                    <span className="text-[10px] font-bold text-slate-400">{subtasksPercent}%</span>
-                  )}
-                </div>
-
-                {/* Progress Line */}
-                {subtasks.length > 0 && (
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${subtasksPercent}%` }}
-                    />
-                  </div>
-                )}
-
-                {/* Subtask Items */}
-                <div className="space-y-1.5 pt-1">
-                  {subtasks.map((sub) => (
-                    <div
-                      key={sub.id}
-                      onClick={() => handleToggleSubtask(sub.id)}
-                      className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                    >
-                      {sub.completed ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600 shrink-0 stroke-[2.5]" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-400 shrink-0" />
-                      )}
-                      <span className={`flex-1 font-medium ${sub.completed ? 'line-through text-slate-400' : ''}`}>
-                        {sub.title}
-                      </span>
-                    </div>
-                  ))}
-
-                  {subtasks.length === 0 && (
-                    <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
-                      No subtasks or checklist items yet.
-                    </div>
-                  )}
-
-                  {/* Add Subtask input */}
-                  <form onSubmit={handleAddSubtask} className="flex gap-2 pt-1">
-                    <input
-                      type="text"
-                      value={newSubtaskTitle}
-                      onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                      onFocus={handleInputFocus}
-                      placeholder="+ Add subtask item..."
-                      enterKeyHint="done"
-                      autoCapitalize="sentences"
-                      className="flex-1 px-3 py-2 text-[16px] sm:text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium transition-all focus:border-blue-500"
-                    />
-                    <button
-                      type="submit"
-                      className="px-3.5 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-xs hover:bg-blue-700 active:scale-95 transition-all"
-                    >
-                      Add
-                    </button>
-                  </form>
                 </div>
               </div>
 
@@ -1195,15 +1151,15 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (task.assigneeId && task.assigneeId !== user?.id && !isCreator && !isOwnerOrAdmin) {
+                      if (!isCreator && !isOwnerOrAdmin) {
                         triggerHaptic('heavy');
-                        alert(`Only ${task.assignee?.name || 'the assignee'}, creator, or admin can complete this task.`);
+                        alert('Only the task creator or workspace admin can mark this task as done.');
                         return;
                       }
                       completeMutation.mutate();
                     }}
                     disabled={completeMutation.isPending}
-                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                    className="flex-1 py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Mark as Done</span>
@@ -1216,6 +1172,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               Task could not be found.
             </div>
           )}
+          </div>
         </div>
       </div>
 

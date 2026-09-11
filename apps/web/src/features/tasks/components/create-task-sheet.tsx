@@ -31,13 +31,49 @@ interface CreateTaskSheetProps {
   onClose: () => void;
 }
 
-interface AttachmentFile {
-  id: string;
-  name: string;
-  url: string;
-  isImage: boolean;
-  type: 'image' | 'document' | 'audio';
-  size: string;
+function compressImageFile(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1280;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.78));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
@@ -191,35 +227,43 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   });
 
   // Multi-File upload handler
-  const handleMultipleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     triggerHaptic('medium');
     const filesArray = Array.from(files);
 
-    filesArray.forEach((file) => {
-      const isImg = file.type.startsWith('image/');
-      const isAud = file.type.startsWith('audio/');
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAttachments((prev) => [
-          ...prev,
-          {
-            id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
-            name: file.name,
-            url: reader.result as string,
-            isImage: isImg,
-            type: isImg ? 'image' : isAud ? 'audio' : 'document',
-            size: `${Math.max(1, Math.round(file.size / 1024))} KB`,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const newItems: any[] = [];
+      for (const file of filesArray) {
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`"${file.name}" exceeds 10MB limit.`);
+          continue;
+        }
 
-    // reset input value so re-selecting same file triggers change
-    e.target.value = '';
+        const isImg = file.type.startsWith('image/');
+        const isAud = file.type.startsWith('audio/');
+        const dataUrl = await compressImageFile(file);
+
+        newItems.push({
+          id: String(Date.now()) + Math.random().toString(36).slice(2, 6),
+          name: file.name,
+          url: dataUrl,
+          isImage: isImg,
+          type: isImg ? 'image' : isAud ? 'audio' : 'document',
+          size: `${Math.max(1, Math.round((dataUrl.length * 0.75) / 1024))} KB`,
+        });
+      }
+
+      if (newItems.length > 0) {
+        setAttachments((prev) => [...prev, ...newItems]);
+      }
+    } catch (err: any) {
+      alert('Failed to process attachment');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const selectedProject = projects.find((p: any) => p.id === projectId);
