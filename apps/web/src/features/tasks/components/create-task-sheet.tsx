@@ -229,7 +229,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in font-sans"
+      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm font-sans"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           (document.activeElement as HTMLElement)?.blur();
@@ -237,17 +237,23 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         }
       }}
     >
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto overscroll-contain no-scrollbar pb-24 sm:pb-5">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Create Task</h3>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+        {/* Fixed Header */}
+        <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">New Task</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Create Task</h3>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
         {errorMsg && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold">
@@ -462,7 +468,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               <button
                 type="button"
                 onClick={() => setQuickDueDate(1, 10)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100 transition-all shrink-0 active:scale-95"
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 hover:bg-blue-100 transition-all shrink-0 active:scale-95"
               >
                 Tomorrow
               </button>
@@ -523,7 +529,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
                     }`}
                   >
-                    {p === 'URGENT' ? '🚨 Urgent' : p === 'HIGH' ? '🔥 High' : p === 'MEDIUM' ? '⚡ Med' : '☕ Low'}
+                    {p === 'URGENT' ? 'Urgent' : p === 'HIGH' ? 'High' : p === 'MEDIUM' ? 'Medium' : 'Low'}
                   </button>
                 );
               })}
@@ -534,10 +540,10 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
           <div className="space-y-1 relative" ref={assigneeDropdownRef}>
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-purple-500" />
+                <Users className="w-3.5 h-3.5 text-blue-500" />
                 <span>Assignees</span>
                 {assigneeIds.length > 0 && (
-                  <span className="text-[10px] text-purple-600 dark:text-purple-400 font-extrabold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60">
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-extrabold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60">
                     ({assigneeIds.length})
                   </span>
                 )}
@@ -565,7 +571,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               }}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-all text-left ${
                 isAssigneeDropdownOpen
-                  ? 'bg-white dark:bg-slate-800 border-purple-500 ring-2 ring-purple-500/20 shadow-sm'
+                  ? 'bg-white dark:bg-slate-800 border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
                   : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
               }`}
             >
@@ -590,7 +596,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                         ) : (
                           <div
                             key={m.id}
-                            className="inline-flex h-5 w-5 rounded-full bg-purple-500 text-white items-center justify-center text-[9px] font-bold ring-2 ring-white dark:ring-slate-900"
+                            className="inline-flex h-5 w-5 rounded-full bg-blue-500 text-white items-center justify-center text-[9px] font-bold ring-2 ring-white dark:ring-slate-900"
                           >
                             {m.user?.name?.[0]?.toUpperCase() || 'U'}
                           </div>
@@ -605,13 +611,13 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {selectedMembers.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
                     {selectedMembers.length}
                   </span>
                 )}
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                    isAssigneeDropdownOpen ? 'rotate-180 text-purple-500' : ''
+                    isAssigneeDropdownOpen ? 'rotate-180 text-blue-500' : ''
                   }`}
                 />
               </div>
@@ -670,7 +676,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                           onClick={() => toggleAssignee(m.userId)}
                           className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                             isSelected
-                              ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
+                              ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
                               : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                           }`}
                         >
@@ -678,7 +684,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                             {m.user?.avatarUrl ? (
                               <img src={m.user.avatarUrl} alt={name} className="w-5 h-5 rounded-full object-cover shrink-0" />
                             ) : (
-                              <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black shrink-0">
+                              <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px] font-black shrink-0">
                                 {name[0]?.toUpperCase()}
                               </div>
                             )}
@@ -691,7 +697,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                           <div
                             className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
                               isSelected
-                                ? 'bg-purple-600 border-purple-600 text-white'
+                                ? 'bg-blue-600 border-blue-600 text-white'
                                 : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                             }`}
                           >
@@ -713,7 +719,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                 {selectedMembers.map((m: any) => (
                   <span
                     key={m.id}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-semibold border border-purple-200/60 dark:border-purple-800/60"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-semibold border border-blue-200/60 dark:border-blue-800/60"
                   >
                     <span>{m.user?.name || 'Teammate'}</span>
                     <button
@@ -833,12 +839,13 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all disabled:opacity-50"
+              className="w-full py-3.5 rounded-2xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {createMutation.isPending ? 'Creating Task...' : 'Create Task'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

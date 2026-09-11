@@ -176,6 +176,17 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     }
   }, [task?.id, task?.imageUrl, task?.attachments, task?.description, task?.createdAt, task?.status]);
 
+  // Auto-progress: when task is opened, if it's TODO, auto-move to IN_PROGRESS
+  React.useEffect(() => {
+    if (!task || !workspaceId || !task.id) return;
+    if (task.status === 'TODO' && task.assigneeId) {
+      apiClient.updateTask(task.id, workspaceId, { status: 'IN_PROGRESS' }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['task', task.id] });
+        queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      }).catch(() => {});
+    }
+  }, [task?.id]); // Only run once when task loads
+
   // Complete Task Mutation
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -714,9 +725,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         key={st.id}
                         type="button"
                         onClick={() => {
-                          if (st.id === 'DONE' && task.assigneeId && task.assigneeId !== user?.id && !isCreator && !isOwnerOrAdmin) {
+                          // Only creator or admin can move to IN_REVIEW or DONE
+                          if ((st.id === 'IN_REVIEW' || st.id === 'DONE') && !isCreator && !isOwnerOrAdmin) {
                             triggerHaptic('heavy');
-                            alert(`Only ${task.assignee?.name || 'the assignee'}, creator, or workspace admin can mark this task as done.`);
+                            alert('Only the task creator or workspace admin can move a task to Review or Done.');
                             return;
                           }
                           updateStatusMutation.mutate(st.id);
