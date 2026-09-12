@@ -1,3 +1,10 @@
 [phases.install]
 cmds = ['pnpm install --no-frozen-lockfile']
 
+[phases.build]
+cmds = ['pnpm run db:generate', 'pnpm --filter @flowtask/api... build', 'pnpm --filter @flowtask/bot... build']
+
+[start]
+cmd = 'node apps/bot/dist/main.js & node apps/api/dist/main.js'
+
+
