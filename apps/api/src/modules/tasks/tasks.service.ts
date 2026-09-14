@@ -121,16 +121,64 @@ export class TasksService {
 
     const totalPages = Math.ceil(total / limit);
 
-    const formattedTasks = tasks.map((t: any) => {
-      let assignees = t.assignee ? [t.assignee] : [];
-      let attachments: any[] = [];
+    // Collect extra user IDs from task metadata to fetch in a single batch
+    const extraUserIds = new Set<string>();
+    const taskMetas = new Map<string, any>();
+
+    for (const t of tasks) {
       if (t.sourceMessageId && t.sourceMessageId.startsWith('meta:')) {
         try {
           const meta = JSON.parse(t.sourceMessageId.slice(5));
-          if (Array.isArray(meta.attachments)) attachments = meta.attachments;
+          taskMetas.set(t.id, meta);
+          if (Array.isArray(meta.assigneeIds)) {
+            for (const uid of meta.assigneeIds) {
+              if (uid && typeof uid === 'string') extraUserIds.add(uid);
+            }
+          }
         } catch {}
       }
-      return { ...t, assignees, attachments };
+    }
+
+    const userMap = new Map<string, any>();
+    if (extraUserIds.size > 0) {
+      const extraUsers = await this.prisma.user.findMany({
+        where: { id: { in: Array.from(extraUserIds) } },
+        select: { id: true, name: true, avatarUrl: true },
+      });
+      for (const u of extraUsers) {
+        userMap.set(u.id, u);
+      }
+    }
+
+    const formattedTasks = tasks.map((t: any) => {
+      const meta = taskMetas.get(t.id) || {};
+      let assignees: any[] = [];
+
+      if (Array.isArray(meta.assigneeIds) && meta.assigneeIds.length > 0) {
+        for (const uid of meta.assigneeIds) {
+          const u = userMap.get(uid);
+          if (u) assignees.push(u);
+        }
+      }
+      if (assignees.length === 0 && t.assignee) {
+        assignees = [t.assignee];
+      }
+
+      let completedAssigneeIds: string[] = [];
+      if (Array.isArray(meta.completedAssigneeIds)) {
+        completedAssigneeIds = meta.completedAssigneeIds;
+      } else if (t.status === 'DONE') {
+        completedAssigneeIds = assignees.map((a: any) => a.id);
+      }
+
+      let attachments: any[] = Array.isArray(meta.attachments) ? meta.attachments : [];
+
+      return {
+        ...t,
+        assignees,
+        completedAssigneeIds,
+        attachments,
+      };
     });
 
     return {
@@ -206,6 +254,8 @@ export class TasksService {
       }
     }
 
+    let completedAssigneeIds: string[] = [];
+
     if (task.sourceMessageId && task.sourceMessageId.startsWith('meta:')) {
       try {
         const meta = JSON.parse(task.sourceMessageId.slice(5));
@@ -221,12 +271,20 @@ export class TasksService {
             assignees = extraUsers;
           }
         }
+        if (Array.isArray(meta.completedAssigneeIds)) {
+          completedAssigneeIds = meta.completedAssigneeIds;
+        }
       } catch (e) {}
+    }
+
+    if (completedAssigneeIds.length === 0 && task.status === 'DONE') {
+      completedAssigneeIds = assignees.map((a: any) => a.id);
     }
 
     return {
       ...task,
       assignees,
+      completedAssigneeIds,
       attachments,
     };
   }
@@ -444,12 +502,12 @@ export class TasksService {
       dto.status === 'DONE' ? 'COMPLETE' : 'UPDATE'
     );
 
-    const { labelIds, attachments, assigneeIds, ...updateFields } = dto;
+    const { labelIds, attachments, assigneeIds, completedAssigneeIds, ...updateFields } = dto;
 
     let newSourceMessageId = existing.sourceMessageId;
     let newImageUrl = updateFields.imageUrl !== undefined ? updateFields.imageUrl : existing.imageUrl;
 
-    if (attachments !== undefined || assigneeIds !== undefined) {
+    if (attachments !== undefined || assigneeIds !== undefined || completedAssigneeIds !== undefined) {
       let metaObj: any = {};
       if (existing.sourceMessageId && existing.sourceMessageId.startsWith('meta:')) {
         try {
@@ -467,6 +525,24 @@ export class TasksService {
       }
       if (assigneeIds !== undefined) {
         metaObj.assigneeIds = assigneeIds;
+        updateFields.assigneeId = assigneeIds.length > 0 ? assigneeIds[0] : null;
+      }
+      if (completedAssigneeIds !== undefined) {
+        metaObj.completedAssigneeIds = completedAssigneeIds;
+        const currentAssignees: string[] = Array.isArray(metaObj.assigneeIds)
+          ? metaObj.assigneeIds
+          : (existing.assigneeId ? [existing.assigneeId] : []);
+        if (currentAssignees.length > 0 && currentAssignees.every((id: string) => completedAssigneeIds.includes(id))) {
+          updateFields.status = TaskStatus.DONE;
+        } else if (existing.status === 'DONE' && currentAssignees.some((id: string) => !completedAssigneeIds.includes(id))) {
+          updateFields.status = TaskStatus.IN_PROGRESS;
+        }
+      }
+      if (updateFields.status === 'DONE') {
+        const currentAssignees: string[] = Array.isArray(metaObj.assigneeIds)
+          ? metaObj.assigneeIds
+          : (existing.assigneeId ? [existing.assigneeId] : []);
+        metaObj.completedAssigneeIds = currentAssignees;
       }
       newSourceMessageId = 'meta:' + JSON.stringify(metaObj);
     }
@@ -671,7 +747,7 @@ export class TasksService {
       }
     }
 
-    return updated;
+    return this.getTaskById(taskId, workspaceId);
   }
 
   async completeTask(taskId: string, workspaceId: string, userId: string) {

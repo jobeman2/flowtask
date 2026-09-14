@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Check,
   CheckCheck,
@@ -15,6 +15,9 @@ import {
   AlertTriangle,
   Paperclip,
   Image as ImageIcon,
+  Users,
+  X,
+  Download,
 } from 'lucide-react';
 import { useTelegram } from '../../../hooks/use-telegram';
 
@@ -205,6 +208,18 @@ export function TaskCard({
   const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
   const projectColor = task.project?.color || '#2563eb';
 
+  const [cardPreviewImage, setCardPreviewImage] = useState<string | null>(null);
+
+  const assigneesList: any[] = Array.isArray(task?.assignees) && task.assignees.length > 0
+    ? task.assignees
+    : (task?.assignee ? [task.assignee] : []);
+  const completedUserIds: string[] = Array.isArray(task?.completedAssigneeIds)
+    ? task.completedAssigneeIds
+    : (isDone ? assigneesList.map((a: any) => a.id) : []);
+
+  const totalAssignees = assigneesList.length;
+  const completedCount = assigneesList.filter((a: any) => completedUserIds.includes(a.id)).length;
+
   // Extract attachment preview images
   const previewImages: string[] = [];
   let totalAttachmentsCount = 0;
@@ -239,9 +254,10 @@ export function TaskCard({
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDone || isCompleting) return;
-    if (task.assigneeId && task.assigneeId !== currentUserId) {
+    const isOneOfAssignees = assigneesList.some((a: any) => a.id === currentUserId);
+    if (task.assigneeId && !isOneOfAssignees && task.creatorId !== currentUserId) {
       triggerHaptic('heavy');
-      alert(`Only ${task.assignee?.name || 'the assignee'} can complete this task.`);
+      alert(`Only an assignee or creator can complete this task.`);
       return;
     }
     triggerHaptic('medium');
@@ -348,16 +364,81 @@ export function TaskCard({
                 )}
               </div>
 
-              {/* Assignee Avatar / Initial or subtle priority dot */}
-              {task?.assignee?.avatarUrl ? (
-                <img
-                  src={task.assignee.avatarUrl}
-                  alt={task.assignee?.name || 'Assignee'}
-                  className="w-5 h-5 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
-                />
+              {/* Assignee Avatar Cluster / Single Avatar */}
+              {totalAssignees > 1 ? (
+                <div className="flex items-center -space-x-1.5 overflow-visible">
+                  {assigneesList.slice(0, 3).map((a: any, aIdx: number) => {
+                    const isUserDone = completedUserIds.includes(a.id) || isDone;
+                    return (
+                      <div
+                        key={a.id || aIdx}
+                        className="relative group/avatar"
+                        title={`${a.name || 'Member'}${isUserDone ? ' (Completed)' : ' (In Progress)'}`}
+                      >
+                        {a.avatarUrl ? (
+                          <img
+                            src={a.avatarUrl}
+                            alt={a.name || 'Assignee'}
+                            className={`w-5 h-5 rounded-full object-cover border-2 ${
+                              isUserDone
+                                ? 'border-emerald-500 ring-1 ring-emerald-400/40'
+                                : 'border-white dark:border-slate-900'
+                            } shadow-2xs shrink-0`}
+                          />
+                        ) : (
+                          <div
+                            className={`w-5 h-5 rounded-full ${
+                              isUserDone
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500'
+                                : 'bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border-2 border-white dark:border-slate-900'
+                            } font-bold text-[9px] flex items-center justify-center shadow-2xs shrink-0`}
+                          >
+                            {a.name?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        {isUserDone && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full flex items-center justify-center border border-white dark:border-slate-900 text-white shadow-xs">
+                            <Check className="w-1.5 h-1.5 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {totalAssignees > 3 && (
+                    <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-extrabold text-[8px] flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-2xs shrink-0">
+                      +{totalAssignees - 3}
+                    </div>
+                  )}
+                </div>
+              ) : task?.assignee?.avatarUrl ? (
+                <div className="relative" title={`${task.assignee?.name || 'Assignee'}${isDone ? ' (Completed)' : ''}`}>
+                  <img
+                    src={task.assignee.avatarUrl}
+                    alt={task.assignee?.name || 'Assignee'}
+                    className={`w-5 h-5 rounded-full object-cover border ${
+                      isDone ? 'border-emerald-500 ring-1 ring-emerald-400/40' : 'border-slate-200 dark:border-slate-700'
+                    } shadow-2xs shrink-0`}
+                  />
+                  {isDone && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full flex items-center justify-center border border-white dark:border-slate-900 text-white shadow-xs">
+                      <Check className="w-1.5 h-1.5 stroke-[3]" />
+                    </span>
+                  )}
+                </div>
               ) : task?.assignee?.name ? (
-                <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center border border-blue-200/60 dark:border-blue-700/60 shadow-2xs shrink-0">
-                  {task.assignee.name?.[0]?.toUpperCase() || 'U'}
+                <div className="relative" title={`${task.assignee?.name || 'Assignee'}${isDone ? ' (Completed)' : ''}`}>
+                  <div className={`w-5 h-5 rounded-full ${
+                    isDone
+                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-500'
+                      : 'bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60'
+                  } font-bold text-[9px] flex items-center justify-center shadow-2xs shrink-0`}>
+                    {task.assignee.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  {isDone && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full flex items-center justify-center border border-white dark:border-slate-900 text-white shadow-xs">
+                      <Check className="w-1.5 h-1.5 stroke-[3]" />
+                    </span>
+                  )}
                 </div>
               ) : (task?.priority === 'URGENT' || task?.priority === 'HIGH') ? (
                 <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
@@ -371,7 +452,12 @@ export function TaskCard({
               {previewImages.slice(0, 3).map((imgUrl, idx) => (
                 <div
                   key={idx}
-                  className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shrink-0 shadow-2xs group-hover:border-blue-300 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerHaptic('light');
+                    setCardPreviewImage(imgUrl);
+                  }}
+                  className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shrink-0 shadow-2xs group-hover:border-blue-300 transition-colors cursor-pointer hover:opacity-90 active:scale-95"
                 >
                   <img
                     src={imgUrl}
@@ -493,6 +579,23 @@ export function TaskCard({
               </span>
             )}
 
+            {/* Multi-Assignee Completion Progress Badge */}
+            {totalAssignees > 1 && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                  completedCount === totalAssignees
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60'
+                    : completedCount > 0
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}
+                title={`Completed: ${assigneesList.filter(a => completedUserIds.includes(a.id)).map(a => a.name).join(', ') || 'None'} | In Progress: ${assigneesList.filter(a => !completedUserIds.includes(a.id)).map(a => a.name).join(', ') || 'None'}`}
+              >
+                <Users className="w-2.5 h-2.5" />
+                <span>{completedCount}/{totalAssignees} completed</span>
+              </span>
+            )}
+
             {/* Join Call Action Button for Meetings */}
             {meta.joinUrl && /^(https?:\/\/|tg:\/\/)/i.test(meta.joinUrl) && (
               <button
@@ -508,6 +611,60 @@ export function TaskCard({
           </div>
         </div>
       </div>
+
+      {/* Attachment Image Fullscreen Lightbox Modal */}
+      {cardPreviewImage && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setCardPreviewImage(null);
+          }}
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Attachment Preview
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCardPreviewImage(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center max-h-[60vh]">
+              <img
+                src={cardPreviewImage}
+                alt="Attachment preview"
+                className="max-w-full max-h-[60vh] object-contain"
+              />
+            </div>
+
+            <div className="pt-1 flex items-center gap-2">
+              <a
+                href={cardPreviewImage}
+                target="_blank"
+                rel="noreferrer"
+                download="attachment"
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Open / Download</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

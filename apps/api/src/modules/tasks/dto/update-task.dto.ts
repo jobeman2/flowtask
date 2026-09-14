@@ -57,6 +57,11 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
+  completedAssigneeIds?: string[];
+
+  @IsOptional()
+  @IsArray()
   attachments?: any[];
 
   @IsOptional()

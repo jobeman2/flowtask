@@ -6,3 +6,10 @@ export class CreateCommentDto {
   @MaxLength(2000)
   content: string;
 }
+
+export class UpdateCommentDto {
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(2000)
+  content: string;
+}

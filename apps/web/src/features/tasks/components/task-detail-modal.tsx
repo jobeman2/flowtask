@@ -30,6 +30,10 @@ import {
   Zap,
   Sparkles,
   Loader2,
+  Check,
+  Reply,
+  CornerDownRight,
+  Edit2,
 } from 'lucide-react';
 import { parseTaskMeta } from './task-card';
 import { MeetingDetailModal } from '../../meetings/components/meeting-detail-modal';
@@ -108,9 +112,16 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editAssigneeId, setEditAssigneeId] = useState('');
+  const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
+  const [isAssignDropdownOpen, setIsAssignDropdownOpen] = useState(false);
+  const [assignMemberSearch, setAssignMemberSearch] = useState('');
   const [editPriority, setEditPriority] = useState<string>('MEDIUM');
   const [editDueDate, setEditDueDate] = useState('');
+
+  // Comment reply & edit state
+  const [replyingTo, setReplyingTo] = useState<{ id: string; author: string; snippet: string } | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState<string>('');
 
   // Attachments State (initialized empty and populated from real task.imageUrl or uploaded files)
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
@@ -122,6 +133,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     setIsEditing(false);
     setPreviewAttachment(null);
     setNewComment('');
+    setIsAssignDropdownOpen(false);
+    setReplyingTo(null);
+    setEditingCommentId(null);
+    setEditCommentText('');
     onClose();
   };
 
@@ -130,6 +145,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       setIsEditing(false);
       setPreviewAttachment(null);
       setNewComment('');
+      setIsAssignDropdownOpen(false);
+      setReplyingTo(null);
+      setEditingCommentId(null);
+      setEditCommentText('');
     }
   }, [taskId]);
 
@@ -152,7 +171,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
-    setEditAssigneeId(task.assigneeId || '');
+    const initialAssigneeIds = Array.isArray(task.assignees) && task.assignees.length > 0
+      ? task.assignees.map((a: any) => a.id)
+      : (task.assigneeId ? [task.assigneeId] : []);
+    setEditAssigneeIds(initialAssigneeIds);
     setEditPriority(task.priority || 'MEDIUM');
     setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
 
@@ -267,7 +289,46 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     onSuccess: () => {
       triggerHaptic('medium');
       setNewComment('');
+      setReplyingTo(null);
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+    },
+  });
+
+  // Update Comment Mutation
+  const updateCommentMutation = useMutation({
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => {
+      if (!taskId || !workspaceId) return;
+      const res = await apiClient.updateComment(taskId, commentId, workspaceId, content);
+      if (res?.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      setEditingCommentId(null);
+      setEditCommentText('');
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to update comment');
+    },
+  });
+
+  // Delete Comment Mutation
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      if (!taskId || !workspaceId) return;
+      const res = await apiClient.deleteComment(taskId, commentId, workspaceId);
+      if (res?.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+    },
+    onError: (err: any) => {
+      triggerHaptic('heavy');
+      alert(err.message || 'Failed to delete comment');
     },
   });
 
@@ -493,31 +554,78 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || addCommentMutation.isPending) return;
-    addCommentMutation.mutate(newComment.trim());
+    let finalContent = newComment.trim();
+    if (replyingTo) {
+      finalContent = `[replyTo:${replyingTo.id}|${replyingTo.author}] ${finalContent}`;
+    }
+    addCommentMutation.mutate(finalContent);
   };
 
-  const commentsList = (task?.comments || []).map((c: any) => ({
-    id: c.id,
-    user: c.author?.name || 'Teammate',
-    avatar: c.author?.avatarUrl,
-    text: c.content,
-    time: c.createdAt
-      ? new Date(c.createdAt).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : 'Just now',
-  }));
+  const commentsList = (task?.comments || []).map((c: any) => {
+    let rawText = c.content || '';
+    let replyMeta: { id: string; author: string } | null = null;
+    const match = rawText.match(/^\[replyTo:([^|\]]+)\|([^\]]+)\]\s*/);
+    if (match) {
+      replyMeta = { id: match[1], author: match[2] };
+      rawText = rawText.replace(match[0], '');
+    }
+
+    return {
+      id: c.id,
+      authorId: c.authorId || c.author?.id,
+      user: c.author?.name || 'Teammate',
+      avatar: c.author?.avatarUrl,
+      text: rawText,
+      replyMeta,
+      time: c.createdAt
+        ? new Date(c.createdAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'Just now',
+    };
+  });
 
   const cleanDescription = task?.description
     ? task.description.replace(/^-\s*\[[ xX]\]\s*.+$/gm, '').trim() || task.description
     : null;
 
-  const allAssignees = Array.isArray(task?.assignees) && task.assignees.length > 0
+  const allAssignees: any[] = Array.isArray(task?.assignees) && task.assignees.length > 0
     ? task.assignees
     : (task?.assignee ? [task.assignee] : []);
+  const currentAssigneeIds = allAssignees.map((a: any) => a.id);
+
+  const completedUserIds: string[] = Array.isArray(task?.completedAssigneeIds)
+    ? task.completedAssigneeIds
+    : (task?.status === 'DONE' ? currentAssigneeIds : []);
+
+  const isAssigneeOfTask = user?.id ? currentAssigneeIds.includes(user.id) : false;
+  const isMyPartDone = user?.id ? completedUserIds.includes(user.id) : false;
+
+  const handleAddAssignee = (targetUserId: string) => {
+    triggerHaptic('medium');
+    const updated = Array.from(new Set([...currentAssigneeIds, targetUserId]));
+    updateTaskMutation.mutate({ assigneeIds: updated });
+    setIsAssignDropdownOpen(false);
+  };
+
+  const handleRemoveAssignee = (targetUserId: string) => {
+    triggerHaptic('medium');
+    const updated = currentAssigneeIds.filter((id: string) => id !== targetUserId);
+    updateTaskMutation.mutate({ assigneeIds: updated });
+  };
+
+  const handleToggleMyCompletion = () => {
+    if (!user?.id) return;
+    triggerHaptic('medium');
+    const isDoneCurrently = completedUserIds.includes(user.id);
+    const updated = isDoneCurrently
+      ? completedUserIds.filter((id) => id !== user.id)
+      : [...completedUserIds, user.id];
+    updateTaskMutation.mutate({ completedAssigneeIds: updated });
+  };
 
   return (
     <>
@@ -617,21 +725,49 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     />
                   </div>
 
-                  {/* Assignee */}
+                  {/* Assignees Multi-Selection */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Assignee</label>
-                    <select
-                      value={editAssigneeId}
-                      onChange={(e) => setEditAssigneeId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
-                    >
-                      <option value="">Unassigned</option>
-                      {members.map((m: any) => (
-                        <option key={m.user?.id} value={m.user?.id}>
-                          {m.user?.name || m.user?.username || 'Member'} ({m.role})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">
+                        Assignees ({editAssigneeIds.length})
+                      </label>
+                      {editAssigneeIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEditAssigneeIds([])}
+                          className="text-[10px] text-rose-500 font-bold hover:underline"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-32 overflow-y-auto p-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-0.5">
+                      {members.map((m: any) => {
+                        const isChecked = editAssigneeIds.includes(m.user?.id);
+                        return (
+                          <label
+                            key={m.user?.id}
+                            className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-xs font-semibold transition-colors"
+                          >
+                            <span className="truncate text-slate-800 dark:text-slate-200">
+                              {m.user?.name || m.user?.username || 'Member'}
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setEditAssigneeIds(editAssigneeIds.filter((id) => id !== m.user?.id));
+                                } else {
+                                  setEditAssigneeIds([...editAssigneeIds, m.user?.id]);
+                                }
+                              }}
+                              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Priority & Due Date */}
@@ -669,7 +805,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       updateTaskMutation.mutate({
                         title: editTitle.trim(),
                         description: editDescription.trim(),
-                        assigneeId: editAssigneeId || null,
+                        assigneeId: editAssigneeIds[0] || null,
+                        assigneeIds: editAssigneeIds,
                         priority: editPriority,
                         dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
                       });
@@ -814,49 +951,203 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   )}
                 </div>
 
-                {/* Assignees */}
-                <div className="flex items-start justify-between pt-2 gap-2">
-                  <span className="font-bold text-slate-500 flex items-center gap-2 shrink-0 pt-0.5">
-                    <Users className="w-4 h-4 text-blue-500" />
-                    Assignees
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                    {canEditTask ? (
-                      <select
-                        value={task.assigneeId || ''}
-                        onChange={(e) => {
-                          triggerHaptic('medium');
-                          updateTaskMutation.mutate({ assigneeId: e.target.value || null });
-                        }}
-                        className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 outline-none cursor-pointer"
-                      >
-                        <option value="">Unassigned</option>
-                        {members.map((m: any) => (
-                          <option key={m.user?.id} value={m.user?.id}>
-                            {m.user?.name || m.user?.username || 'Member'}
-                          </option>
-                        ))}
-                      </select>
-                    ) : allAssignees.length === 0 ? (
-                      <span className="font-extrabold text-slate-400">Unassigned</span>
-                    ) : (
-                      allAssignees.map((u: any) => (
-                        <span
-                          key={u.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200/50 dark:border-blue-800/50"
+                {/* Multi-Assignees & Progress Section */}
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-500 flex items-center gap-2 text-xs">
+                      <Users className="w-4 h-4 text-blue-500" />
+                      Assignees ({allAssignees.length})
+                    </span>
+
+                    {/* Quick + Add / Reassign button */}
+                    {canEditTask && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic('light');
+                            setIsAssignDropdownOpen(!isAssignDropdownOpen);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 flex items-center gap-1 transition-all border border-blue-200/60 dark:border-blue-800/60"
                         >
-                          {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt={u.name} className="w-3.5 h-3.5 rounded-full object-cover" />
-                          ) : (
-                            <span className="w-3.5 h-3.5 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-[9px] flex items-center justify-center font-black">
-                              {u.name?.[0]?.toUpperCase() || 'U'}
-                            </span>
-                          )}
-                          <span>{u.name}</span>
-                        </span>
-                      ))
+                          <Plus className="w-3 h-3 stroke-[3]" />
+                          <span>Assign Member</span>
+                        </button>
+
+                        {/* Assignee Search & Select Dropdown */}
+                        {isAssignDropdownOpen && (
+                          <div
+                            className="absolute right-0 top-8 z-50 w-60 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5">
+                              <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-200">
+                                Assign Teammates
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setIsAssignDropdownOpen(false)}
+                                className="p-0.5 text-slate-400 hover:text-slate-600 rounded-md"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={assignMemberSearch}
+                              onChange={(e) => setAssignMemberSearch(e.target.value)}
+                              placeholder="Search member..."
+                              className="w-full px-2.5 py-1 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none text-slate-800 dark:text-slate-200"
+                            />
+                            <div className="max-h-44 overflow-y-auto no-scrollbar space-y-1">
+                              {members
+                                .filter((m: any) => {
+                                  const name = (m.user?.name || m.user?.username || '').toLowerCase();
+                                  return name.includes(assignMemberSearch.toLowerCase());
+                                })
+                                .map((m: any) => {
+                                  const isAssigned = currentAssigneeIds.includes(m.user?.id);
+                                  return (
+                                    <button
+                                      key={m.user?.id}
+                                      type="button"
+                                      onClick={() => {
+                                        if (isAssigned) {
+                                          handleRemoveAssignee(m.user?.id);
+                                        } else {
+                                          handleAddAssignee(m.user?.id);
+                                        }
+                                      }}
+                                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl text-left text-xs transition-colors ${
+                                        isAssigned
+                                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
+                                          : 'hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-medium'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {m.user?.avatarUrl ? (
+                                          <img src={m.user.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                                        ) : (
+                                          <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                            {(m.user?.name || m.user?.username || 'U')[0]?.toUpperCase()}
+                                          </span>
+                                        )}
+                                        <span className="truncate">
+                                          {m.user?.name || m.user?.username || 'Member'}
+                                        </span>
+                                      </div>
+                                      {isAssigned ? (
+                                        <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 stroke-[2.5]" />
+                                      ) : (
+                                        <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
+
+                  {/* Assignee Cards with Individual Completion Status */}
+                  {allAssignees.length === 0 ? (
+                    <div className="text-xs text-slate-400 py-1 font-medium italic">
+                      Unassigned (no teammates assigned yet)
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+                      {allAssignees.map((u: any) => {
+                        const isDone = completedUserIds.includes(u.id);
+                        return (
+                          <div
+                            key={u.id}
+                            className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border text-xs transition-all ${
+                              isDone
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/70 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+                                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="relative shrink-0">
+                                {u.avatarUrl ? (
+                                  <img src={u.avatarUrl} alt={u.name} className="w-6 h-6 rounded-full object-cover" />
+                                ) : (
+                                  <span className="w-6 h-6 rounded-full bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-[10px] flex items-center justify-center font-black">
+                                    {u.name?.[0]?.toUpperCase() || 'U'}
+                                  </span>
+                                )}
+                                {isDone && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center text-white ring-1 ring-white dark:ring-slate-900 text-[8px] font-black">
+                                    ✓
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-[11px] truncate leading-tight">{u.name}</p>
+                                <span className={`text-[9px] font-bold ${isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                                  {isDone ? 'Part Completed ✓' : 'In Progress'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              {canEditTask && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAssignee(u.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-500 rounded-md transition-colors"
+                                  title="Unassign teammate"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Multi-assignee Progress Bar & "Mark My Part as Done" Toggle */}
+                  {allAssignees.length > 0 && (
+                    <div className="pt-1.5 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                        <span>Assignee Progress</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-extrabold">
+                          {completedUserIds.filter((id) => currentAssigneeIds.includes(id)).length} of {allAssignees.length} completed
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 transition-all duration-300"
+                          style={{
+                            width: `${
+                              allAssignees.length > 0
+                                ? (completedUserIds.filter((id) => currentAssigneeIds.includes(id)).length / allAssignees.length) * 100
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+
+                      {/* If logged-in user is assigned, show 1-tap "Mark My Part Done" button */}
+                      {isAssigneeOfTask && (
+                        <button
+                          type="button"
+                          onClick={handleToggleMyCompletion}
+                          className={`w-full py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs ${
+                            isMyPartDone
+                              ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                              : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>{isMyPartDone ? '✓ Your Part is Completed (Tap to reopen)' : 'Mark My Part as Done'}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Created By */}
@@ -1073,7 +1364,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </div>
               </div>
 
-              {/* Activity & Discussions Feed */}
+              {/* Activity & Discussions Feed with Threaded Replies, Edit, and Delete */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -1087,37 +1378,156 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
                   {commentsList.length === 0 ? (
                     <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
                       No comments or updates yet.
                     </div>
                   ) : (
-                    commentsList.map((c: any) => (
-                      <div
-                        key={c.id}
-                        className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-0.5 border border-slate-100 dark:border-slate-800"
-                      >
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            {c.avatar ? (
-                              <img src={c.avatar} alt={c.user} className="w-3.5 h-3.5 rounded-full object-cover" />
-                            ) : (
-                              <span className="w-3.5 h-3.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[8px] font-bold">
-                                {c.user[0]?.toUpperCase()}
-                              </span>
-                            )}
-                            {c.user}
-                          </span>
-                          <span className="text-slate-400 font-medium">{c.time}</span>
+                    commentsList.map((c: any) => {
+                      const isAuthor = Boolean(user?.id && (c.authorId === user.id || c.user === user.name));
+                      const canDelete = isAuthor || isOwnerOrAdmin;
+                      const isBeingEdited = editingCommentId === c.id;
+
+                      return (
+                        <div
+                          key={c.id}
+                          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-1 border border-slate-100 dark:border-slate-800"
+                        >
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              {c.avatar ? (
+                                <img src={c.avatar} alt={c.user} className="w-3.5 h-3.5 rounded-full object-cover" />
+                              ) : (
+                                <span className="w-3.5 h-3.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center text-[8px] font-bold">
+                                  {c.user[0]?.toUpperCase()}
+                                </span>
+                              )}
+                              {c.user}
+                              {isAuthor && (
+                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                                  You
+                                </span>
+                              )}
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 font-medium text-[9px]">{c.time}</span>
+                              {/* Reply, Edit & Delete action buttons */}
+                              <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-slate-700">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    triggerHaptic('light');
+                                    setReplyingTo({ id: c.id, author: c.user, snippet: c.text.slice(0, 30) });
+                                  }}
+                                  className="text-slate-400 hover:text-blue-600 p-0.5 rounded transition-colors"
+                                  title="Reply to comment"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                </button>
+                                {isAuthor && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      triggerHaptic('light');
+                                      setEditingCommentId(c.id);
+                                      setEditCommentText(c.text);
+                                    }}
+                                    className="text-slate-400 hover:text-amber-600 p-0.5 rounded transition-colors"
+                                    title="Edit comment"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm('Are you sure you want to delete this comment?')) {
+                                        deleteCommentMutation.mutate(c.id);
+                                      }
+                                    }}
+                                    className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors"
+                                    title="Delete comment"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Reply Quote Banner if this is a reply to another comment */}
+                          {c.replyMeta && (
+                            <div className="ml-5 my-0.5 px-2 py-0.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border-l-2 border-blue-500 text-[10px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                              <CornerDownRight className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                              <span>Replying to <strong className="text-blue-600 dark:text-blue-400">@{c.replyMeta.author}</strong></span>
+                            </div>
+                          )}
+
+                          {/* Inline Edit Form OR Comment Text */}
+                          {isBeingEdited ? (
+                            <div className="pt-1 pl-5 space-y-1.5">
+                              <textarea
+                                value={editCommentText}
+                                onChange={(e) => setEditCommentText(e.target.value)}
+                                className="w-full p-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-800 dark:text-slate-200 focus:border-blue-500"
+                                rows={2}
+                                autoFocus
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCommentId(null);
+                                    setEditCommentText('');
+                                  }}
+                                  className="px-2.5 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 rounded-lg"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!editCommentText.trim()) return;
+                                    updateCommentMutation.mutate({ commentId: c.id, content: editCommentText.trim() });
+                                  }}
+                                  disabled={!editCommentText.trim() || updateCommentMutation.isPending}
+                                  className="px-3 py-1 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all disabled:opacity-50"
+                                >
+                                  {updateCommentMutation.isPending ? 'Saving...' : 'Save'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed pl-5 whitespace-pre-wrap">
+                              {c.text}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed pl-5">
-                          {c.text}
-                        </p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
+
+                {/* Replying banner indicator */}
+                {replyingTo && (
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 rounded-xl border border-blue-200 dark:border-blue-800 text-[11px] text-blue-700 dark:text-blue-300 animate-in fade-in duration-150">
+                    <span className="flex items-center gap-1.5 font-medium truncate">
+                      <Reply className="w-3 h-3 shrink-0 text-blue-500" />
+                      <span>Replying to <strong>@{replyingTo.author}</strong></span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(null)}
+                      className="p-0.5 text-blue-400 hover:text-blue-700 rounded-md"
+                      title="Cancel reply"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
                 {/* Add Comment Box */}
                 <form onSubmit={handleAddComment} className="flex gap-2 pt-1">
@@ -1126,7 +1536,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     onFocus={handleInputFocus}
-                    placeholder="Post comment or team note..."
+                    placeholder={replyingTo ? `Write a reply to @${replyingTo.author}...` : 'Post comment or team note...'}
                     enterKeyHint="send"
                     autoCapitalize="sentences"
                     className="flex-1 px-3 py-2 text-[16px] sm:text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-medium transition-all focus:border-blue-500"

@@ -17,6 +17,9 @@ import {
   Check,
   ChevronDown,
   UploadCloud,
+  Calendar,
+  Eye,
+  Download,
 } from 'lucide-react';
 
 export interface AttachmentFile {
@@ -88,9 +91,11 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
+  const [selectedQuickChip, setSelectedQuickChip] = useState<'today' | 'tomorrow' | 'in2days' | 'nextWeek' | 'custom' | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [projectId, setProjectId] = useState<string>('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [previewAttachment, setPreviewAttachment] = useState<AttachmentFile | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showCustomDate, setShowCustomDate] = useState(false);
 
@@ -125,8 +130,13 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
     }, 250);
   };
 
-  const setQuickDueDate = (offsetDays: number, hour = 18) => {
+  const setQuickDueDate = (offsetDays: number, hour: number, chipKey: 'today' | 'tomorrow' | 'in2days' | 'nextWeek') => {
     triggerHaptic('light');
+    if (selectedQuickChip === chipKey) {
+      setSelectedQuickChip(null);
+      setDueDate('');
+      return;
+    }
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
     d.setHours(hour, 0, 0, 0);
@@ -134,6 +144,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       .toISOString()
       .slice(0, 16);
     setDueDate(localIso);
+    setSelectedQuickChip(chipKey);
   };
 
   // Fetch Team Members
@@ -494,6 +505,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                   onClick={() => {
                     triggerHaptic('light');
                     setDueDate('');
+                    setSelectedQuickChip(null);
                   }}
                   className="text-[10px] text-rose-500 font-bold hover:underline"
                 >
@@ -506,47 +518,87 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
               <button
                 type="button"
-                onClick={() => setQuickDueDate(0, 18)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 hover:bg-blue-100 transition-all shrink-0 active:scale-95"
+                onClick={() => setQuickDueDate(0, 18, 'today')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                  selectedQuickChip === 'today'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
               >
-                Today 6pm
+                {selectedQuickChip === 'today' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                <span>Today 6pm</span>
               </button>
               <button
                 type="button"
-                onClick={() => setQuickDueDate(1, 10)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 hover:bg-blue-100 transition-all shrink-0 active:scale-95"
+                onClick={() => setQuickDueDate(1, 10, 'tomorrow')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                  selectedQuickChip === 'tomorrow'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
               >
-                Tomorrow
+                {selectedQuickChip === 'tomorrow' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                <span>Tomorrow 10am</span>
               </button>
               <button
                 type="button"
-                onClick={() => setQuickDueDate(2, 18)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-all shrink-0 active:scale-95"
+                onClick={() => setQuickDueDate(2, 18, 'in2days')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                  selectedQuickChip === 'in2days'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
               >
-                In 2 Days
+                {selectedQuickChip === 'in2days' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                <span>In 2 Days</span>
               </button>
               <button
                 type="button"
-                onClick={() => setQuickDueDate(7, 10)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-all shrink-0 active:scale-95"
+                onClick={() => setQuickDueDate(7, 10, 'nextWeek')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                  selectedQuickChip === 'nextWeek'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
               >
-                Next Week
+                {selectedQuickChip === 'nextWeek' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                <span>Next Week</span>
               </button>
               <button
                 type="button"
-                onClick={() => setShowCustomDate(!showCustomDate)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-all shrink-0"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setShowCustomDate(!showCustomDate);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1 ${
+                  showCustomDate || selectedQuickChip === 'custom'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
               >
-                {showCustomDate ? 'Hide Picker' : 'Custom...'}
+                <span>{showCustomDate ? 'Hide Picker' : 'Custom...'}</span>
               </button>
             </div>
+
+            {/* Formatted selection label preview */}
+            {dueDate && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200/60 dark:border-blue-800/60 animate-in fade-in">
+                <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>
+                  Due: {new Date(dueDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              </div>
+            )}
 
             {/* Custom DateTime picker (toggleable or auto-shown if set) */}
             {(showCustomDate || dueDate) && (
               <input
                 type="datetime-local"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(e) => {
+                  setDueDate(e.target.value);
+                  setSelectedQuickChip(e.target.value ? 'custom' : null);
+                }}
                 onFocus={handleInputFocus}
                 className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors"
               />
@@ -845,7 +897,10 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                     key={att.id}
                     className="flex items-center justify-between p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs hover:border-blue-300 transition-all"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div
+                      className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                      onClick={() => setPreviewAttachment(att)}
+                    >
                       {att.isImage ? (
                         <img
                           src={att.url}
@@ -866,17 +921,27 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic('light');
-                        setAttachments(attachments.filter((a) => a.id !== att.id));
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
-                      title="Remove file"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(att)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                        title="Preview attachment"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setAttachments(attachments.filter((a) => a.id !== att.id));
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                        title="Remove file"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -896,6 +961,70 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
         </form>
         </div>
       </div>
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <div
+          onClick={() => setPreviewAttachment(null)}
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[88vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="min-w-0 pr-2">
+                <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                  {previewAttachment.name}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {previewAttachment.size}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewAttachment(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {previewAttachment.isImage || previewAttachment.type === 'image' ? (
+                <div className="rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center max-h-[50vh]">
+                  <img
+                    src={previewAttachment.url}
+                    alt={previewAttachment.name}
+                    className="max-w-full max-h-[50vh] object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="p-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                  <FileText className="w-10 h-10 text-blue-500 mx-auto" />
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {previewAttachment.name}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{previewAttachment.size}</p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <a
+                  href={previewAttachment.url}
+                  download={previewAttachment.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download / Open</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

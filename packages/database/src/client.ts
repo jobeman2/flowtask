@@ -1414,6 +1414,47 @@ export class MockPrismaClient {
       }
       return record;
     },
+    findFirst: async ({ where, include }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.comments.values());
+      if (where?.id) list = list.filter((c: any) => c.id === where.id);
+      if (where?.taskId) list = list.filter((c: any) => c.taskId === where.taskId);
+      if (where?.authorId) list = list.filter((c: any) => c.authorId === where.authorId);
+      const record = list[0] || null;
+      if (record && include?.author) {
+        return {
+          ...record,
+          author: this.users.get(record.authorId) || { id: record.authorId, name: 'User' },
+        };
+      }
+      return record;
+    },
+    findUnique: async ({ where, include }: any = {}) => {
+      this.loadFromDisk();
+      const record = this.comments.get(where?.id) || null;
+      if (record && include?.author) {
+        return {
+          ...record,
+          author: this.users.get(record.authorId) || { id: record.authorId, name: 'User' },
+        };
+      }
+      return record;
+    },
+    update: async ({ where, data, include }: any) => {
+      this.loadFromDisk();
+      const existing = this.comments.get(where?.id);
+      if (!existing) return null;
+      const updated = { ...existing, ...data, updatedAt: new Date() };
+      this.comments.set(where.id, updated);
+      this.saveToDisk();
+      if (include?.author) {
+        return {
+          ...updated,
+          author: this.users.get(updated.authorId) || { id: updated.authorId, name: 'User' },
+        };
+      }
+      return updated;
+    },
     delete: async ({ where }: any) => {
       this.loadFromDisk();
       const c = this.comments.get(where.id);

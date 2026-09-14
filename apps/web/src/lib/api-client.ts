@@ -243,6 +243,19 @@ class ApiClient {
     });
   }
 
+  async updateComment(taskId: string, commentId: string, workspaceId: string, content: string) {
+    return this.request<any>(`/tasks/${taskId}/comments/${commentId}?workspaceId=${workspaceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async deleteComment(taskId: string, commentId: string, workspaceId: string) {
+    return this.request<any>(`/tasks/${taskId}/comments/${commentId}?workspaceId=${workspaceId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getTaskComments(taskId: string, workspaceId: string) {
     return this.request<any[]>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`);
   }
