@@ -27,7 +27,7 @@ export function MeetingDetailModal({
   onClose,
   meetingTask,
 }: MeetingDetailModalProps) {
-  const { workspaceId } = useAuth();
+  const { user, workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
@@ -179,22 +179,24 @@ export function MeetingDetailModal({
           )}
         </div>
 
-        {/* Fixed Bottom — Delete only */}
-        <div className="p-4 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-          <button
-            type="button"
-            disabled={deleteMutation.isPending}
-            onClick={() => {
-              if (confirm('Delete this meeting?')) {
-                deleteMutation.mutate();
-              }
-            }}
-            className="w-full py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{deleteMutation.isPending ? 'Deleting...' : 'Delete Meeting'}</span>
-          </button>
-        </div>
+        {/* Fixed Bottom — Delete only for creator */}
+        {user?.id && (meetingTask?.creatorId === user.id || meetingTask?.creator?.id === user.id) && (
+          <div className="p-4 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (confirm('Delete this meeting?')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              className="w-full py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 transition-all flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{deleteMutation.isPending ? 'Deleting...' : 'Delete Meeting'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

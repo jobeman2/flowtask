@@ -8,8 +8,6 @@ import { useTelegram } from '../../../hooks/use-telegram';
 import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
-  Calendar,
-  Clock,
   User,
   Users,
   Paperclip,
@@ -18,13 +16,17 @@ import {
   Search,
   Check,
   ChevronDown,
-  FolderKanban,
-  CheckCircle2,
   UploadCloud,
-  Image as ImageIcon,
-  CheckSquare,
-  Square,
 } from 'lucide-react';
+
+export interface AttachmentFile {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: string;
+  isImage?: boolean;
+}
 
 interface CreateTaskSheetProps {
   isOpen: boolean;
@@ -79,7 +81,7 @@ function compressImageFile(file: File): Promise<string> {
 export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
-  const { addNotification } = useNotifications();
+  const { showToast } = useNotifications();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState('');
@@ -203,7 +205,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
 
       const taskName = data?.title || title.trim() || 'New task';
-      addNotification({
+      showToast({
         type: 'TASK_CREATED',
         title: 'Task Created',
         message: `"${taskName}" created successfully`,

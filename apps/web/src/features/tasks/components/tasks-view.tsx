@@ -11,7 +11,6 @@ import { ProjectsView } from '../../projects/components/projects-view';
 import { TaskCard } from './task-card';
 import {
   Search,
-  Check,
   Layers,
   LayoutGrid,
   Calendar as CalendarIcon,
@@ -98,25 +97,6 @@ export function TasksView({
       return true;
     });
   }, [tasks, activeFilter, selectedProjectId, searchQuery]);
-
-  // Priority Dot Color
-  const getPriorityDot = (priority: string) => {
-    if (priority === 'URGENT' || priority === 'HIGH') return 'bg-rose-500 ring-rose-500/20';
-    if (priority === 'MEDIUM') return 'bg-amber-500 ring-amber-500/20';
-    return 'bg-blue-500 ring-blue-500/20';
-  };
-
-  // Format Due Date
-  const formatDue = (dateStr?: string | null) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-300 font-sans">

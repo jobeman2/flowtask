@@ -385,43 +385,41 @@ export class TasksService {
       }).catch(() => {});
     }
 
-    // Dispatch notifications asynchronously (non-blocking)
+    // Dispatch notifications asynchronously (non-blocking) to all assignees
     try {
       const creator = await this.prisma.user.findUnique({ where: { id: creatorId } });
       const workspace = await this.prisma.workspace.findUnique({ where: { id: targetWorkspaceId } });
 
-      let targetTg = dto.assigneeId
-        ? await this.prisma.telegramAccount.findFirst({ where: { userId: dto.assigneeId } })
-        : null;
+      for (const aId of assigneesToNotify) {
+        if (!aId || aId === creatorId) continue;
 
-      // Ensure targetTg has a valid numeric Telegram ID if possible
-      if (dto.assigneeId && (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId))) {
-        const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: dto.assigneeId } });
-        if (assigneeUserObj?.name) {
-          const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
-          const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
-          if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
-            targetTg = altTg;
+        let targetTg = await this.prisma.telegramAccount.findFirst({ where: { userId: aId } });
+
+        // Ensure targetTg has a valid numeric Telegram ID if possible
+        if (!targetTg?.telegramId || !/^\d+$/.test(targetTg.telegramId)) {
+          const assigneeUserObj = await this.prisma.user.findUnique({ where: { id: aId } });
+          if (assigneeUserObj?.name) {
+            const cleanName = assigneeUserObj.name.replace(/^@/, '').toLowerCase();
+            const altTg = await this.prisma.telegramAccount.findFirst({ where: { username: cleanName } });
+            if (altTg?.telegramId && /^\d+$/.test(altTg.telegramId)) {
+              targetTg = altTg;
+            }
           }
         }
-      }
 
-      const assigneeUser = dto.assigneeId
-        ? await this.prisma.user.findUnique({ where: { id: dto.assigneeId } })
-        : null;
-
-      // 1. Send DM to the assignee (if assigned to someone else)
-      if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId) && dto.assigneeId !== creatorId) {
-        await this.telegramService.notifyTaskAssigned({
-          targetTelegramId: targetTg.telegramId,
-          taskId: result.id,
-          taskTitle: dto.title,
-          description: dto.description || null,
-          priority: dto.priority || 'MEDIUM',
-          workspaceName: workspace?.name || 'Team Workspace',
-          assignerName: creator?.name || 'A teammate',
-          dueDate: dto.dueDate || null,
-        });
+        // Send DM to the assignee (never to the creator)
+        if (targetTg?.telegramId && /^\d+$/.test(targetTg.telegramId)) {
+          await this.telegramService.notifyTaskAssigned({
+            targetTelegramId: targetTg.telegramId,
+            taskId: result.id,
+            taskTitle: dto.title,
+            description: dto.description || null,
+            priority: dto.priority || 'MEDIUM',
+            workspaceName: workspace?.name || 'Team Workspace',
+            assignerName: creator?.name || 'A teammate',
+            dueDate: dto.dueDate || null,
+          });
+        }
       }
     } catch (e: any) {
       // Non-blocking notification

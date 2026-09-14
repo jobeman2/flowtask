@@ -26,6 +26,10 @@ class ConnectTelegramGroupDto {
   @IsNotEmpty()
   @IsString()
   chatIdOrUsername: string;
+
+  @IsOptional()
+  @IsString()
+  targetWorkspaceId?: string;
 }
 
 class AddMemberDto {
@@ -72,7 +76,7 @@ export class WorkspacesController {
     @CurrentUser() user: User,
     @Body() dto: ConnectTelegramGroupDto
   ) {
-    return this.workspacesService.connectTelegramGroup(user.id, dto.chatIdOrUsername);
+    return this.workspacesService.connectTelegramGroup(user.id, dto.chatIdOrUsername, dto.targetWorkspaceId);
   }
 
   @Get('invitations/pending')

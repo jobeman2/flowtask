@@ -28,8 +28,6 @@ interface NotificationsModalProps {
 export function NotificationsModal({
   isOpen,
   onClose,
-  onOpenSettings,
-  onSelectTask,
 }: NotificationsModalProps) {
   const {
     notifications,
@@ -82,15 +80,8 @@ export function NotificationsModal({
 
   const handleNotificationClick = (notif: AppNotification) => {
     triggerHaptic('light');
-    // Mark as read so it disappears from the active drawer
+    // Mark as read so it disappears from the active drawer (notifications do not open tasks)
     markAsRead(notif.id);
-
-    const targetTaskId =
-      notif.data?.taskId || notif.data?.task?.id || notif.data?.entityId;
-    if (targetTaskId && onSelectTask) {
-      onSelectTask(targetTaskId);
-      onClose();
-    }
   };
 
   return (

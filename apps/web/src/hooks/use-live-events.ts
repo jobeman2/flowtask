@@ -156,14 +156,14 @@ export function useLiveEvents(workspaceId?: string | null) {
                   (Array.isArray(parsed.data?.assigneeIds) && parsed.data.assigneeIds.includes(currentUserId));
                 const isOwner = ownerId && ownerId === currentUserId;
 
-                if (isAssignedToMe) {
+                if (isAssignedToMe && actorId !== currentUserId) {
                   notify({
                     type: 'TASK_CREATED',
                     title: 'New Task Assigned',
                     message: `"${taskTitle}" was created and assigned to you`,
                     data: { ...parsed.data, taskId },
                   });
-                } else if (isOwner) {
+                } else if (isOwner && actorId !== currentUserId) {
                   notify({
                     type: 'TASK_CREATED',
                     title: 'New Task Created',

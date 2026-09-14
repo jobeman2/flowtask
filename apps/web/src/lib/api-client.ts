@@ -169,14 +169,14 @@ class ApiClient {
     });
   }
 
-  async connectTelegramGroup(chatIdOrUsername: string) {
+  async connectTelegramGroup(chatIdOrUsername: string, targetWorkspaceId?: string) {
     return this.request<{
       workspaceId: string;
       telegramChat: any;
       syncResult: any;
     }>('/workspaces/connect-telegram-group', {
       method: 'POST',
-      body: JSON.stringify({ chatIdOrUsername }),
+      body: JSON.stringify({ chatIdOrUsername, targetWorkspaceId }),
     });
   }
 
@@ -269,16 +269,6 @@ class ApiClient {
     });
   }
 
-  async getComments(taskId: string, workspaceId: string) {
-    return this.request<any[]>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`);
-  }
-
-  async addComment(taskId: string, workspaceId: string, content: string) {
-    return this.request<any>(`/tasks/${taskId}/comments?workspaceId=${workspaceId}`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    });
-  }
 
   async getActivity(workspaceId: string) {
     return this.request<any[]>(`/activity?workspaceId=${workspaceId}`);

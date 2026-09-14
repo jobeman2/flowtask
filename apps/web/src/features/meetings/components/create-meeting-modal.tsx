@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
+import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
   Calendar,
@@ -28,6 +29,7 @@ interface CreateMeetingModalProps {
 export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeetingModalProps) {
   const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
+  const { showToast } = useNotifications();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState('');
@@ -94,6 +96,12 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
       setIsSuccess(true);
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+
+      showToast({
+        type: 'TASK_CREATED',
+        title: 'Meeting Scheduled',
+        message: `Meeting "${title.trim() || 'Meeting'}" scheduled successfully`,
+      });
 
       setTimeout(() => {
         setIsSuccess(false);

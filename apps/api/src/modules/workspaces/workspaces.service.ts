@@ -399,12 +399,34 @@ export class WorkspacesService {
   }
 
   async acceptInvitation(invitationId: string, userId: string) {
-    const invitation = await (this.prisma as any).workspaceInvitation.findUnique({
+    let invitation = await (this.prisma as any).workspaceInvitation.findUnique({
       where: { id: invitationId },
       include: { workspace: true },
     });
 
     if (!invitation) {
+      // Fallback: Check if invitationId is a direct workspaceId
+      const ws = await this.prisma.workspace.findUnique({ where: { id: invitationId } });
+      if (ws) {
+        let member = await this.prisma.workspaceMember.findFirst({
+          where: { workspaceId: ws.id, userId },
+        });
+        if (!member) {
+          member = await this.prisma.workspaceMember.create({
+            data: {
+              workspaceId: ws.id,
+              userId,
+              role: WorkspaceRole.MEMBER,
+            },
+          });
+        }
+        return {
+          success: true,
+          message: `Joined workspace ${ws.name}!`,
+          workspace: ws,
+          member,
+        };
+      }
       throw new NotFoundException('Invitation not found or expired');
     }
 
@@ -892,6 +914,55 @@ export class WorkspacesService {
       }
     }
 
+    // 4. Also resolve and import any pending invitations for this workspace
+    try {
+      const pendingInvs = await (this.prisma as any).workspaceInvitation.findMany({
+        where: { workspaceId, status: 'PENDING' },
+      });
+
+      for (const inv of pendingInvs) {
+        let userAcc = null;
+        if (inv.targetTelegramId) {
+          userAcc = await this.prisma.telegramAccount.findFirst({
+            where: { telegramId: inv.targetTelegramId },
+          });
+        }
+        if (!userAcc && inv.targetUsername) {
+          userAcc = await this.prisma.telegramAccount.findFirst({
+            where: { username: inv.targetUsername.toLowerCase() },
+          });
+        }
+        if (!userAcc && inv.inviteeUserId) {
+          userAcc = await this.prisma.telegramAccount.findFirst({
+            where: { userId: inv.inviteeUserId },
+          });
+        }
+
+        if (userAcc) {
+          const isMem = await this.prisma.workspaceMember.findFirst({
+            where: { workspaceId, userId: userAcc.userId },
+          });
+          if (!isMem) {
+            const newMem = await this.prisma.workspaceMember.create({
+              data: {
+                workspaceId,
+                userId: userAcc.userId,
+                role: inv.role || WorkspaceRole.MEMBER,
+              },
+              include: { user: true },
+            });
+            importedMembers.push(newMem);
+          }
+          await (this.prisma as any).workspaceInvitation.update({
+            where: { id: inv.id },
+            data: { status: 'ACCEPTED', inviteeUserId: userAcc.userId },
+          });
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+
     return {
       success: true,
       message: `Successfully synchronized ${importedMembers.length} member(s) from Telegram group "${tgChat.title}"!`,
@@ -901,7 +972,7 @@ export class WorkspacesService {
     };
   }
 
-  async connectTelegramGroup(userId: string, chatIdOrUsername: string) {
+  async connectTelegramGroup(userId: string, chatIdOrUsername: string, targetWorkspaceId?: string) {
     const userTgAccount = await this.prisma.telegramAccount.findFirst({
       where: { userId },
     });
@@ -918,10 +989,17 @@ export class WorkspacesService {
       query = query.replace('@', '');
     }
 
+    // Check if input is a private invite link (e.g. +... or joinchat/...)
+    if (query.startsWith('+') || query.includes('joinchat')) {
+      throw new BadRequestException(
+        'Private invite links cannot be queried directly by Telegram Bot API. Please type /connect in your Telegram group, or enter the group\'s Chat ID (e.g. -100...).'
+      );
+    }
+
     const chatInfo = await this.telegramService.getChatInfo(query);
     if (!chatInfo || !chatInfo.id) {
       throw new NotFoundException(
-        `Telegram group "${query}" was not found or @flowtaskmanager_bot is not added to it. Please add @flowtaskmanager_bot as an Admin to your group first!`
+        `Telegram group "${query}" was not found or @flowtaskmanager_bot is not added to it. Please add @flowtaskmanager_bot as an Admin to your group and type /connect in the group, or provide the group's Chat ID!`
       );
     }
 
@@ -941,7 +1019,47 @@ export class WorkspacesService {
 
     let workspaceId: string;
 
-    if (!tgChat) {
+    if (targetWorkspaceId) {
+      // Link to an existing workspace
+      const targetWs = await this.prisma.workspace.findUnique({
+        where: { id: targetWorkspaceId },
+        include: { members: { where: { userId } } },
+      });
+
+      if (!targetWs) {
+        throw new NotFoundException('Target workspace not found');
+      }
+
+      const isTargetAdmin =
+        targetWs.ownerId === userId ||
+        targetWs.members[0]?.role === WorkspaceRole.OWNER ||
+        targetWs.members[0]?.role === WorkspaceRole.ADMIN;
+
+      if (!isTargetAdmin) {
+        throw new ForbiddenException('You must be an Owner or Admin of the workspace to link it to a Telegram group');
+      }
+
+      workspaceId = targetWorkspaceId;
+
+      if (!tgChat) {
+        tgChat = await (this.prisma as any).telegramChat.create({
+          data: {
+            chatId,
+            title: chatInfo.title || targetWs.name,
+            type: chatInfo.type || 'group',
+            workspaceId: targetWorkspaceId,
+          },
+        });
+      } else {
+        tgChat = await (this.prisma as any).telegramChat.update({
+          where: { id: tgChat.id },
+          data: {
+            workspaceId: targetWorkspaceId,
+            title: chatInfo.title || tgChat.title,
+          },
+        });
+      }
+    } else if (!tgChat) {
       const title = chatInfo.title || 'Telegram Team';
       const slug = `tg-${chatId.replace(/[^0-9]/g, '')}-${Date.now().toString(36)}`;
       const newWs = await this.prisma.workspace.create({

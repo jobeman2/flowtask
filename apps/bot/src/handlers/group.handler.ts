@@ -208,6 +208,120 @@ export async function resolveGroupWorkspace(ctx: Context, tgUser?: any) {
 }
 
 /**
+ * Handles new chat members added to a group.
+ * If user has started FlowTask bot: auto-adds them to the group workspace and sends private notification.
+ * If user has not started FlowTask bot: creates pending invitation so they join when opening the bot.
+ */
+export async function handleNewChatMembers(ctx: Context) {
+  const newMembers = ctx.message?.new_chat_members || ((ctx as any).chatMember?.new_chat_member?.user ? [(ctx as any).chatMember.new_chat_member.user] : []);
+  if (!newMembers || newMembers.length === 0) return;
+
+  // Check if bot itself was added
+  const botInfo = ctx.me;
+  const isBotAdded = newMembers.some((m: any) => m.id === botInfo.id);
+  if (isBotAdded) {
+    return handleBotAddedToGroup(ctx);
+  }
+
+  const workspace = await resolveGroupWorkspace(ctx);
+  if (!workspace) return;
+
+  const addedNames: string[] = [];
+
+  for (const member of newMembers) {
+    if (member.is_bot) continue;
+
+    const tgIdStr = member.id.toString();
+    const username = member.username ? member.username.replace(/^@/, '').toLowerCase() : null;
+    const displayName = [member.first_name, member.last_name].filter(Boolean).join(' ') || username || 'Team Member';
+
+    // 1. Check if user already has an account in FlowTask (has started the bot)
+    let account = await prisma.telegramAccount.findUnique({
+      where: { telegramId: tgIdStr },
+      include: { user: true },
+    });
+
+    if (!account && username) {
+      account = await prisma.telegramAccount.findFirst({
+        where: { username },
+        include: { user: true },
+      });
+    }
+
+    if (account) {
+      // User has started the bot! Auto-add them to this group's workspace
+      const isMember = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: workspace.id, userId: account.userId },
+      });
+
+      if (!isMember) {
+        await prisma.workspaceMember.create({
+          data: {
+            workspaceId: workspace.id,
+            userId: account.userId,
+            role: WorkspaceRole.MEMBER,
+          },
+        });
+        addedNames.push(displayName);
+
+        // Send them a private notification with 1-tap webapp access
+        try {
+          await ctx.api.sendMessage(
+            tgIdStr,
+            `🎉 *You were added to the workspace team!*\n\n` +
+            `🏢 *Workspace:* *${escapeMarkdown(workspace.name)}*\n` +
+            `You can now view, create, and complete tasks with your teammates.`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: new InlineKeyboard().url(
+                '📱 Open Team Board',
+                `${botConfig.webAppUrl}?workspaceId=${workspace.id}`
+              ),
+            }
+          );
+        } catch {}
+      }
+    } else {
+      // User has not started the bot yet: create a pending invitation
+      const existingInv = await (prisma as any).workspaceInvitation.findFirst({
+        where: {
+          workspaceId: workspace.id,
+          status: 'PENDING',
+          OR: [
+            { targetTelegramId: tgIdStr },
+            ...(username ? [{ targetUsername: username }] : []),
+          ],
+        },
+      });
+
+      if (!existingInv) {
+        await (prisma as any).workspaceInvitation.create({
+          data: {
+            workspaceId: workspace.id,
+            targetTelegramId: tgIdStr,
+            targetUsername: username,
+            role: WorkspaceRole.MEMBER,
+            status: 'PENDING',
+          },
+        });
+      }
+    }
+  }
+
+  if (addedNames.length > 0) {
+    const namesStr = addedNames.join(', ');
+    await ctx.reply(
+      `👋 *Welcome ${escapeMarkdown(namesStr)} to ${escapeMarkdown(workspace.name)}!*\n\n` +
+      `Your account has been synced with the team's task board.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard().url('📱 Open Team Board', `${botConfig.webAppUrl}?workspaceId=${workspace.id}`),
+      }
+    );
+  }
+}
+
+/**
  * Greets the group when the bot is added or initialized.
  */
 export async function handleBotAddedToGroup(ctx: Context) {
@@ -222,9 +336,12 @@ export async function handleBotAddedToGroup(ctx: Context) {
     .text('📋 Active Tasks', 'tasks:filter:PENDING:1')
     .text('📊 Team Summary', 'action:group_summary');
 
+  const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : '';
+
   await ctx.reply(
     `👥 *FlowTask Group Task Board Initialized!*\n\n` +
     `🏢 *Workspace:* *${escapeMarkdown(workspace.name)}*\n` +
+    (chatIdStr ? `🆔 *Chat ID:* \`${chatIdStr}\`\n\n` : '\n') +
     `This Telegram group is now synced with your team's collaborative task board.\n\n` +
     `🚀 *Group Commands:*\n` +
     `• \`/task <title> [@member] [!priority] [due date]\` — Add task\n` +
@@ -235,6 +352,64 @@ export async function handleBotAddedToGroup(ctx: Context) {
     `• \`/done <id>\` — Quick-complete a task\n\n` +
     `_Tip: Tag teammates with @username to assign tasks instantly!_`,
     { parse_mode: 'Markdown', reply_markup: keyboard }
+  );
+}
+
+/**
+ * Handles /link command to link an existing workspace to this group or create a new one.
+ */
+export async function handleLinkGroupCommand(ctx: Context) {
+  const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
+  if (!isGroup) {
+    return ctx.reply('Please run `/link` inside a Telegram group you want to link to a workspace.', {
+      parse_mode: 'Markdown',
+    });
+  }
+
+  const tgUser = ctx.from;
+  if (!tgUser) return;
+
+  const account = await prisma.telegramAccount.findUnique({
+    where: { telegramId: tgUser.id.toString() },
+    include: {
+      user: {
+        include: {
+          workspaceMembers: {
+            include: { workspace: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!account) {
+    return ctx.reply('⚠️ Please start @flowtaskmanager_bot first to view and link your workspaces.');
+  }
+
+  const eligibleMembers = account.user.workspaceMembers.filter(
+    (m: any) => m.role === WorkspaceRole.OWNER || m.role === WorkspaceRole.ADMIN
+  );
+
+  if (eligibleMembers.length === 0) {
+    return handleBotAddedToGroup(ctx);
+  }
+
+  const keyboard = new InlineKeyboard();
+  eligibleMembers.slice(0, 5).forEach((m: any) => {
+    keyboard.text(`🔗 Link "${m.workspace.name}"`, `group:link_ws:${m.workspace.id}`).row();
+  });
+  keyboard.text(`➕ Create New Board`, `group:link_ws:new`).row();
+  keyboard.url('📱 Open Mini App', botConfig.webAppUrl);
+
+  const groupTitle = ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'this group';
+  await ctx.reply(
+    `🔗 *Link Telegram Group to Workspace*\n\n` +
+    `Choose an existing workspace to link *${escapeMarkdown(groupTitle)}* to:\n\n` +
+    `Or select *Create New Board* to generate a fresh board for this group.`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    }
   );
 }
 

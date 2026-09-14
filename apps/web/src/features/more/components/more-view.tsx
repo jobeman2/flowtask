@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 export function MoreView() {
-  const { user, workspaceId } = useAuth();
+  const { user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);

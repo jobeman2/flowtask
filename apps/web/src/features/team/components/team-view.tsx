@@ -76,6 +76,7 @@ export function TeamView() {
   // Workspaces Management State
   const [isCreatingWs, setIsCreatingWs] = useState(false);
   const [createWsMode, setCreateWsMode] = useState<'STANDARD' | 'TELEGRAM'>('STANDARD');
+  const [linkTargetOption, setLinkTargetOption] = useState<'CURRENT' | 'NEW'>('CURRENT');
   const [newWsName, setNewWsName] = useState('');
   const [newWsType, setNewWsType] = useState<'TEAM' | 'PERSONAL'>('TEAM');
   const [telegramInput, setTelegramInput] = useState('');
@@ -148,7 +149,8 @@ export function TeamView() {
     mutationFn: async () => {
       if (!telegramInput.trim()) return;
       setCreateWsError(null);
-      const res = await apiClient.connectTelegramGroup(telegramInput.trim());
+      const targetWsId = linkTargetOption === 'CURRENT' && workspaceId ? workspaceId : undefined;
+      const res = await apiClient.connectTelegramGroup(telegramInput.trim(), targetWsId);
       if (res.error) throw new Error(res.error);
       return res.data;
     },
@@ -980,6 +982,41 @@ export function TeamView() {
               </div>
             ) : (
               <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Linking Target
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLinkTargetOption('CURRENT')}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all truncate text-center ${
+                        linkTargetOption === 'CURRENT'
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Link Current
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLinkTargetOption('NEW')}
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all truncate text-center ${
+                        linkTargetOption === 'NEW'
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Create New
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 pt-0.5">
+                    {linkTargetOption === 'CURRENT'
+                      ? `Links this Telegram group directly to "${currentWorkspace?.name || 'Current Workspace'}".`
+                      : 'Creates a brand new workspace for this Telegram group.'}
+                  </p>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Telegram Group Link or Chat ID

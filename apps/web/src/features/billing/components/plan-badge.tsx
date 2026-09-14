@@ -3,12 +3,10 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
-import { useAuth } from '../../../providers/telegram-provider';
 import { PricingModal } from './pricing-modal';
 import { Crown, Sparkles, Zap } from 'lucide-react';
 
 export function PlanBadge() {
-  const { workspaceId } = useAuth();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
   const { data: subscription } = useQuery({

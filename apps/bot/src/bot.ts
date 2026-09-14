@@ -25,6 +25,8 @@ import { handleAiPlanCommand } from './handlers/ai-plan.handler';
 import { handleBoardCommand, handleProjectsList } from './handlers/board.handler';
 import {
   handleBotAddedToGroup,
+  handleNewChatMembers,
+  handleLinkGroupCommand,
   handleGroupInfo,
   handleGroupSummary,
 } from './handlers/group.handler';
@@ -41,12 +43,13 @@ export function createBot() {
   scheduler.start();
 
   // --- GROUP EVENTS ---
-  bot.on('message:new_chat_members', handleBotAddedToGroup);
+  bot.on('message:new_chat_members', handleNewChatMembers);
   bot.on('my_chat_member', handleBotAddedToGroup);
-  bot.on('chat_member', handleBotAddedToGroup);
+  bot.on('chat_member', handleNewChatMembers);
 
   // --- COMMAND ROUTES ---
   bot.command('start', handleStart);
+  bot.command(['connect', 'link', 'init'], handleLinkGroupCommand);
   bot.command('help', handleHelp);
   bot.command(['task', 'create', 'add', 'todo'], handleTaskCommand);
   bot.command('tasks', (ctx) => handleTasksList(ctx, 'PENDING', 1));
@@ -109,6 +112,53 @@ export function createBot() {
   bot.callbackQuery('action:group_summary', async (ctx) => {
     await ctx.answerCallbackQuery();
     await handleGroupSummary(ctx);
+  });
+
+  bot.callbackQuery(/^group:link_ws:(.+)$/, async (ctx) => {
+    const wsId = ctx.match[1];
+    await ctx.answerCallbackQuery();
+
+    if (wsId === 'new') {
+      return handleBotAddedToGroup(ctx);
+    }
+
+    const ws = await prisma.workspace.findUnique({ where: { id: wsId } });
+    if (!ws) {
+      return ctx.reply('⚠️ Workspace not found.');
+    }
+
+    const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : '';
+    const groupTitle = ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'Group';
+
+    if (chatIdStr) {
+      const existing = await prisma.telegramChat.findUnique({ where: { chatId: chatIdStr } });
+      if (existing) {
+        await prisma.telegramChat.update({
+          where: { id: existing.id },
+          data: { workspaceId: ws.id, title: groupTitle },
+        });
+      } else {
+        await prisma.telegramChat.create({
+          data: {
+            chatId: chatIdStr,
+            workspaceId: ws.id,
+            type: ctx.chat?.type || 'group',
+            title: groupTitle,
+          },
+        });
+      }
+    }
+
+    const escapeMd = (t: string) => t.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+    await ctx.editMessageText(
+      `🎉 *Telegram Group Linked Successfully!*\n\n` +
+      `🏢 *Workspace:* *${escapeMd(ws.name)}*\n` +
+      `This Telegram group is now linked directly to your existing workspace board. All members can view and manage tasks together!`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard().url('📱 Open Workspace in Mini App', `${botConfig.webAppUrl}?workspaceId=${ws.id}`),
+      }
+    );
   });
 
   // 2. Task List Filtering & Pagination (tasks:filter:<filter>:<page> | tasks:page:<filter>:<page>)

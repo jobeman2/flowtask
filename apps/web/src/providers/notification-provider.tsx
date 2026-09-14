@@ -44,6 +44,12 @@ interface NotificationContextType {
   unreadCount: number;
   activeToast: AppNotification | null;
   dismissToast: () => void;
+  showToast: (toast: {
+    type?: AppNotification['type'];
+    title: string;
+    message: string;
+    data?: any;
+  }) => void;
   addNotification: (notif: {
     type: AppNotification['type'];
     title: string;
@@ -64,6 +70,7 @@ const NotificationContext = createContext<NotificationContextType>({
   unreadCount: 0,
   activeToast: null,
   dismissToast: () => {},
+  showToast: () => {},
   addNotification: () => {},
   markAsRead: () => {},
   dismissNotification: () => {},
@@ -274,6 +281,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [settings, triggerHaptic, storageKey]
   );
 
+  // Show floating mini toast only (without storing to persistent notification drawer)
+  const showToast = useCallback(
+    (toast: {
+      type?: AppNotification['type'];
+      title: string;
+      message: string;
+      data?: any;
+    }) => {
+      if (!toast) return;
+      if (settings.toastsEnabled) {
+        if (settings.hapticsEnabled) {
+          triggerHaptic('light');
+        }
+        setActiveToast({
+          id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: toast.type || 'SYSTEM',
+          title: toast.title,
+          message: toast.message,
+          timestamp: new Date().toISOString(),
+          read: true,
+          data: toast.data,
+        });
+      }
+    },
+    [settings, triggerHaptic]
+  );
+
   // Sync Activity Logs strictly personalized for the logged-in user
   const syncActivityLogs = useCallback(
     (logs: any[], workspaceOwnerId?: string) => {
@@ -428,6 +462,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         unreadCount,
         activeToast,
         dismissToast,
+        showToast,
         addNotification,
         markAsRead,
         dismissNotification,

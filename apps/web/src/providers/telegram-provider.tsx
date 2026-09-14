@@ -109,7 +109,24 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
           // User-specific workspace storage (NEVER leak another account's workspace on shared device)
           const userStorageKey = `flowtask_active_ws_${res.data.user.id}`;
           const savedWsId = typeof window !== 'undefined' ? localStorage.getItem(userStorageKey) : null;
-          const initialWsId = targetWsId || savedWsId || res.data.defaultWorkspaceId;
+          let cleanTargetWsId = targetWsId;
+
+          if (cleanTargetWsId && cleanTargetWsId.startsWith('invite_')) {
+            const rawInvite = cleanTargetWsId.replace(/^invite_/, '');
+            try {
+              // Automatically accept invitation or join workspace if opened via direct invite link
+              const acceptRes = await apiClient.acceptInvitation(rawInvite);
+              if (acceptRes.data?.workspace?.id) {
+                cleanTargetWsId = acceptRes.data.workspace.id;
+              } else {
+                cleanTargetWsId = rawInvite;
+              }
+            } catch {
+              cleanTargetWsId = rawInvite;
+            }
+          }
+
+          const initialWsId = cleanTargetWsId || savedWsId || res.data.defaultWorkspaceId;
 
           if (initialWsId) {
             setWorkspaceId(initialWsId);

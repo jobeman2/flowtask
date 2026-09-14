@@ -6,7 +6,6 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import {
-  Check,
   ChevronRight,
   Plus,
   Clock,
@@ -119,8 +118,6 @@ export function HomeView({
 
   // Meeting count for filter pill
   const meetingCount = useMemo(() => tasks.filter((t: any) => parseTaskMeta(t).isMeeting && t.status !== 'DONE').length, [tasks]);
-  const clickupCount = useMemo(() => tasks.filter((t: any) => parseTaskMeta(t).isClickUp && t.status !== 'DONE').length, [tasks]);
-  const notionCount  = useMemo(() => tasks.filter((t: any) => parseTaskMeta(t).isNotion  && t.status !== 'DONE').length, [tasks]);
 
   const [meetingFilter, setMeetingFilter] = useState(false);
 

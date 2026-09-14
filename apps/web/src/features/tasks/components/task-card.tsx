@@ -5,16 +5,16 @@ import {
   Check,
   CheckCheck,
   Calendar,
-  Clock,
   Video,
   Mic,
   ExternalLink,
   Bot,
-  User,
   CheckSquare,
   Zap,
   FileText,
   AlertTriangle,
+  Paperclip,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useTelegram } from '../../../hooks/use-telegram';
 
@@ -205,6 +205,37 @@ export function TaskCard({
   const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
   const projectColor = task.project?.color || '#2563eb';
 
+  // Extract attachment preview images
+  const previewImages: string[] = [];
+  let totalAttachmentsCount = 0;
+
+  if (Array.isArray(task.attachments) && task.attachments.length > 0) {
+    totalAttachmentsCount = task.attachments.length;
+    task.attachments.forEach((a: any) => {
+      if ((a.type === 'image' || a.isImage || a.url?.startsWith('data:image/')) && a.url) {
+        previewImages.push(a.url);
+      }
+    });
+  } else if (task.imageUrl) {
+    try {
+      if (task.imageUrl.startsWith('[')) {
+        const parsed = JSON.parse(task.imageUrl);
+        if (Array.isArray(parsed)) {
+          totalAttachmentsCount = parsed.length;
+          parsed.forEach((a: any) => {
+            if (a.url) previewImages.push(a.url);
+          });
+        }
+      } else {
+        totalAttachmentsCount = 1;
+        previewImages.push(task.imageUrl);
+      }
+    } catch {
+      totalAttachmentsCount = 1;
+      previewImages.push(task.imageUrl);
+    }
+  }
+
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDone || isCompleting) return;
@@ -265,23 +296,30 @@ export function TaskCard({
       />
 
       <div className="flex items-start gap-2.5 pl-1.5">
-        {/* Checkbox button */}
-        <button
-          type="button"
-          onClick={handleCheckboxClick}
-          disabled={isDone || isCompleting}
-          className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-            isDone
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : meta.isMeeting
-              ? 'border-2 border-blue-400 dark:border-blue-600 hover:border-blue-500 hover:scale-105'
-              : meta.isClickUp
-              ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
-              : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
-          }`}
-        >
-          {isDone && <Check className="w-3 h-3 stroke-[3]" />}
-        </button>
+        {/* Checkbox button (Meetings cannot be marked as done like tasks) */}
+        {meta.isMeeting ? (
+          <div
+            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60"
+            title="Meeting"
+          >
+            <Video className="w-3 h-3" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleCheckboxClick}
+            disabled={isDone || isCompleting}
+            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+              isDone
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : meta.isClickUp
+                ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
+                : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
+            }`}
+          >
+            {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+          </button>
+        )}
 
         {/* Main Content Area */}
         <div className="min-w-0 flex-1">
@@ -327,8 +365,42 @@ export function TaskCard({
             </div>
           </div>
 
+          {/* Attachment Images Preview Carousel / Grid */}
+          {previewImages.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar py-0.5">
+              {previewImages.slice(0, 3).map((imgUrl, idx) => (
+                <div
+                  key={idx}
+                  className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shrink-0 shadow-2xs group-hover:border-blue-300 transition-colors"
+                >
+                  <img
+                    src={imgUrl}
+                    alt={`Attachment preview ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {idx === 2 && previewImages.length > 3 && (
+                    <div className="absolute inset-0 bg-black/55 flex items-center justify-center text-white font-black text-[10px]">
+                      +{previewImages.length - 3}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Bottom Line: Badges & Metadata (Clean compact chips) */}
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            {totalAttachmentsCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                {previewImages.length > 0 ? (
+                  <ImageIcon className="w-2.5 h-2.5 text-blue-500" />
+                ) : (
+                  <Paperclip className="w-2.5 h-2.5 text-slate-500" />
+                )}
+                <span>{totalAttachmentsCount}</span>
+              </span>
+            )}
+
             {/* Category / Source Badges */}
             {meta.isMeeting && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 shadow-2xs">

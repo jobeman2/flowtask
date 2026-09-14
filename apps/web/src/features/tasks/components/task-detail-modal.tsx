@@ -12,8 +12,6 @@ import {
   Flag,
   User,
   Users,
-  CheckSquare,
-  Square,
   Send,
   MessageSquare,
   Paperclip,
@@ -119,6 +117,21 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   // Comment input state
   const [newComment, setNewComment] = useState('');
+
+  const handleClose = () => {
+    setIsEditing(false);
+    setPreviewAttachment(null);
+    setNewComment('');
+    onClose();
+  };
+
+  React.useEffect(() => {
+    if (!taskId) {
+      setIsEditing(false);
+      setPreviewAttachment(null);
+      setNewComment('');
+    }
+  }, [taskId]);
 
   // Fetch Task Details
   const { data: task, isLoading } = useQuery({
@@ -546,7 +559,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </button>
               )}
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />

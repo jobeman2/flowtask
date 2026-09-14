@@ -40,6 +40,25 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
     memberName?: string;
   } | null>(null);
 
+  const handleClose = () => {
+    setConfirmAction(null);
+    setErrorMsg(null);
+    setInviteSuccess(null);
+    setInviteInput('');
+    setActiveTab('MEMBERS');
+    onClose();
+  };
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setConfirmAction(null);
+      setErrorMsg(null);
+      setInviteSuccess(null);
+      setInviteInput('');
+      setActiveTab('MEMBERS');
+    }
+  }, [isOpen]);
+
   // Invite History for 1-tap easy inviting
   const [inviteHistory, setInviteHistory] = useState<Array<{ name: string; username: string }>>([]);
 
@@ -214,7 +233,7 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
             <X className="w-5 h-5" />
@@ -227,6 +246,8 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
             type="button"
             onClick={() => {
               triggerHaptic('light');
+              setConfirmAction(null);
+              setErrorMsg(null);
               setActiveTab('MEMBERS');
             }}
             className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
@@ -242,6 +263,8 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
             type="button"
             onClick={() => {
               triggerHaptic('light');
+              setConfirmAction(null);
+              setErrorMsg(null);
               setActiveTab('DANGER');
             }}
             className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
@@ -403,76 +426,138 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
         {/* Tab 2: Danger Zone / Workspace Actions */}
         {activeTab === 'DANGER' && (
           <div className="space-y-3">
-            {/* Leave Workspace Option (for non-owners) */}
-            {!isOwner && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="flex items-center gap-2">
-                  <LogOut className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Leave Workspace</h4>
-                </div>
+            {currentWorkspace?.type === 'PERSONAL' ? (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-center space-y-1.5">
+                <ShieldAlert className="w-5 h-5 text-slate-400 mx-auto" />
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">Personal Workspace</h4>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  You will be removed from this workspace and will no longer see its tasks or boards.
+                  Your personal workspace cannot be deleted or left.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic('medium');
-                    setConfirmAction({ type: 'LEAVE' });
-                  }}
-                  className="w-full py-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 transition-colors active:scale-98"
-                >
-                  Leave this Workspace
-                </button>
               </div>
-            )}
+            ) : (
+              <>
+                {/* Leave Workspace Option (for non-owners) */}
+                {!isOwner && (
+                  confirmAction?.type === 'LEAVE' ? (
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/90 border border-amber-200 dark:border-amber-800 space-y-3 animate-in zoom-in-95">
+                      <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                        <LogOut className="w-5 h-5 shrink-0" />
+                        <h4 className="text-xs font-extrabold">Confirm Leaving Workspace</h4>
+                      </div>
+                      <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                        Are you sure you want to leave &quot;{currentWorkspace?.name}&quot;? You will no longer see its tasks or boards.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmAction(null)}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={leaveMutation.isPending}
+                          onClick={() => leaveMutation.mutate()}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-xs"
+                        >
+                          {leaveMutation.isPending ? 'Leaving...' : 'Yes, Leave'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <LogOut className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">Leave Workspace</h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        You will be removed from this workspace and will no longer see its tasks or boards.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('medium');
+                          setConfirmAction({ type: 'LEAVE' });
+                        }}
+                        className="w-full py-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 transition-colors active:scale-98"
+                      >
+                        Leave this Workspace
+                      </button>
+                    </div>
+                  )
+                )}
 
-            {/* Delete Workspace Option (for owners) */}
-            {isOwner && (
-              <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-2">
-                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
-                  <Trash2 className="w-4 h-4" />
-                  <h4 className="text-xs font-bold">
-                    {currentWorkspace?.telegramChat ? 'Disconnect & Delete Board' : 'Delete Workspace'}
-                  </h4>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                  Permanently deletes this workspace and all associated tasks, projects, and comments. This action cannot be undone.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic('heavy');
-                    setConfirmAction({ type: 'DELETE' });
-                  }}
-                  className="w-full py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-xs active:scale-98"
-                >
-                  {currentWorkspace?.telegramChat ? 'Delete Group Board' : 'Delete Workspace'}
-                </button>
-              </div>
+                {/* Delete Workspace Option (for owners) */}
+                {isOwner && (
+                  confirmAction?.type === 'DELETE' ? (
+                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/90 border border-rose-200 dark:border-rose-800 space-y-3 animate-in zoom-in-95">
+                      <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
+                        <ShieldAlert className="w-5 h-5 shrink-0" />
+                        <h4 className="text-xs font-extrabold">Confirm Workspace Deletion</h4>
+                      </div>
+                      <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
+                        Are you sure you want to permanently delete &quot;{currentWorkspace?.name}&quot;? All tasks, projects, and comments will be erased.
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmAction(null)}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => deleteMutation.mutate()}
+                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-xs"
+                        >
+                          {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-2">
+                      <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                        <Trash2 className="w-4 h-4" />
+                        <h4 className="text-xs font-bold">
+                          {currentWorkspace?.telegramChat ? 'Disconnect & Delete Board' : 'Delete Workspace'}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        Permanently deletes this workspace and all associated tasks, projects, and comments. This action cannot be undone.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('heavy');
+                          setConfirmAction({ type: 'DELETE' });
+                        }}
+                        className="w-full py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-xs active:scale-98"
+                      >
+                        {currentWorkspace?.telegramChat ? 'Delete Group Board' : 'Delete Workspace'}
+                      </button>
+                    </div>
+                  )
+                )}
+              </>
             )}
           </div>
         )}
 
-        {/* Confirmation Modal Overlay */}
-        {confirmAction && (
+        {/* Confirmation Modal Overlay for Member Removal */}
+        {confirmAction && confirmAction.type === 'REMOVE_MEMBER' && (
           <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/90 border border-rose-200 dark:border-rose-800 space-y-3 animate-in zoom-in-95">
             <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <h4 className="text-xs font-extrabold">
-                {confirmAction.type === 'DELETE'
-                  ? 'Confirm Workspace Deletion'
-                  : confirmAction.type === 'LEAVE'
-                  ? 'Confirm Leaving Workspace'
-                  : `Remove ${confirmAction.memberName || 'member'}?`}
+                Remove {confirmAction.memberName || 'member'}?
               </h4>
             </div>
 
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-              {confirmAction.type === 'DELETE'
-                ? `Are you sure you want to permanently delete "${currentWorkspace?.name}"? All tasks and projects will be erased.`
-                : confirmAction.type === 'LEAVE'
-                ? `Are you sure you want to leave "${currentWorkspace?.name}"?`
-                : `Are you sure you want to remove ${confirmAction.memberName} from this workspace?`}
+              Are you sure you want to remove {confirmAction.memberName} from this workspace?
             </p>
 
             <div className="flex items-center gap-2 pt-1">
@@ -485,25 +570,15 @@ export function ManageWorkspaceModal({ isOpen, onClose }: ManageWorkspaceModalPr
               </button>
               <button
                 type="button"
-                disabled={
-                  deleteMutation.isPending ||
-                  leaveMutation.isPending ||
-                  removeMemberMutation.isPending
-                }
+                disabled={removeMemberMutation.isPending}
                 onClick={() => {
-                  if (confirmAction.type === 'DELETE') {
-                    deleteMutation.mutate();
-                  } else if (confirmAction.type === 'LEAVE') {
-                    leaveMutation.mutate();
-                  } else if (confirmAction.type === 'REMOVE_MEMBER' && confirmAction.memberId) {
+                  if (confirmAction.memberId) {
                     removeMemberMutation.mutate(confirmAction.memberId);
                   }
                 }}
                 className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-xs"
               >
-                {deleteMutation.isPending || leaveMutation.isPending || removeMemberMutation.isPending
-                  ? 'Processing...'
-                  : 'Yes, Proceed'}
+                {removeMemberMutation.isPending ? 'Processing...' : 'Yes, Remove'}
               </button>
             </div>
           </div>

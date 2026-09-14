@@ -20,6 +20,7 @@ export function WorkspaceSwitcher() {
   const [mounted, setMounted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createMode, setCreateMode] = useState<'STANDARD' | 'TELEGRAM'>('STANDARD');
+  const [linkTargetOption, setLinkTargetOption] = useState<'CURRENT' | 'NEW'>('CURRENT');
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [newWsName, setNewWsName] = useState('');
   const [newWsType, setNewWsType] = useState<'TEAM' | 'PERSONAL'>('TEAM');
@@ -83,7 +84,8 @@ export function WorkspaceSwitcher() {
     mutationFn: async () => {
       if (!telegramInput.trim()) return;
       setErrorMessage(null);
-      const res = await apiClient.connectTelegramGroup(telegramInput.trim());
+      const targetWsId = linkTargetOption === 'CURRENT' && workspaceId ? workspaceId : undefined;
+      const res = await apiClient.connectTelegramGroup(telegramInput.trim(), targetWsId);
       if (res.error) throw new Error(res.error);
       return res.data;
     },
@@ -377,10 +379,46 @@ export function WorkspaceSwitcher() {
                     </a>
                   </div>
 
-                  {/* Step 2: Enter Group ID or @username */}
+                  {/* Step 2: Choose Linking Target */}
                   <div className="space-y-1 pt-1">
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      Step 2: Enter Group @username or Chat ID
+                      Step 2: Linking Target
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setLinkTargetOption('CURRENT')}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all truncate text-center ${
+                          linkTargetOption === 'CURRENT'
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Link Current
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLinkTargetOption('NEW')}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all truncate text-center ${
+                          linkTargetOption === 'NEW'
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Create New
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-tight">
+                      {linkTargetOption === 'CURRENT'
+                        ? `Connects directly to "${currentWorkspace?.name || 'Current Workspace'}".`
+                        : 'Creates a brand new workspace for this Telegram group.'}
+                    </p>
+                  </div>
+
+                  {/* Step 3: Enter Group ID or @username */}
+                  <div className="space-y-1 pt-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Step 3: Enter Group @username or Chat ID
                     </label>
                     <input
                       type="text"
@@ -389,8 +427,8 @@ export function WorkspaceSwitcher() {
                       onChange={(e) => setTelegramInput(e.target.value)}
                       className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 font-medium"
                     />
-                    <p className="text-[10px] text-slate-400">
-                      Enter the group's public username or numeric chat ID.
+                    <p className="text-[10px] text-slate-400 leading-tight">
+                      Use your group&apos;s public <code>@username</code> or numeric Chat ID (e.g. <code>-100...</code>). For private groups, you can also simply type <code>/connect</code> in the group!
                     </p>
                   </div>
                 </div>

@@ -151,6 +151,52 @@ export async function handleStart(ctx: Context) {
       );
       return;
     }
+
+    // Direct workspace link fallback (e.g. /start invite_<workspaceId>)
+    const directWs = await prisma.workspace.findUnique({
+      where: { id: invitePayload },
+    });
+
+    if (directWs) {
+      const isMem = await prisma.workspaceMember.findFirst({
+        where: { workspaceId: directWs.id, userId },
+      });
+
+      const escapeMd = (t: string) => t.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+
+      if (isMem) {
+        await ctx.reply(
+          `You are already a member of *${escapeMd(directWs.name)}*!`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard().url(
+              '📱 Open Workspace',
+              `${botConfig.webAppUrl}?workspaceId=${directWs.id}`
+            ),
+          }
+        );
+        return;
+      }
+
+      const invKeyboard = new InlineKeyboard()
+        .text('✅ Accept Invitation', `invite:accept:${directWs.id}:direct`)
+        .row();
+
+      if (botConfig.webAppUrl.startsWith('https://')) {
+        invKeyboard.webApp('📱 View in Mini App', `${botConfig.webAppUrl}?workspaceId=${directWs.id}`);
+      }
+
+      await ctx.reply(
+        `👋 *Workspace Team Invitation!*\n\n` +
+        `You have been invited to join *${escapeMd(directWs.name)}*.\n\n` +
+        `Click *Accept Invitation* below to join the team and access tasks!`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: invKeyboard,
+        }
+      );
+      return;
+    }
   }
 
   // 4. Always check if user has any pending invitations across all workspaces!
