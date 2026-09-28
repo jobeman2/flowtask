@@ -336,14 +336,16 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                       2. Enter Telebirr TxID
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setTransactionId('TT777')}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md hover:bg-blue-100 flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Use Test Code (TT777)</span>
-                    </button>
+                    {process.env.NODE_ENV !== 'production' && (
+                      <button
+                        type="button"
+                        onClick={() => setTransactionId('TT777')}
+                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md hover:bg-blue-100 flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Use Test Code (TT777)</span>
+                      </button>
+                    )}
                   </div>
 
                   <input

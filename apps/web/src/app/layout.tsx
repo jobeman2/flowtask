@@ -5,6 +5,7 @@ import './globals.css';
 import { QueryProvider } from '../providers/query-provider';
 import { TelegramProvider } from '../providers/telegram-provider';
 import { NotificationProvider } from '../providers/notification-provider';
+import { ErrorBoundary } from '../components/error-boundary';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -44,7 +45,9 @@ export default function RootLayout({
           <TelegramProvider>
             <NotificationProvider>
               <main className="max-w-md mx-auto min-h-screen flex flex-col p-4">
-                {children}
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
               </main>
             </NotificationProvider>
           </TelegramProvider>

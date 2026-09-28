@@ -93,15 +93,6 @@ export async function handleStart(ctx: Context) {
     });
   }
 
-  // 2. Consolidate any placeholder accounts that match this username
-  try {
-    if (typeof (prisma as any).consolidateUserAccounts === 'function') {
-      (prisma as any).consolidateUserAccounts(userId, tgIdStr, rawUsername);
-    }
-  } catch (err) {
-    console.warn('Account consolidation check:', err);
-  }
-
   // 3. Check for invite payload: /start invite_<id>
   const text = ctx.message?.text || '';
   const param = text.split(' ')[1]?.trim() || '';

@@ -1,15 +1,14 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min } from 'class-validator';
 
 export class CreateOrderDto {
   @IsString()
-  @IsOptional()
-  workspaceId?: string;
+  workspaceId: string;
 
   @IsString()
-  @IsNotEmpty()
-  planCode!: string;
+  planCode: string;
 
-  @IsNumber()
   @IsOptional()
+  @IsInt()
+  @Min(1)
   durationDays?: number;
 }

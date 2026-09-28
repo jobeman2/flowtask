@@ -1,15 +1,13 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class VerifyOrderDto {
   @IsString()
-  @IsNotEmpty()
-  orderId!: string;
+  orderId: string;
 
   @IsString()
-  @IsNotEmpty()
-  transactionId!: string;
+  transactionId: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   receiptImageUrl?: string;
 }

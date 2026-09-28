@@ -24,7 +24,8 @@ export class AuthService {
 
     // In development mode only, allow mock / dev fallback
     let validated = validateTelegramWebAppData(initData, botToken);
-    if (!validated && nodeEnv === 'development' && (initData.startsWith('dev_user_') || initData.startsWith('dev_mock_'))) {
+    const devAuthEnabled = this.configService.get<string>('DEV_AUTH_ENABLED') === 'true';
+    if (!validated && nodeEnv === 'development' && devAuthEnabled && (initData.startsWith('dev_user_') || initData.startsWith('dev_mock_'))) {
       if (initData.startsWith('dev_user_jovany') || initData.startsWith('dev_user_jobeman')) {
         validated = {
           user: {
@@ -154,7 +155,8 @@ export class AuthService {
           },
         });
 
-        const slug = `${tgUser.username || tgUser.first_name || 'workspace'}-${Date.now().toString(36)}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const slugBase = `${tgUser.username || tgUser.first_name || 'workspace'}`.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'workspace';
+        const slug = `${slugBase}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         const newWorkspace = await tx.workspace.create({
           data: {
             name: `${displayName}'s Workspace`,
@@ -188,7 +190,8 @@ export class AuthService {
         defaultWorkspaceId = personalMembership.workspaceId;
       } else {
         // Provision personal workspace for this user if missing
-        const slug = `${tgUser.username || tgUser.first_name || 'workspace'}-${Date.now().toString(36)}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const slugBase = `${tgUser.username || tgUser.first_name || 'workspace'}`.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'workspace';
+        const slug = `${slugBase}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         const newWorkspace = await this.prisma.workspace.create({
           data: {
             name: `${displayName}'s Workspace`,
@@ -295,7 +298,8 @@ export class AuthService {
       include: {
         telegramAccounts: true,
         workspaceMembers: {
-          take: 1,
+          include: { workspace: true },
+          orderBy: { createdAt: 'asc' },
         },
       },
     });
@@ -321,7 +325,11 @@ export class AuthService {
       },
       telegramAccount: user.telegramAccounts[0] || null,
       accessToken,
-      defaultWorkspaceId: user.workspaceMembers[0]?.workspaceId,
+      defaultWorkspaceId: (
+        user.workspaceMembers.find(
+          (m: any) => m.workspace?.type === 'PERSONAL' && m.role === 'OWNER'
+        ) || user.workspaceMembers[0]
+      )?.workspaceId,
     };
   }
 }

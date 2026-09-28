@@ -3,6 +3,7 @@ import { prisma, TaskStatus, WorkspaceRole } from '@flowtask/database';
 import { parseTaskMessage } from '../utils/rule-parser';
 import { resolveGroupWorkspace } from './group.handler';
 import { botConfig } from '../config/bot.config';
+import { escapeMarkdown } from '../utils/markdown';
 
 export async function handleTaskCommand(ctx: Context) {
   const messageText = ctx.message?.text || ctx.message?.caption || '';
@@ -330,6 +331,3 @@ export async function handleTaskCommand(ctx: Context) {
   }
 }
 
-function escapeMarkdown(text: string): string {
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-}

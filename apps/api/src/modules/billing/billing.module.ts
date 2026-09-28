@@ -3,9 +3,10 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './services/billing.service';
 import { TelebirrMatcherService } from './services/telebirr-matcher.service';
 import { TelegramModule } from '../telegram/telegram.module';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [TelegramModule],
+  imports: [TelegramModule, DatabaseModule],
   controllers: [BillingController],
   providers: [BillingService, TelebirrMatcherService],
   exports: [BillingService, TelebirrMatcherService],

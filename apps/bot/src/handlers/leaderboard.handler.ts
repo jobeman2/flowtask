@@ -1,6 +1,7 @@
 import { Context, InlineKeyboard } from 'grammy';
 import { prisma, TaskStatus } from '@flowtask/database';
 import { botConfig } from '../config/bot.config';
+import { escapeMarkdown } from '../utils/markdown';
 
 export async function handleLeaderboard(ctx: Context): Promise<void> {
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
@@ -199,6 +200,3 @@ export async function handleStats(ctx: Context): Promise<void> {
   await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
 }
 
-function escapeMarkdown(text: string): string {
-  return text.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-}

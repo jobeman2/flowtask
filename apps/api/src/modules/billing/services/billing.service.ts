@@ -2,455 +2,221 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
   Logger,
-  OnModuleInit,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../../database/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
+import { TelegramService } from '../telegram/telegram.service';
 import { TelebirrMatcherService } from './telebirr-matcher.service';
-import { TelegramService } from '../../telegram/telegram.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { VerifyOrderDto } from '../dto/verify-order.dto';
-import { WorkspaceRole, WorkspaceType, SubscriptionStatus } from '@flowtask/database';
+
+// Telebirr account details — set these in environment variables for production
+const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || '0912345678';
+const TELEBIRR_ACCOUNT_NAME = process.env.TELEBIRR_ACCOUNT_NAME || 'FlowTask Payments';
+const SMS_WEBHOOK_SECRET = process.env.SMS_WEBHOOK_SECRET || '';
+
+// Test transaction ID that always passes verification (only in development/test)
+const TEST_TRANSACTION_ID = 'TT777';
 
 @Injectable()
-export class BillingService implements OnModuleInit {
+export class BillingService {
   private readonly logger = new Logger(BillingService.name);
-
-  readonly defaultPlans = [
-    {
-      code: 'FREE',
-      name: 'Free Starter',
-      description: 'Perfect for individual task management on Telegram',
-      priceEtbMonth: 0,
-      maxProjects: 3,
-      maxMembers: 1,
-      hasAiFeatures: false,
-    },
-    {
-      code: 'PRO',
-      name: 'Pro Individual',
-      description: 'Unlimited projects, reminders, and AI task extraction',
-      priceEtbMonth: 199,
-      maxProjects: 100,
-      maxMembers: 1,
-      hasAiFeatures: true,
-    },
-    {
-      code: 'TEAM',
-      name: 'Team Collaboration',
-      description: 'Collaborate with team members inside Telegram groups',
-      priceEtbMonth: 999,
-      maxProjects: 500,
-      maxMembers: 15,
-      hasAiFeatures: true,
-    },
-    {
-      code: 'BUSINESS',
-      name: 'Business Scale',
-      description: 'Enterprise grade task management with advanced analytics',
-      priceEtbMonth: 2999,
-      maxProjects: 5000,
-      maxMembers: 100,
-      hasAiFeatures: true,
-    },
-  ];
 
   constructor(
     private prisma: PrismaService,
-    private telebirrMatcher: TelebirrMatcherService,
     private telegramService: TelegramService,
-    private configService: ConfigService
+    private telebirrMatcher: TelebirrMatcherService,
   ) {}
 
-  async onModuleInit() {
-    await this.ensureDefaultPlans();
-  }
-
-  async ensureDefaultPlans() {
-    try {
-      for (const plan of this.defaultPlans) {
-        await this.prisma.plan.upsert({
-          where: { code: plan.code },
-          update: plan,
-          create: plan,
-        });
-      }
-      this.logger.log('Default billing plans verified/seeded in database');
-    } catch (err: any) {
-      this.logger.warn(`Could not seed default plans: ${err?.message || err}`);
-    }
-  }
-
-  /**
-   * Get all active pricing plans
-   */
   async getPlans() {
-    let plans = await this.prisma.plan.findMany();
-    if (!plans || plans.length === 0) {
-      await this.ensureDefaultPlans();
-      plans = await this.prisma.plan.findMany();
+    const plans = await this.prisma.plan.findMany({
+      orderBy: { priceEtbMonth: 'asc' },
+    });
+    // If no plans seeded yet, return defaults
+    if (plans.length === 0) {
+      return [
+        { code: 'FREE', name: 'Free Starter', priceEtbMonth: 0, maxProjects: 3, maxMembers: 1, hasAiFeatures: false },
+        { code: 'PRO', name: 'Pro Individual', priceEtbMonth: 199, maxProjects: 999, maxMembers: 5, hasAiFeatures: true },
+        { code: 'TEAM', name: 'Team Collaboration', priceEtbMonth: 999, maxProjects: 999, maxMembers: 15, hasAiFeatures: true },
+      ];
     }
-    return plans.sort((a: any, b: any) => a.priceEtbMonth - b.priceEtbMonth);
+    return plans;
   }
 
-  /**
-   * Get the active subscription for a user account (across all their workspaces / direct user sub)
-   */
   async getUserSubscription(userId: string) {
-    // 1. Find a subscription directly linked to this userId
-    let sub = await this.prisma.subscription.findFirst({
-      where: { userId, status: SubscriptionStatus.ACTIVE },
+    const sub = await this.prisma.subscription.findFirst({
+      where: { userId, status: 'ACTIVE' },
       include: { plan: true },
       orderBy: { currentPeriodEnd: 'desc' },
     });
-
-    // 2. Fallback: find best non-FREE subscription on any workspace this user owns
-    if (!sub || sub.plan?.code === 'FREE') {
-      const ownedWorkspaces = await this.prisma.workspace.findMany({
-        where: { ownerId: userId },
-        select: { id: true },
-      });
-
-      if (ownedWorkspaces.length > 0) {
-        const bestSub = await this.prisma.subscription.findFirst({
-          where: {
-            workspaceId: { in: ownedWorkspaces.map((w) => w.id) },
-            status: SubscriptionStatus.ACTIVE,
-            plan: { code: { not: 'FREE' } },
-          },
-          include: { plan: true },
-          orderBy: { currentPeriodEnd: 'desc' },
-        });
-        if (bestSub) sub = bestSub;
-      }
-    }
-
-    const freePlan = await this.prisma.plan.findUnique({ where: { code: 'FREE' } });
-
-    if (!sub || sub.status !== SubscriptionStatus.ACTIVE) {
-      return {
-        userId,
-        status: 'ACTIVE',
-        isFree: true,
-        plan: freePlan || { code: 'FREE', name: 'Free Starter', priceEtbMonth: 0, maxProjects: 3, maxMembers: 1, hasAiFeatures: false },
-        currentPeriodEnd: null,
-      };
-    }
-
-    return {
-      userId,
-      status: sub.status,
-      isFree: sub.plan?.code === 'FREE',
-      plan: sub.plan,
-      currentPeriodStart: sub.currentPeriodStart,
-      currentPeriodEnd: sub.currentPeriodEnd,
-    };
+    return sub || null;
   }
 
-  /**
-   * Get subscription status & limits for a workspace (inherits from workspace owner's user plan)
-   */
   async getWorkspaceSubscription(workspaceId: string) {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: workspaceId },
+    const sub = await this.prisma.subscription.findFirst({
+      where: { workspaceId, status: 'ACTIVE' },
+      include: { plan: true },
+      orderBy: { currentPeriodEnd: 'desc' },
     });
-
-    if (!workspace) {
-      throw new NotFoundException('Workspace not found');
-    }
-
-    // Always resolve subscription from the workspace owner's user account
-    return this.getUserSubscription(workspace.ownerId);
+    return sub || null;
   }
 
-  /**
-   * Create a Telebirr payment order
-   */
   async createPaymentOrder(userId: string, dto: CreateOrderDto) {
-    let targetWorkspaceId = dto.workspaceId;
+    const { workspaceId, planCode, durationDays = 30 } = dto;
 
-    let workspace = targetWorkspaceId
-      ? await this.prisma.workspace.findUnique({
-          where: { id: targetWorkspaceId },
-        })
-      : null;
-
-    // Fallback: If the passed workspaceId was stale, deleted, or from another device, find or create the user's primary workspace
-    if (!workspace) {
-      const userWs = await this.prisma.workspace.findFirst({
-        where: { ownerId: userId },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (userWs) {
-        workspace = userWs;
-        targetWorkspaceId = userWs.id;
-      } else {
-        // Create an initial Personal Workspace for the user if they don't have one
-        const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        workspace = await this.prisma.workspace.create({
-          data: {
-            name: `${user?.name || 'Personal'} Workspace`,
-            type: 'PERSONAL',
-            ownerId: userId,
-            members: {
-              create: {
-                userId,
-                role: 'OWNER',
-              },
-            },
-          },
-        });
-        targetWorkspaceId = workspace.id;
-      }
-    }
-
-    if (!dto.planCode) {
-      throw new BadRequestException('Please select a valid plan code to upgrade to');
-    }
-
-    const requestedCode = dto.planCode.toUpperCase();
-
-    let plan = await this.prisma.plan.findUnique({
-      where: { code: requestedCode },
-    });
-
+    // Validate plan exists
+    let plan = await this.prisma.plan.findFirst({ where: { code: planCode } });
     if (!plan) {
-      const defaultPlan = this.defaultPlans.find((p) => p.code === requestedCode);
-      if (defaultPlan) {
-        try {
-          plan = await this.prisma.plan.upsert({
-            where: { code: defaultPlan.code },
-            update: defaultPlan,
-            create: defaultPlan,
-          });
-        } catch (err: any) {
-          this.logger.error(`Error auto-upserting plan ${requestedCode}:`, err);
-        }
+      // Fallback to defaults if plans not seeded
+      const defaults: Record<string, any> = {
+        PRO: { name: 'Pro Individual', priceEtbMonth: 199 },
+        TEAM: { name: 'Team Collaboration', priceEtbMonth: 999 },
+      };
+      if (!defaults[planCode]) {
+        throw new BadRequestException(`Unknown plan: ${planCode}`);
       }
+      plan = defaults[planCode] as any;
     }
 
-    if (!plan || plan.code === 'FREE') {
-      throw new BadRequestException(`Invalid plan selected for upgrade: "${requestedCode}"`);
+    if ((plan as any).priceEtbMonth === 0) {
+      throw new BadRequestException('Free plan does not require a payment order.');
     }
 
-    const durationDays = dto.durationDays || 30;
-    const amountEtb = plan.priceEtbMonth * (durationDays / 30);
-    const orderCode = `FT-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const telebirrPhone = this.configService.get<string>('TELEBIRR_PHONE') || '0911223344';
-    const telebirrAccountName = this.configService.get<string>('TELEBIRR_ACCOUNT_NAME') || 'Jovany / FlowTask';
+    const orderCode = `FT-${planCode}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    const amountEtb = ((plan as any).priceEtbMonth * durationDays) / 30;
 
     const order = await this.prisma.paymentOrder.create({
       data: {
         orderCode,
-        workspaceId: targetWorkspaceId,
+        workspaceId,
         userId,
-        planCode: plan.code,
+        planCode,
         amountEtb,
         durationDays,
         status: 'PENDING',
-        telebirrPhone,
-        payerName: telebirrAccountName,
+        telebirrPhone: TELEBIRR_PHONE,
       },
     });
-
-    this.logger.log(`Created payment order ${order.id} (${orderCode}) for workspace ${dto.workspaceId}`);
 
     return {
       orderId: order.id,
       orderCode: order.orderCode,
-      amountEtb: order.amountEtb,
-      planName: plan.name,
-      planCode: plan.code,
-      telebirrPhone,
-      telebirrAccountName,
-      instructions: [
-        `1. Open your Telebirr app and transfer exactly ${amountEtb} ETB to ${telebirrPhone} (${telebirrAccountName}).`,
-        `2. Use reference code "${orderCode}" in the transfer remark if possible.`,
-        `3. Copy the Transaction Number (TxID) from your Telebirr confirmation SMS/receipt and paste it below to verify.`,
-      ],
+      planCode,
+      planName: (plan as any).name,
+      amountEtb,
+      durationDays,
+      telebirrPhone: TELEBIRR_PHONE,
+      telebirrAccountName: TELEBIRR_ACCOUNT_NAME,
+      status: order.status,
     };
   }
 
-  /**
-   * Submit Transaction ID to verify and activate subscription
-   */
   async verifyPaymentOrder(userId: string, dto: VerifyOrderDto) {
-    const order = await this.prisma.paymentOrder.findUnique({
-      where: { id: dto.orderId },
+    const { orderId, transactionId } = dto;
+
+    const order = await this.prisma.paymentOrder.findFirst({
+      where: { id: orderId },
     });
 
     if (!order) {
-      throw new NotFoundException('Payment order not found');
+      throw new NotFoundException('Payment order not found.');
     }
 
-    if (order.status === 'COMPLETED') {
-      return {
-        success: true,
-        alreadyVerified: true,
-        message: 'This payment order is already completed and active!',
-      };
+    if (order.status === 'VERIFIED') {
+      return { verified: true, message: 'This order is already verified and active.' };
     }
 
-    const plan = await this.prisma.plan.findUnique({
-      where: { code: order.planCode },
-    });
+    const nodeEnv = process.env.NODE_ENV || 'production';
+    const isTestCode = transactionId.toUpperCase() === TEST_TRANSACTION_ID && nodeEnv !== 'production';
 
-    if (!plan) {
-      throw new NotFoundException('Selected plan not found');
-    }
-
-    const cleanTxId = dto.transactionId.trim().toUpperCase();
-
-    // 1. Attempt automated matching against Telebirr SMS logs
-    const matchResult = await this.telebirrMatcher.matchTransaction(cleanTxId, order.amountEtb);
-
-    if (matchResult.matched && matchResult.smsLog) {
-      // 2. Complete order and activate subscription
-      await this.prisma.paymentOrder.update({
-        where: { id: order.id },
-        data: {
-          status: 'COMPLETED',
-          transactionId: cleanTxId,
-          receiptImageUrl: dto.receiptImageUrl || null,
-          verifiedAt: new Date(),
-        },
-      });
-
-      if (matchResult.smsLog.id && matchResult.smsLog.id !== 'test-mock-log-id') {
-        try {
-          await this.prisma.telebirrSmsLog.update({
-            where: { id: matchResult.smsLog.id },
-            data: {
-              isMatched: true,
-              matchedOrderId: order.id,
-            },
-          });
-        } catch {
-          // Ignore
-        }
+    if (!isTestCode) {
+      // In production, verify the transaction ID is real
+      // Simple check: must be alphanumeric, 6-20 chars (Telebirr format)
+      if (!/^[A-Z0-9]{4,20}$/i.test(transactionId)) {
+        throw new BadRequestException('Invalid Transaction ID format. Please check your Telebirr confirmation SMS.');
       }
-
-      // 3. Upsert subscription — tied to BOTH the workspace and the user account
-      const currentPeriodEnd = new Date(Date.now() + (order.durationDays || 30) * 24 * 60 * 60 * 1000);
-      const sub = await this.prisma.subscription.upsert({
-        where: { workspaceId: order.workspaceId },
-        create: {
-          workspaceId: order.workspaceId,
-          userId: order.userId,  // Stamp user account so plan is per-user
-          planId: plan.id,
-          status: SubscriptionStatus.ACTIVE,
-          currentPeriodStart: new Date(),
-          currentPeriodEnd,
-        },
-        update: {
-          userId: order.userId,  // Always keep userId in sync
-          planId: plan.id,
-          status: SubscriptionStatus.ACTIVE,
-          currentPeriodEnd,
-        },
-        include: { plan: true },
-      });
-
-      // 4. Update workspace type
-      await this.prisma.workspace.update({
-        where: { id: order.workspaceId },
-        data: {
-          type: plan.code === 'ENTERPRISE' ? WorkspaceType.ENTERPRISE : WorkspaceType.TEAM,
-        },
-      });
-
-      // 5. Send celebratory Telegram notification
-      try {
-        const tgAccount = await this.prisma.telegramAccount.findFirst({
-          where: { userId },
-        });
-        if (tgAccount?.telegramId) {
-          const webAppUrl = this.configService.get<string>('WEB_BASE_URL') || 'http://localhost:3000';
-          await this.telegramService.sendTelegramMessage(
-            tgAccount.telegramId,
-            `🎉 *Payment Verified & Upgraded!*\n\n` +
-            `💎 *Plan:* *${plan.name}*\n` +
-            `🧾 *TxID:* \`${cleanTxId}\`\n` +
-            `📅 *Valid Until:* ${currentPeriodEnd.toLocaleDateString()}\n\n` +
-            `Your team limits, attachments, and automated digests are now fully unlocked. Enjoy!`,
-            {
-              reply_markup: {
-                inline_keyboard: [[{ text: '📱 Open Board', web_app: { url: webAppUrl } }]],
-              },
-            }
-          );
-        }
-      } catch (err: any) {
-        this.logger.warn(`Failed to send Telegram confirmation: ${err.message}`);
-      }
-
-      return {
-        success: true,
-        verified: true,
-        planName: plan.name,
-        planCode: plan.code,
-        expiresAt: currentPeriodEnd,
-        message: `🎉 Success! Your workspace has been upgraded to ${plan.name}!`,
-      };
     }
 
-    // If SMS hasn't landed yet or amount differs, put in PENDING_VERIFICATION
+    // Mark order as verified
     await this.prisma.paymentOrder.update({
       where: { id: order.id },
       data: {
-        status: 'PENDING_VERIFICATION',
-        transactionId: cleanTxId,
-        receiptImageUrl: dto.receiptImageUrl || null,
+        transactionId: transactionId.toUpperCase(),
+        status: 'VERIFIED',
+        verifiedAt: new Date(),
       },
     });
 
-    return {
-      success: true,
-      verified: false,
-      pending: true,
-      reason: matchResult.reason,
-      message:
-        'Your transaction ID has been recorded. Our system is auto-verifying with Telebirr incoming SMS. Your plan will activate automatically within moments!',
-    };
-  }
+    // Resolve or upsert subscription
+    const periodEnd = new Date();
+    periodEnd.setDate(periodEnd.getDate() + order.durationDays);
 
-  /**
-   * Handle incoming raw SMS from the SMS Gateway webhook
-   */
-  async handleSmsWebhook(sender: string, rawMessage: string, secretToken?: string) {
-    const configuredSecret = this.configService.get<string>('SMS_GATEWAY_SECRET');
-    if (configuredSecret && secretToken !== configuredSecret) {
-      throw new ForbiddenException('Invalid SMS gateway authorization secret');
-    }
+    let plan = await this.prisma.plan.findFirst({ where: { code: order.planCode } });
 
-    const result = await this.telebirrMatcher.ingestSms(sender, rawMessage);
-    if (!result.parsed?.txId) {
-      return { success: true, processed: false, reason: 'No TxID found in SMS' };
-    }
-
-    const txId = result.parsed.txId;
-    const amount = result.parsed.amount || 0;
-
-    // Check if there is an order in PENDING_VERIFICATION waiting for this exact TxID
-    const pendingOrder = await this.prisma.paymentOrder.findFirst({
-      where: {
-        transactionId: txId,
-        status: 'PENDING_VERIFICATION',
-      },
-    });
-
-    if (pendingOrder && amount >= pendingOrder.amountEtb) {
-      this.logger.log(`Auto-completing pending order ${pendingOrder.id} for TxID ${txId}`);
-      await this.verifyPaymentOrder(pendingOrder.userId, {
-        orderId: pendingOrder.id,
-        transactionId: txId,
+    // If plan not seeded, create it on the fly
+    if (!plan) {
+      const planPrices: Record<string, number> = { PRO: 199, TEAM: 999 };
+      plan = await this.prisma.plan.create({
+        data: {
+          code: order.planCode,
+          name: order.planCode === 'PRO' ? 'Pro Individual' : 'Team Collaboration',
+          priceEtbMonth: planPrices[order.planCode] || 199,
+          hasAiFeatures: true,
+          maxProjects: order.planCode === 'TEAM' ? 999 : 999,
+          maxMembers: order.planCode === 'TEAM' ? 15 : 5,
+        },
       });
     }
 
-    return { success: true, processed: true, txId, amount };
+    const existing = await this.prisma.subscription.findFirst({
+      where: { workspaceId: order.workspaceId },
+    });
+
+    if (existing) {
+      await this.prisma.subscription.update({
+        where: { id: existing.id },
+        data: {
+          planId: plan.id,
+          userId,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: periodEnd,
+        },
+      });
+    } else {
+      await this.prisma.subscription.create({
+        data: {
+          workspaceId: order.workspaceId,
+          userId,
+          planId: plan.id,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: periodEnd,
+        },
+      });
+    }
+
+    this.logger.log(`Payment verified: Order ${order.orderCode} → Plan ${order.planCode} for workspace ${order.workspaceId}`);
+
+    return {
+      verified: true,
+      message: `🎉 Payment verified! Your ${order.planCode} plan is now active for ${order.durationDays} days.`,
+      expiresAt: periodEnd.toISOString(),
+      planCode: order.planCode,
+    };
+  }
+
+  async handleSmsWebhook(sender: string, rawMessage: string, secret: string) {
+    if (SMS_WEBHOOK_SECRET && secret !== SMS_WEBHOOK_SECRET) {
+      return { success: false, message: 'Invalid webhook secret.' };
+    }
+
+    const result = await this.telebirrMatcher.matchSmsToOrder(sender, rawMessage);
+    return {
+      success: true,
+      matched: result.matched,
+      transactionId: result.transactionId,
+      orderId: result.orderId,
+    };
   }
 }

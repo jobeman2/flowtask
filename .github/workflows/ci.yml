@@ -11,6 +11,12 @@ jobs:
     name: Lint, Typecheck, and Test
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/flowtask_test
+      JWT_SECRET: test-secret-key-at-least-32-chars-long
+      TELEGRAM_BOT_TOKEN: test_token
+      NODE_ENV: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,15 +30,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
       - name: Generate Database Client
-        run: pnpm --filter @flowtask/database db:generate || true
+        run: pnpm --filter @flowtask/database db:generate
 
-      - name: Typecheck
-        run: pnpm typecheck || true
+      - name: TypeScript Typecheck
+        run: pnpm typecheck
+
+      - name: ESLint
+        run: pnpm lint
 
       - name: Run Tests
-        run: pnpm test || true
+        run: pnpm test

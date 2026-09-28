@@ -85,6 +85,8 @@ model User {
   activityLogs     ActivityLog[]
   sentInvitations  WorkspaceInvitation[] @relation("InvitedBy")
   receivedInvitations WorkspaceInvitation[] @relation("InvitedUser")
+  organizedMeetings   Meeting[]            @relation("MeetingOrganizer")
+  meetingAttendances  MeetingAttendee[]    @relation("MeetingAttendee")
 
   @@map("users")
 }
@@ -126,6 +128,7 @@ model Workspace {
   telegramChats TelegramChat[]
   activityLogs  ActivityLog[]
   subscription  Subscription?
+  meetings      Meeting[]
 
   @@index([ownerId])
   @@index([slug])
@@ -404,4 +407,74 @@ model TelebirrSmsLog {
   @@index([extractedTxId])
   @@index([isMatched])
   @@map("telebirr_sms_logs")
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum MeetingPlatform {
+  TELEGRAM
+  GOOGLE_MEET
+  ZOOM
+  MICROSOFT_TEAMS
+  OTHER
+}
+
+model Meeting {
+  id           String          @id @default(uuid())
+  workspaceId  String
+  organizerId  String
+  title        String
+  description  String?
+  platform     MeetingPlatform @default(TELEGRAM)
+  meetUrl      String?
+  scheduledAt  DateTime
+  durationMins Int             @default(30)
+  status       MeetingStatus   @default(SCHEDULED)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organizer User              @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  attendees MeetingAttendee[]
+  reminders MeetingReminder[]
+
+  @@index([workspaceId])
+  @@index([organizerId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("meetings")
+}
+
+model MeetingAttendee {
+  id        String   @id @default(uuid())
+  meetingId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation("MeetingAttendee", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@index([meetingId])
+  @@index([userId])
+  @@map("meeting_attendees")
+}
+
+model MeetingReminder {
+  id        String   @id @default(uuid())
+  meetingId String
+  remindAt  DateTime
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@index([remindAt, sent])
+  @@map("meeting_reminders")
 }

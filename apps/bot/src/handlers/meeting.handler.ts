@@ -1,5 +1,6 @@
 import { Context, InlineKeyboard } from 'grammy';
 import { prisma, TaskStatus, TaskPriority } from '@flowtask/database';
+import { botConfig } from '../config/bot.config';
 
 export async function handleMeetingCommand(ctx: Context) {
   const tgUser = ctx.from;
@@ -38,7 +39,7 @@ export async function handleMeetingCommand(ctx: Context) {
 
   if (!args) {
     // Show quick usage guide
-    const miniAppUrl = process.env.WEBAPP_URL || 'https://cbs-stockholm-donations-biggest.trycloudflare.com';
+    const miniAppUrl = botConfig.webAppUrl;
     const keyboard = new InlineKeyboard()
       .url('📅 Open Meeting Scheduler', miniAppUrl)
       .row()
@@ -125,7 +126,7 @@ export async function handleMeetingCommand(ctx: Context) {
     },
   });
 
-  const miniAppUrl = process.env.WEBAPP_URL || 'https://cbs-stockholm-donations-biggest.trycloudflare.com';
+  const miniAppUrl = botConfig.webAppUrl;
   const keyboard = new InlineKeyboard();
   
   if (isLink) {
