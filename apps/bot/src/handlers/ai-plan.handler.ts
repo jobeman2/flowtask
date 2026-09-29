@@ -2,6 +2,7 @@ import { Context, InlineKeyboard } from 'grammy';
 import { prisma, TaskStatus, TaskPriority } from '@flowtask/database';
 import { botConfig } from '../config/bot.config';
 import { escapeMarkdown } from '../utils/markdown';
+import { generateSprintPlan } from '../services/gemini.service';
 
 async function getUserWorkspace(ctx: Context) {
   const tgUser = ctx.from;
@@ -56,7 +57,7 @@ export async function handleAiPlanCommand(ctx: Context) {
   const { user, workspace, members, subscription } = ctx_data;
 
   // Check subscription — AI is a paid feature (PRO or TEAM plan)
-  const planCode = subscription?.plan?.code || 'FREE';
+  const planCode = (subscription as any)?.plan?.code || 'FREE';
   const hasAiAccess = planCode !== 'FREE';
 
   if (!hasAiAccess) {
@@ -96,72 +97,12 @@ export async function handleAiPlanCommand(ctx: Context) {
     return;
   }
 
-  await ctx.reply('🤖 *AI Project Manager is analyzing your idea and matching team roles...*', {
+  await ctx.reply('🤖 *AI Project Manager is analyzing your idea...*', {
     parse_mode: 'Markdown',
   });
 
-  // Generate classified tasks based on prompt keywords
-  const lower = prompt.toLowerCase();
-  const tasksToCreate: any[] = [];
-
-  const devUser = members.find((m: any) =>
-    (m.user?.name || '').toLowerCase().includes('dev') || m.role === 'MEMBER'
-  ) || members[0];
-  const leadUser = members.find((m: any) =>
-    m.role === 'OWNER' || m.role === 'ADMIN'
-  ) || members[0];
-
-  if (lower.includes('telebirr') || lower.includes('payment') || lower.includes('checkout')) {
-    tasksToCreate.push({
-      title: 'Implement Telebirr Webhook & Signature Verification',
-      description: 'Backend REST callback endpoint for instant payment receipt processing.',
-      assigneeId: devUser.user.id,
-      assigneeName: devUser.user.name,
-      priority: TaskPriority.HIGH,
-      dueInDays: 2,
-    });
-    tasksToCreate.push({
-      title: 'Build Telebirr 1-Tap Payment Sheet UI',
-      description: 'Telegram Mini App modal sheet with copy USSD and countdown timer.',
-      assigneeId: leadUser.user.id,
-      assigneeName: leadUser.user.name,
-      priority: TaskPriority.HIGH,
-      dueInDays: 3,
-    });
-    tasksToCreate.push({
-      title: 'Automated Receipt Notification Bot Handler',
-      description: 'Send payment confirmation receipt message and active badge in Telegram.',
-      assigneeId: devUser.user.id,
-      assigneeName: devUser.user.name,
-      priority: TaskPriority.MEDIUM,
-      dueInDays: 4,
-    });
-  } else {
-    tasksToCreate.push({
-      title: `Architect & Core Logic: ${prompt.slice(0, 40)}`,
-      description: `Backend implementation and database architecture for: ${prompt}.`,
-      assigneeId: devUser.user.id,
-      assigneeName: devUser.user.name,
-      priority: TaskPriority.HIGH,
-      dueInDays: 2,
-    });
-    tasksToCreate.push({
-      title: `User Interface & Interactions: ${prompt.slice(0, 40)}`,
-      description: `Frontend components and client flow for: ${prompt}.`,
-      assigneeId: leadUser.user.id,
-      assigneeName: leadUser.user.name,
-      priority: TaskPriority.HIGH,
-      dueInDays: 3,
-    });
-    tasksToCreate.push({
-      title: `QA Testing & Telegram Group Sandbox Verification`,
-      description: `End-to-end verification and performance check.`,
-      assigneeId: user.id,
-      assigneeName: user.name,
-      priority: TaskPriority.MEDIUM,
-      dueInDays: 5,
-    });
-  }
+  // Call Gemini AI — falls back to rule-based if GEMINI_API_KEY is not set
+  const tasksToCreate = await generateSprintPlan(prompt, members as any);
 
   for (const t of tasksToCreate) {
     const dueDate = new Date();
@@ -171,9 +112,9 @@ export async function handleAiPlanCommand(ctx: Context) {
       data: {
         workspaceId: workspace.id,
         creatorId: user.id,
-        assigneeId: t.assigneeId,
+        assigneeId: t.assigneeId || user.id,
         title: t.title,
-        description: `${t.description}\n\n🤖 AI Project Manager Auto-Classified`,
+        description: `${t.description}\n\n🤖 AI Project Manager`,
         priority: t.priority,
         dueDate,
         status: TaskStatus.TODO,
@@ -189,8 +130,9 @@ export async function handleAiPlanCommand(ctx: Context) {
   responseMsg += `*Created & Assigned ${tasksToCreate.length} Tasks:*\n`;
 
   tasksToCreate.forEach((t, i) => {
-    const prioIcon = t.priority === TaskPriority.HIGH ? '🔴' : '🟡';
-    responseMsg += `${i + 1}. *${escapeMarkdown(t.title)}*\n   👤 Assigned: *${escapeMarkdown(t.assigneeName)}* • ${prioIcon} \`${t.priority}\`\n\n`;
+    const prioIcon = t.priority === TaskPriority.URGENT ? '🚨'
+      : t.priority === TaskPriority.HIGH ? '🔴' : '🟡';
+    responseMsg += `${i + 1}. *${escapeMarkdown(t.title)}*\n   👤 *${escapeMarkdown(t.assigneeName)}* • ${prioIcon} \`${t.priority}\`\n\n`;
   });
 
   responseMsg += `✅ _All tasks are live on your Kanban Board & Calendar!_`;

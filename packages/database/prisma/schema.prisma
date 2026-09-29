@@ -228,6 +228,7 @@ model Task {
   completedAt DateTime?
   archivedAt  DateTime?
   sourceMessageId String?
+  taskMetadata    Json?   @default("{}")
   imageUrl    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

@@ -180,11 +180,11 @@ export function AiProjectManagerModal({ isOpen, onClose }: AiProjectManagerModal
                   AI Project Manager
                 </h3>
                 <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">
-                  Test Tool
+                  Gemini AI
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium pt-0.5">
-                Idea prompt classifier & smart team task allocator
+                Powered by Gemini AI — smart sprint planner & team task allocator
               </p>
             </div>
           </div>

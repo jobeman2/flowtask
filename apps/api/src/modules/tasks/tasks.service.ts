@@ -126,16 +126,20 @@ export class TasksService {
     const taskMetas = new Map<string, any>();
 
     for (const t of tasks) {
-      if (t.sourceMessageId && t.sourceMessageId.startsWith('meta:')) {
-        try {
-          const meta = JSON.parse(t.sourceMessageId.slice(5));
-          taskMetas.set(t.id, meta);
-          if (Array.isArray(meta.assigneeIds)) {
-            for (const uid of meta.assigneeIds) {
-              if (uid && typeof uid === 'string') extraUserIds.add(uid);
-            }
+      // Prefer new taskMetadata column; fall back to legacy sourceMessageId hack for old records
+      let meta: any = {};
+      if (t.taskMetadata && typeof t.taskMetadata === 'object') {
+        meta = t.taskMetadata;
+      } else if (t.sourceMessageId && t.sourceMessageId.startsWith('meta:')) {
+        try { meta = JSON.parse(t.sourceMessageId.slice(5)); } catch {}
+      }
+      if (Object.keys(meta).length > 0) {
+        taskMetas.set(t.id, meta);
+        if (Array.isArray(meta.assigneeIds)) {
+          for (const uid of meta.assigneeIds) {
+            if (uid && typeof uid === 'string') extraUserIds.add(uid);
           }
-        } catch {}
+        }
       }
     }
 
@@ -256,25 +260,26 @@ export class TasksService {
 
     let completedAssigneeIds: string[] = [];
 
-    if (task.sourceMessageId && task.sourceMessageId.startsWith('meta:')) {
-      try {
-        const meta = JSON.parse(task.sourceMessageId.slice(5));
-        if (Array.isArray(meta.attachments) && meta.attachments.length > 0) {
-          attachments = meta.attachments;
-        }
-        if (Array.isArray(meta.assigneeIds) && meta.assigneeIds.length > 0) {
-          const extraUsers = await this.prisma.user.findMany({
-            where: { id: { in: meta.assigneeIds } },
-            select: { id: true, name: true, avatarUrl: true },
-          });
-          if (extraUsers.length > 0) {
-            assignees = extraUsers;
-          }
-        }
-        if (Array.isArray(meta.completedAssigneeIds)) {
-          completedAssigneeIds = meta.completedAssigneeIds;
-        }
-      } catch (e) {}
+    // Prefer new taskMetadata column; fall back to legacy sourceMessageId hack for old records
+    let taskMeta: any = {};
+    if ((task as any).taskMetadata && typeof (task as any).taskMetadata === 'object') {
+      taskMeta = (task as any).taskMetadata;
+    } else if (task.sourceMessageId && task.sourceMessageId.startsWith('meta:')) {
+      try { taskMeta = JSON.parse(task.sourceMessageId.slice(5)); } catch {}
+    }
+
+    if (Array.isArray(taskMeta.attachments) && taskMeta.attachments.length > 0) {
+      attachments = taskMeta.attachments;
+    }
+    if (Array.isArray(taskMeta.assigneeIds) && taskMeta.assigneeIds.length > 0) {
+      const extraUsers = await this.prisma.user.findMany({
+        where: { id: { in: taskMeta.assigneeIds } },
+        select: { id: true, name: true, avatarUrl: true },
+      });
+      if (extraUsers.length > 0) assignees = extraUsers;
+    }
+    if (Array.isArray(taskMeta.completedAssigneeIds)) {
+      completedAssigneeIds = taskMeta.completedAssigneeIds;
     }
 
     if (completedAssigneeIds.length === 0 && task.status === 'DONE') {
