@@ -52,13 +52,25 @@ export class TasksService {
       }
 
       if (action === 'COMPLETE') {
-        if (task.assigneeId && !isAssignee && !isCreator && !isOwnerOrAdmin) {
-          throw new ForbiddenException('Only the assigned teammate, task creator, or workspace admin can mark this task as done.');
+        const isOneOfAssignees =
+          isAssignee ||
+          (Array.isArray(task.taskMetadata?.assigneeIds) && task.taskMetadata.assigneeIds.includes(userId)) ||
+          (task.sourceMessageId?.startsWith('meta:') && task.sourceMessageId.includes(userId));
+
+        if (!isOneOfAssignees && !isCreator && !isOwnerOrAdmin) {
+          throw new ForbiddenException(
+            'Only the assigned teammate, task creator, or workspace admin can mark this task as done.'
+          );
         }
       }
 
       if (action === 'UPDATE') {
-        if (!isOwnerOrAdmin && !isCreator && !isAssignee) {
+        const isOneOfAssignees =
+          isAssignee ||
+          (Array.isArray(task.taskMetadata?.assigneeIds) && task.taskMetadata.assigneeIds.includes(userId)) ||
+          (task.sourceMessageId?.startsWith('meta:') && task.sourceMessageId.includes(userId));
+
+        if (!isOwnerOrAdmin && !isCreator && !isOneOfAssignees) {
           throw new ForbiddenException(
             'Only the task assignee, creator, or workspace admin can modify this task.'
           );
@@ -158,13 +170,12 @@ export class TasksService {
       const meta = taskMetas.get(t.id) || {};
       let assignees: any[] = [];
 
-      if (Array.isArray(meta.assigneeIds) && meta.assigneeIds.length > 0) {
+      if (Array.isArray(meta.assigneeIds)) {
         for (const uid of meta.assigneeIds) {
           const u = userMap.get(uid);
           if (u) assignees.push(u);
         }
-      }
-      if (assignees.length === 0 && t.assignee) {
+      } else if (t.assignee) {
         assignees = [t.assignee];
       }
 
@@ -512,13 +523,18 @@ export class TasksService {
     let newSourceMessageId = existing.sourceMessageId;
     let newImageUrl = updateFields.imageUrl !== undefined ? updateFields.imageUrl : existing.imageUrl;
 
+    let newMetaObj: any = undefined;
+
     if (attachments !== undefined || assigneeIds !== undefined || completedAssigneeIds !== undefined) {
       let metaObj: any = {};
-      if (existing.sourceMessageId && existing.sourceMessageId.startsWith('meta:')) {
+      if (existing.taskMetadata && typeof existing.taskMetadata === 'object') {
+        metaObj = { ...existing.taskMetadata };
+      } else if (existing.sourceMessageId && existing.sourceMessageId.startsWith('meta:')) {
         try {
           metaObj = JSON.parse(existing.sourceMessageId.slice(5));
         } catch {}
       }
+
       if (attachments !== undefined) {
         metaObj.attachments = attachments;
         if (Array.isArray(attachments) && attachments.length > 0) {
@@ -550,6 +566,7 @@ export class TasksService {
         metaObj.completedAssigneeIds = currentAssignees;
       }
       newSourceMessageId = 'meta:' + JSON.stringify(metaObj);
+      newMetaObj = metaObj;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -566,6 +583,7 @@ export class TasksService {
         where: { id: taskId },
         data: {
           ...updateFields,
+          ...(newMetaObj !== undefined ? { taskMetadata: newMetaObj } : {}),
           sourceMessageId: newSourceMessageId,
           imageUrl: newImageUrl,
           dueDate: updateFields.dueDate ? new Date(updateFields.dueDate) : undefined,
@@ -608,6 +626,7 @@ export class TasksService {
         taskTitle: updated.title,
         creatorId: updated.creatorId,
         assigneeId: updated.assigneeId,
+        assigneeIds: newMetaObj?.assigneeIds || (updated.assigneeId ? [updated.assigneeId] : []),
         completedById: userId,
       },
     });

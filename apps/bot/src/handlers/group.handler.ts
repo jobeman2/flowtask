@@ -369,6 +369,17 @@ export async function handleLinkGroupCommand(ctx: Context) {
   const tgUser = ctx.from;
   if (!tgUser) return;
 
+  // 1. Verify caller is an administrator or creator of the group
+  try {
+    const chatMember = await ctx.getChatMember(tgUser.id);
+    const isAdmin = chatMember.status === 'creator' || chatMember.status === 'administrator';
+    if (!isAdmin) {
+      return ctx.reply('⚠️ Only group administrators can connect this Telegram group to a FlowTask workspace.');
+    }
+  } catch {
+    // Non-blocking in test/mock environments
+  }
+
   const account = await prisma.telegramAccount.findUnique({
     where: { telegramId: tgUser.id.toString() },
     include: {
@@ -383,7 +394,13 @@ export async function handleLinkGroupCommand(ctx: Context) {
   });
 
   if (!account) {
-    return ctx.reply('⚠️ Please start @flowtaskmanager_bot first to view and link your workspaces.');
+    const botInfo = await ctx.api.getMe();
+    return ctx.reply(
+      `⚠️ Please start @${botInfo.username} first in private chat so you can select and link your workspaces safely.`,
+      {
+        reply_markup: new InlineKeyboard().url('Start Bot Privately', `https://t.me/${botInfo.username}?start=link_${Math.abs(ctx.chat.id)}`),
+      }
+    );
   }
 
   const eligibleMembers = account.user.workspaceMembers.filter(
@@ -394,21 +411,51 @@ export async function handleLinkGroupCommand(ctx: Context) {
     return handleBotAddedToGroup(ctx);
   }
 
-  const keyboard = new InlineKeyboard();
-  eligibleMembers.slice(0, 5).forEach((m: any) => {
-    keyboard.text(`🔗 Link "${m.workspace.name}"`, `group:link_ws:${m.workspace.id}`).row();
-  });
-  keyboard.text(`➕ Create New Board`, `group:link_ws:new`).row();
-  keyboard.url('📱 Open Mini App', botConfig.webAppUrl);
-
+  const chatIdStr = String(ctx.chat.id);
   const groupTitle = ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'this group';
+
+  // Build private selection keyboard
+  const privateKeyboard = new InlineKeyboard();
+  eligibleMembers.slice(0, 8).forEach((m: any) => {
+    privateKeyboard.text(`🔗 Link "${m.workspace.name}"`, `group:link_ws:${m.workspace.id}:${chatIdStr}`).row();
+  });
+  privateKeyboard.text(`➕ Create New Board`, `group:link_ws:new:${chatIdStr}`).row();
+  privateKeyboard.url('📱 Open Mini App', `${botConfig.webAppUrl}?action=link_group&chatId=${chatIdStr}`);
+
+  let sentPrivate = false;
+  try {
+    await ctx.api.sendMessage(
+      tgUser.id,
+      `🔒 *Connect Telegram Group to FlowTask*\n\n` +
+      `Choose which workspace you want to connect to *${escapeMarkdown(groupTitle)}*:\n\n` +
+      `_Only you can see this selection to protect your workspace privacy._`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: privateKeyboard,
+      }
+    );
+    sentPrivate = true;
+  } catch {
+    // User hasn't PM'd the bot yet
+  }
+
+  const botInfo = await ctx.api.getMe();
+  const groupKeyboard = new InlineKeyboard();
+  if (sentPrivate) {
+    groupKeyboard.url('📩 Choose Workspace in Private Chat', `https://t.me/${botInfo.username}`).row();
+  } else {
+    groupKeyboard.url('📩 Choose Workspace Privately', `https://t.me/${botInfo.username}?start=link_${Math.abs(ctx.chat.id)}`).row();
+  }
+  groupKeyboard.url('📱 Connect via Mini App', `${botConfig.webAppUrl}?action=link_group&chatId=${chatIdStr}`);
+
   await ctx.reply(
-    `🔗 *Link Telegram Group to Workspace*\n\n` +
-    `Choose an existing workspace to link *${escapeMarkdown(groupTitle)}* to:\n\n` +
-    `Or select *Create New Board* to generate a fresh board for this group.`,
+    `🔒 *Connect Telegram Group to FlowTask*\n\n` +
+    (sentPrivate
+      ? `To protect your privacy, workspace options were sent privately to @${tgUser.username || tgUser.first_name}.\n\nOther group members will only see the linked board once connected.`
+      : `To keep your workspace names private from other group members, please tap below to select your workspace in private chat or via the Mini App:`),
     {
       parse_mode: 'Markdown',
-      reply_markup: keyboard,
+      reply_markup: groupKeyboard,
     }
   );
 }

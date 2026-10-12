@@ -26,10 +26,11 @@ interface TasksViewProps {
 
 export type ViewMode = 'LIST' | 'BOARD' | 'CALENDAR' | 'PROJECTS';
 
-type StatusFilter = 'ALL' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BACKLOG' | 'DONE' | 'CANCELLED';
+type StatusFilter = 'ALL' | 'MY_TASKS' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BACKLOG' | 'DONE' | 'CANCELLED';
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   ALL: 'All',
+  MY_TASKS: 'Assigned to Me',
   BACKLOG: 'Backlog',
   TODO: 'To Do',
   IN_PROGRESS: 'In Progress',
@@ -91,18 +92,28 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
   const filteredTasks = useMemo(() => {
     setPage(1); // reset page when filters change
     return tasks.filter((t: any) => {
-      if (activeFilter !== 'ALL' && t.status !== activeFilter) return false;
+      const assignees: any[] = Array.isArray(t.assignees) && t.assignees.length > 0
+        ? t.assignees
+        : (t.assignee ? [t.assignee] : []);
+
+      if (activeFilter === 'MY_TASKS') {
+        const isAssignedToMe = assignees.some((a: any) => a.id === user?.id) || t.assigneeId === user?.id;
+        if (!isAssignedToMe) return false;
+      } else if (activeFilter !== 'ALL' && t.status !== activeFilter) {
+        return false;
+      }
+
       if (selectedProjectId && t.projectId !== selectedProjectId) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = (t.title || '').toLowerCase().includes(q);
         const matchesProject = (t.project?.name || '').toLowerCase().includes(q);
-        const matchesAssignee = (t.assignee?.name || '').toLowerCase().includes(q);
+        const matchesAssignee = assignees.some((a: any) => (a.name || '').toLowerCase().includes(q));
         if (!matchesTitle && !matchesProject && !matchesAssignee) return false;
       }
       return true;
     });
-  }, [tasks, activeFilter, selectedProjectId, searchQuery]);
+  }, [tasks, activeFilter, selectedProjectId, searchQuery, user?.id]);
 
   // Paginate
   const paginatedTasks = useMemo(
@@ -195,9 +206,9 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
             </div>
           )}
 
-          {/* Status Filter Pills — all 7 statuses */}
+          {/* Status Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-            {(['ALL', 'BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'] as StatusFilter[]).map((filter) => {
+            {(['ALL', 'MY_TASKS', 'BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'] as StatusFilter[]).map((filter) => {
               const isActive = activeFilter === filter;
               return (
                 <button

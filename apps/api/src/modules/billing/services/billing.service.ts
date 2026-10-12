@@ -4,8 +4,8 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
-import { TelegramService } from '../telegram/telegram.service';
+import { PrismaService } from '../../../database/prisma.service';
+import { TelegramService } from '../../telegram/telegram.service';
 import { TelebirrMatcherService } from './telebirr-matcher.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { VerifyOrderDto } from '../dto/verify-order.dto';

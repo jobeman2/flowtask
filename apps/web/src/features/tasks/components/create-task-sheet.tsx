@@ -949,7 +949,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div className="pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))]">
             <button
               type="submit"
               disabled={createMutation.isPending}

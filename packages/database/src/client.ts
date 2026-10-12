@@ -63,6 +63,22 @@ export enum InvitationStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum MeetingStatus {
+  SCHEDULED = 'SCHEDULED',
+  ONGOING = 'ONGOING',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum MeetingPlatform {
+  TELEGRAM = 'TELEGRAM',
+  GOOGLE_MEET = 'GOOGLE_MEET',
+  ZOOM = 'ZOOM',
+  MICROSOFT_TEAMS = 'MICROSOFT_TEAMS',
+  OTHER = 'OTHER',
+}
+
+
 export class MockPrismaClient {
   public users = new Map<string, any>();
   public telegramAccounts = new Map<string, any>();
@@ -1599,9 +1615,20 @@ export class MockPrismaClient {
 
   plan = {
     upsert: async ({ create }: any) => create,
-    findMany: async () => {
+    findMany: async (params?: any) => {
       this.loadFromDisk();
-      return Array.from(this.plans.values());
+      let list = Array.from(this.plans.values());
+      if (params?.orderBy?.priceEtbMonth) {
+        list.sort((a: any, b: any) =>
+          params.orderBy.priceEtbMonth === 'asc'
+            ? (a.priceEtbMonth || 0) - (b.priceEtbMonth || 0)
+            : (b.priceEtbMonth || 0) - (a.priceEtbMonth || 0)
+        );
+      }
+      return list;
+    },
+    findFirst: async ({ where }: any = {}) => {
+      return this.plan.findUnique({ where });
     },
     findUnique: async ({ where }: any) => {
       this.loadFromDisk();
@@ -1609,6 +1636,17 @@ export class MockPrismaClient {
         (where?.code && p.code?.toUpperCase() === where.code?.toUpperCase()) ||
         (where?.id && (p.id === where.id || p.code?.toLowerCase() === where.id?.replace(/^plan_/, '').toLowerCase()))
       ) || null;
+    },
+    create: async ({ data }: any) => {
+      this.loadFromDisk();
+      const id = data.id || `plan_${(data.code || Date.now()).toLowerCase()}`;
+      const record = { id, createdAt: new Date(), updatedAt: new Date(), ...data };
+      this.plans.set(id, record);
+      if (record.code) {
+        this.plans.set(record.code, record);
+      }
+      this.saveToDisk();
+      return record;
     },
   };
 

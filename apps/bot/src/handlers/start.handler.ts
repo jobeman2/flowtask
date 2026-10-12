@@ -190,6 +190,40 @@ export async function handleStart(ctx: Context) {
     }
   }
 
+  // 3b. Check for group link payload: /start link_<chatId> or /start connect_<chatId>
+  if (param.startsWith('link_') || param.startsWith('connect_')) {
+    const rawTargetId = param.replace(/^(link_|connect_)/, '');
+    const fullChatId = rawTargetId.startsWith('-') ? rawTargetId : `-${rawTargetId}`;
+
+    const memberships = await prisma.workspaceMember.findMany({
+      where: {
+        userId,
+        role: { in: [WorkspaceRole.OWNER, WorkspaceRole.ADMIN] },
+      },
+      include: { workspace: true },
+    });
+
+    if (memberships.length > 0) {
+      const keyboard = new InlineKeyboard();
+      memberships.slice(0, 8).forEach((m: any) => {
+        keyboard.text(`🔗 Link "${m.workspace.name}"`, `group:link_ws:${m.workspace.id}:${fullChatId}`).row();
+      });
+      keyboard.text(`➕ Create New Board`, `group:link_ws:new:${fullChatId}`).row();
+      keyboard.url('📱 Open Mini App', `${botConfig.webAppUrl}?action=link_group&chatId=${fullChatId}`);
+
+      await ctx.reply(
+        `🔒 *Connect Telegram Group to FlowTask*\n\n` +
+        `Choose which workspace you want to connect to your Telegram group:\n\n` +
+        `_Your workspace names remain private to you._`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard,
+        }
+      );
+      return;
+    }
+  }
+
   // 4. Always check if user has any pending invitations across all workspaces!
   const pendingInvitations = await (prisma as any).workspaceInvitation.findMany({
     where: {

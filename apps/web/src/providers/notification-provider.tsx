@@ -60,7 +60,10 @@ interface NotificationContextType {
   dismissNotification: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
-  syncActivityLogs: (logs: any[], workspaceOwnerId?: string) => void;
+  syncActivityLogs: (
+    logs: any[],
+    workspaceOwnerId?: string | Map<string, string> | Record<string, string>
+  ) => void;
   settings: NotificationSettings;
   updateSettings: (partial: Partial<NotificationSettings>) => void;
 }
@@ -91,12 +94,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const storageKey = user?.id ? `flowtask_active_notifs_${user.id}` : 'flowtask_active_notifs_guest';
   const readKey = user?.id ? `flowtask_read_ids_${user.id}` : 'flowtask_read_ids_guest';
+  const clearedKey = user?.id ? `flowtask_cleared_at_${user.id}` : 'flowtask_cleared_at_guest';
   const settingsKey = user?.id ? `flowtask_notif_settings_${user.id}` : 'flowtask_notif_settings_guest';
 
   const readNotifIdsRef = useRef(readNotifIds);
   readNotifIdsRef.current = readNotifIds;
 
-  // 1. Load active notifications, read IDs, and settings from localStorage
+  const lastClearedAtRef = useRef(0);
+
+  // 1. Load active notifications, read IDs, cleared timestamp, and settings from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -108,6 +114,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         if (Array.isArray(parsed)) {
           savedReadIds = new Set(parsed);
           setReadNotifIds(savedReadIds);
+          readNotifIdsRef.current = savedReadIds;
+        }
+      }
+    } catch {}
+
+    try {
+      const savedCleared = localStorage.getItem(clearedKey);
+      if (savedCleared) {
+        const ts = Number(savedCleared);
+        if (!isNaN(ts)) {
+          lastClearedAtRef.current = ts;
         }
       }
     } catch {}
@@ -136,7 +153,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch {
       setSettings(DEFAULT_SETTINGS);
     }
-  }, [storageKey, readKey, settingsKey]);
+  }, [storageKey, readKey, clearedKey, settingsKey]);
 
   // Update Settings
   const updateSettings = useCallback((partial: Partial<NotificationSettings>) => {
@@ -161,15 +178,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setReadNotifIds((prev) => {
         const next = new Set(prev);
         next.add(id);
+        readNotifIdsRef.current = next;
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
+            localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-500)));
           } catch {}
         }
         return next;
       });
 
       setNotifications((prev) => {
+        const target = prev.find((n) => n.id === id);
+        if (target?.data?.id) {
+          readNotifIdsRef.current.add(target.data.id);
+        }
         const updated = prev.filter((n) => n.id !== id);
         if (typeof window !== 'undefined') {
           try {
@@ -186,23 +208,33 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Mark all as read -> ALL DISAPPEAR from active list
   const markAllAsRead = useCallback(() => {
+    const now = Date.now();
+    lastClearedAtRef.current = now;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(clearedKey, String(now));
+      } catch {}
+    }
+
     setReadNotifIds((readSet) => {
       const next = new Set(readSet instanceof Set ? readSet : []);
       if (Array.isArray(notifications)) {
         notifications.forEach((n) => {
           if (n?.id) next.add(n.id);
+          if (n?.data?.id) next.add(n.data.id);
         });
       }
+      readNotifIdsRef.current = next;
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-200)));
+          localStorage.setItem(readKey, JSON.stringify(Array.from(next).slice(-500)));
           localStorage.setItem(storageKey, JSON.stringify([]));
         } catch {}
       }
       return next;
     });
     setNotifications([]);
-  }, [notifications, readKey, storageKey]);
+  }, [notifications, readKey, storageKey, clearedKey]);
 
   const clearAll = markAllAsRead;
 
@@ -310,7 +342,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Sync Activity Logs strictly personalized for the logged-in user
   const syncActivityLogs = useCallback(
-    (logs: any[], workspaceOwnerId?: string) => {
+    (logs: any[], workspaceOwnerId?: string | Map<string, string> | Record<string, string>) => {
       if (!Array.isArray(logs) || logs.length === 0 || !user?.id) return;
 
       const currentUserId = user.id;
@@ -328,8 +360,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             // Never notify user of their own actions
             if (log.actorId === currentUserId) continue;
 
+            // Never re-add activities that occurred before user cleared notifications
+            if (log.createdAt && new Date(log.createdAt).getTime() <= lastClearedAtRef.current) {
+              continue;
+            }
+
             // Never re-add notifications the user already read/dismissed
-            if (log.id && currentReadIds.has(log.id)) continue;
+            if (log.id && (currentReadIds.has(log.id) || readNotifIdsRef.current.has(log.id))) continue;
 
             // If already in active list, skip
             if (log.id && existingIds.has(log.id)) continue;
@@ -337,6 +374,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           const action = log.action;
           const taskTitle = log.metadata?.title || 'a task';
           const actorName = log.actor?.name || 'A teammate';
+
+          const resolvedOwnerId =
+            typeof workspaceOwnerId === 'object' && workspaceOwnerId !== null
+              ? (workspaceOwnerId instanceof Map ? workspaceOwnerId.get(log.workspaceId) : (workspaceOwnerId as any)[log.workspaceId])
+              : workspaceOwnerId;
 
           let type: AppNotification['type'] | null = null;
           let title = '';
@@ -359,7 +401,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               log.metadata?.assigneeId === currentUserId ||
               (Array.isArray(log.metadata?.assigneeIds) &&
                 log.metadata.assigneeIds.includes(currentUserId));
-            const isWorkspaceOwner = workspaceOwnerId && workspaceOwnerId === currentUserId;
+            const isWorkspaceOwner = resolvedOwnerId && resolvedOwnerId === currentUserId;
 
             if (isAssignedToMe) {
               type = 'TASK_CREATED';
@@ -374,7 +416,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             const isCreator = log.metadata?.creatorId === currentUserId;
             const isWorkspaceOwner =
               (log.metadata?.workspaceOwnerId && log.metadata.workspaceOwnerId === currentUserId) ||
-              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+              (resolvedOwnerId && resolvedOwnerId === currentUserId);
 
             // ONLY notify if current user is the task creator or workspace owner!
             if (isCreator || isWorkspaceOwner) {
@@ -386,9 +428,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             const isInviter = log.metadata?.inviterId === currentUserId;
             const isWorkspaceOwner =
               (log.metadata?.ownerId && log.metadata.ownerId === currentUserId) ||
-              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+              (resolvedOwnerId && resolvedOwnerId === currentUserId);
 
-            // ONLY notify inviter or workspace owner
+            // ONLY notify the specific person who invited them or the workspace owner!
             if (isInviter || isWorkspaceOwner) {
               type = 'INVITATION_ACCEPTED';
               title = 'Teammate Joined';
@@ -397,7 +439,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           } else if (action === 'MEMBER_LEFT') {
             const isWorkspaceOwner =
               (log.metadata?.ownerId && log.metadata.ownerId === currentUserId) ||
-              (workspaceOwnerId && workspaceOwnerId === currentUserId);
+              (resolvedOwnerId && resolvedOwnerId === currentUserId);
 
             // ONLY notify workspace owner
             if (isWorkspaceOwner) {

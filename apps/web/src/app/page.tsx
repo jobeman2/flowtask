@@ -20,15 +20,63 @@ import { useTelegram } from '../hooks/use-telegram';
 import { Sparkles, Bell } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, workspaceId, error, subscription, isLoading } = useAuth();
+  const { user, workspaceId, setWorkspaceId, error, subscription, isLoading } = useAuth();
   const { unreadCount } = useNotifications();
-  const { triggerHaptic } = useTelegram();
+  const { triggerHaptic, showBackButton, hideBackButton, webApp } = useTelegram();
   useLiveEvents(workspaceId);
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // Handle deep-linking via start_param (e.g. task_123 or ws_xyz)
+  React.useEffect(() => {
+    const startParam =
+      webApp?.initDataUnsafe?.start_param ||
+      (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tgWebAppStartParam') : null);
+
+    if (startParam) {
+      if (startParam.startsWith('task_') || startParam.startsWith('task-')) {
+        const tId = startParam.replace(/^task[_-]/, '');
+        setSelectedTaskId(tId);
+        setActiveNav('TASKS');
+      } else if (startParam.startsWith('ws_') || startParam.startsWith('ws-')) {
+        setWorkspaceId(startParam);
+      }
+    }
+  }, [webApp, setWorkspaceId]);
+
+  // Synchronize Telegram BackButton with active modal/sheet or non-HOME tab
+  React.useEffect(() => {
+    const hasOpenModal = selectedTaskId !== null || isCreateOpen || isPricingOpen || isNotificationsOpen;
+    const isSubTab = activeNav !== 'HOME';
+
+    if (hasOpenModal || isSubTab) {
+      const handleBack = () => {
+        triggerHaptic('light');
+        if (selectedTaskId) {
+          setSelectedTaskId(null);
+        } else if (isCreateOpen) {
+          setIsCreateOpen(false);
+        } else if (isPricingOpen) {
+          setIsPricingOpen(false);
+        } else if (isNotificationsOpen) {
+          setIsNotificationsOpen(false);
+        } else if (isSubTab) {
+          setActiveNav('HOME');
+        }
+      };
+
+      showBackButton(handleBack);
+      return () => {
+        hideBackButton(handleBack);
+      };
+    }
+
+    hideBackButton();
+    return undefined;
+  }, [selectedTaskId, isCreateOpen, isPricingOpen, isNotificationsOpen, activeNav, showBackButton, hideBackButton, triggerHaptic]);
 
   // Plan comes from the user's own account subscription (works cross-device automatically)
   const planCode = subscription?.planCode || 'FREE';

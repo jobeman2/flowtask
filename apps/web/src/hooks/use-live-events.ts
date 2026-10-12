@@ -41,19 +41,36 @@ export function useLiveEvents(workspaceId?: string | null) {
     ? (rawWorkspaces as any).data
     : [];
 
+  const workspacesRef = useRef<any[]>([]);
+  workspacesRef.current = workspaces;
+
   const currentWs = workspaces.find((w: any) => w && w.id === workspaceId);
   const workspaceOwnerId = currentWs?.ownerId;
   const workspaceOwnerIdRef = useRef(workspaceOwnerId);
   workspaceOwnerIdRef.current = workspaceOwnerId;
 
-  // Helper to fetch latest activities and sync
+  // Helper to fetch latest activities across all user workspaces and sync
   const pollActivity = useCallback(async () => {
-    if (!workspaceId) return;
     try {
-      const res = await apiClient.getActivity(workspaceId);
-      const logs = Array.isArray(res?.data) ? res.data : (res?.data as any)?.data || [];
-      if (logs.length > 0 && typeof syncActivityLogsRef.current === 'function') {
-        syncActivityLogsRef.current(logs, workspaceOwnerIdRef.current);
+      const activeList = workspacesRef.current.length > 0 ? workspacesRef.current : (workspaceId ? [{ id: workspaceId }] : []);
+      const ownerMap = new Map(workspacesRef.current.map((w: any) => [w.id, w.ownerId]));
+
+      // Poll current workspace and user workspaces (up to 5)
+      const targetIds = Array.from(new Set([workspaceId, ...activeList.map((w: any) => w.id)].filter(Boolean))).slice(0, 5);
+
+      const allLogs: any[] = [];
+      await Promise.all(
+        targetIds.map(async (wsId) => {
+          try {
+            const res = await apiClient.getActivity(wsId as string);
+            const logs = Array.isArray(res?.data) ? res.data : (res?.data as any)?.data || [];
+            allLogs.push(...logs);
+          } catch {}
+        })
+      );
+
+      if (allLogs.length > 0 && typeof syncActivityLogsRef.current === 'function') {
+        syncActivityLogsRef.current(allLogs, ownerMap);
       }
     } catch {
       // Non-blocking
@@ -62,8 +79,6 @@ export function useLiveEvents(workspaceId?: string | null) {
 
   // 1. Initial sync and periodic live background polling (every 4s)
   useEffect(() => {
-    if (!workspaceId) return;
-
     pollActivity();
 
     // Live background polling interval ensures continuous updates even if Webview suspends SSE
@@ -77,8 +92,10 @@ export function useLiveEvents(workspaceId?: string | null) {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         pollActivity();
-        queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-        queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+        if (workspaceId) {
+          queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+          queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+        }
       }
     };
 
@@ -92,13 +109,13 @@ export function useLiveEvents(workspaceId?: string | null) {
     };
   }, [workspaceId, pollActivity, queryClient]);
 
-  // 2. Real-time EventSource listener
+  // 2. Real-time EventSource listener across all user workspaces
   useEffect(() => {
-    if (!workspaceId || typeof window === 'undefined' || !window.EventSource) {
+    if (typeof window === 'undefined' || !window.EventSource) {
       return;
     }
 
-    const sseUrl = apiClient.getLiveStreamUrl(workspaceId);
+    const sseUrl = apiClient.getLiveStreamUrl();
     let eventSource: EventSource | null = null;
     let reconnectTimeout: any = null;
 
@@ -114,27 +131,42 @@ export function useLiveEvents(workspaceId?: string | null) {
             // Heartbeat ping to keep connection alive
             if (parsed.type === 'PING') return;
 
+            // Instantly invalidate queries for the active workspace if matching
             if (!parsed.workspaceId || parsed.workspaceId === workspaceId) {
-              // Instantly invalidate queries so the UI updates live in real-time
-              queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-              queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-              queryClient.invalidateQueries({ queryKey: ['activity', workspaceId] });
-              queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-              queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
+              if (workspaceId) {
+                queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+                queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+                queryClient.invalidateQueries({ queryKey: ['activity', workspaceId] });
+                queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
+              }
+            }
 
-              const currentUser = userRef.current;
-              const notify = addNotificationRef.current;
-              const currentUserId = currentUser?.id;
-              const ownerId = workspaceOwnerIdRef.current;
+            // Always refresh workspaces list
+            queryClient.invalidateQueries({ queryKey: ['workspaces'] });
 
-              if (!currentUserId) return;
+            // Optimistically clean deleted tasks from memory
+            if (parsed.type === 'TASK_DELETED' && (parsed.data?.taskId || parsed.data?.id)) {
+              const delId = parsed.data?.taskId || parsed.data?.id;
+              queryClient.setQueriesData({ queryKey: ['tasks'] }, (old: any) => {
+                if (!Array.isArray(old)) return old;
+                return old.filter((t: any) => t.id !== delId);
+              });
+            }
 
-              // Never notify the actor for their own action
-              const actorId = parsed.data?.actorId || parsed.data?.completedById || parsed.data?.creatorId;
-              if (actorId === currentUserId && parsed.type !== 'TASK_ASSIGNED') return;
+            const currentUser = userRef.current;
+            const notify = addNotificationRef.current;
+            const currentUserId = currentUser?.id;
+            const ownerMap = new Map(workspacesRef.current.map((w: any) => [w.id, w.ownerId]));
+            const ownerId = parsed.workspaceId ? ownerMap.get(parsed.workspaceId) : workspaceOwnerIdRef.current;
 
-              const taskTitle = parsed.data?.taskTitle || parsed.data?.title || parsed.data?.task?.title || 'a task';
-              const taskId = parsed.data?.taskId || parsed.data?.id || parsed.data?.task?.id;
+            if (!currentUserId) return;
+
+            // Never notify the actor for their own action
+            const actorId = parsed.data?.actorId || parsed.data?.completedById || parsed.data?.creatorId;
+            if (actorId === currentUserId && parsed.type !== 'TASK_ASSIGNED') return;
+
+            const taskTitle = parsed.data?.taskTitle || parsed.data?.title || parsed.data?.task?.title || 'a task';
+            const taskId = parsed.data?.taskId || parsed.data?.id || parsed.data?.task?.id;
 
               // Strictly personalized notification dispatch
               if (parsed.type === 'TASK_ASSIGNED') {
@@ -208,7 +240,6 @@ export function useLiveEvents(workspaceId?: string | null) {
                   });
                 }
               }
-            }
           } catch {
             // Non-blocking
           }

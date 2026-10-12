@@ -115,8 +115,11 @@ export function createBot() {
   });
 
   bot.callbackQuery(/^group:link_ws:(.+)$/, async (ctx) => {
-    const wsId = ctx.match[1];
+    const rawPayload = ctx.match[1];
     await ctx.answerCallbackQuery();
+
+    const [wsId, passedChatId] = rawPayload.split(':');
+    const chatIdStr = passedChatId || (ctx.chat?.id ? String(ctx.chat.id) : '');
 
     if (wsId === 'new') {
       return handleBotAddedToGroup(ctx);
@@ -127,10 +130,15 @@ export function createBot() {
       return ctx.reply('⚠️ Workspace not found.');
     }
 
-    const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : '';
-    const groupTitle = ctx.chat && 'title' in ctx.chat ? ctx.chat.title : 'Group';
-
+    let groupTitle = 'Group';
     if (chatIdStr) {
+      try {
+        const chatInfo = await ctx.api.getChat(chatIdStr);
+        if ('title' in chatInfo && chatInfo.title) {
+          groupTitle = chatInfo.title;
+        }
+      } catch {}
+
       const existing = await prisma.telegramChat.findUnique({ where: { chatId: chatIdStr } });
       if (existing) {
         await prisma.telegramChat.update({
@@ -142,7 +150,7 @@ export function createBot() {
           data: {
             chatId: chatIdStr,
             workspaceId: ws.id,
-            type: ctx.chat?.type || 'group',
+            type: 'group',
             title: groupTitle,
           },
         });
@@ -150,15 +158,34 @@ export function createBot() {
     }
 
     const escapeMd = (t: string) => t.replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+
+    // Confirm to the user in their current view (PM or group)
     await ctx.editMessageText(
       `🎉 *Telegram Group Linked Successfully!*\n\n` +
       `🏢 *Workspace:* *${escapeMd(ws.name)}*\n` +
-      `This Telegram group is now linked directly to your existing workspace board. All members can view and manage tasks together!`,
+      `👥 *Group:* *${escapeMd(groupTitle)}*\n\n` +
+      `This Telegram group is now linked directly to your workspace board. All members can view and manage tasks together!`,
       {
         parse_mode: 'Markdown',
         reply_markup: new InlineKeyboard().url('📱 Open Workspace in Mini App', `${botConfig.webAppUrl}?workspaceId=${ws.id}`),
       }
     );
+
+    // If linked privately from DM, send a clean announcement into the group chat
+    if (passedChatId && String(ctx.chat?.id) !== passedChatId) {
+      try {
+        await ctx.api.sendMessage(
+          passedChatId,
+          `🎉 *Group Connected to FlowTask!*\n\n` +
+          `This group is now connected to *${escapeMd(ws.name)}*.\n` +
+          `Use \`/task <title>\` to create tasks or open the Mini App below:`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: new InlineKeyboard().url('📱 Open Task Board', `${botConfig.webAppUrl}?workspaceId=${ws.id}`),
+          }
+        );
+      } catch {}
+    }
   });
 
   // 2. Task List Filtering & Pagination (tasks:filter:<filter>:<page> | tasks:page:<filter>:<page>)

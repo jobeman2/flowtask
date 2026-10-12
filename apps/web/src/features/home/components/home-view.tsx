@@ -107,12 +107,16 @@ export function HomeView({
     };
   }, [tasks, stats]);
 
-  // Home page: show tasks assigned to me (or created by me if unassigned)
+  // Home page: only show tasks actively assigned to me
   const myTasks = useMemo(() => {
+    if (!user?.id) return [];
     return tasks.filter((t: any) => {
       if (t.status === 'DONE') return false;
-      // assigned to me, or created by me with no assignee
-      return t.assigneeId === user?.id || (t.creatorId === user?.id && !t.assigneeId);
+      const assignees: any[] = Array.isArray(t.assignees) && t.assignees.length > 0
+        ? t.assignees
+        : (t.assignee ? [t.assignee] : []);
+      const isAssignedToMe = assignees.some((a: any) => a.id === user.id) || t.assigneeId === user.id;
+      return isAssignedToMe;
     });
   }, [tasks, user?.id]);
 

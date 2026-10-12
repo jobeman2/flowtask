@@ -17,6 +17,13 @@ interface TelegramWebApp {
   expand: () => void;
   close: () => void;
   ready: () => void;
+  BackButton: {
+    isVisible: boolean;
+    show: () => void;
+    hide: () => void;
+    onClick: (cb: () => void) => void;
+    offClick: (cb: () => void) => void;
+  };
   MainButton: {
     text: string;
     show: () => void;
@@ -76,6 +83,26 @@ export function useTelegram() {
     }
   };
 
+  const showBackButton = (onBack: () => void) => {
+    if (!webApp?.BackButton) return;
+    try {
+      webApp.BackButton.show();
+      webApp.BackButton.onClick(onBack);
+    } catch {
+      // Fallback
+    }
+  };
+
+  const hideBackButton = (onBack?: () => void) => {
+    if (!webApp?.BackButton) return;
+    try {
+      if (onBack) webApp.BackButton.offClick(onBack);
+      webApp.BackButton.hide();
+    } catch {
+      // Fallback
+    }
+  };
+
   return {
     webApp,
     user,
@@ -83,5 +110,7 @@ export function useTelegram() {
     isReady,
     isInsideTelegram: Boolean(webApp?.initData),
     triggerHaptic,
+    showBackButton,
+    hideBackButton,
   };
 }

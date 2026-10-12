@@ -64,7 +64,7 @@ ${memberList}`;
 
   if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
 
-  const data = await res.json();
+  const data = (await res.json()) as any;
   const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
 
   let parsed: any[];

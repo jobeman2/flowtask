@@ -29,8 +29,12 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
       if (!workspaceId) return;
       return apiClient.updateTask(taskId, workspaceId, { status });
     },
-    onSuccess: () => {
-      triggerHaptic('medium');
+    onSuccess: (_, variables) => {
+      if (variables.status === 'DONE') {
+        triggerHaptic('success');
+      } else {
+        triggerHaptic('medium');
+      }
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
     },

@@ -99,11 +99,31 @@ export async function handleAssignedTasks(ctx: Context) {
   const isGroup = ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup';
   if (isGroup) {
     keyboard.url('📱 Open Full Task Board in Mini App', botConfig.webAppUrl);
+    try {
+      await ctx.api.sendMessage(tgUser.id, text, { parse_mode: 'Markdown', reply_markup: keyboard });
+      await ctx.reply(
+        `📩 @${tgUser.username || tgUser.first_name}, your assigned tasks list has been sent to your private chat to keep your tasks confidential.`,
+        {
+          reply_markup: new InlineKeyboard().url('Open Private Chat', `https://t.me/${(await ctx.api.getMe()).username}`),
+        }
+      );
+      return;
+    } catch {
+      // If user hasn't PM'd the bot yet
+      const botInfo = await ctx.api.getMe();
+      const pmKb = new InlineKeyboard()
+        .url('📥 View My Assigned Tasks', `https://t.me/${botInfo.username}?start=assigned`)
+        .url('📱 Open Mini App', botConfig.webAppUrl);
+      await ctx.reply(
+        `🔒 To keep your tasks confidential, view your assigned tasks privately:`,
+        { reply_markup: pmKb }
+      );
+      return;
+    }
   } else {
     keyboard.webApp('📱 Open Full Task Board in Mini App', botConfig.webAppUrl);
+    await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
   }
-
-  await ctx.reply(text, { parse_mode: 'Markdown', reply_markup: keyboard });
 }
 
 function escapeMarkdown(text: string): string {

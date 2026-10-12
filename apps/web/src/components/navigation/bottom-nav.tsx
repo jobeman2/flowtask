@@ -36,7 +36,7 @@ export function BottomNav({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-1 pointer-events-none flex justify-center font-sans">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] pt-1 pointer-events-none flex justify-center font-sans">
       <div className="w-full max-w-sm bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-200/80 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-1.5 flex items-center justify-between pointer-events-auto transition-all">
         {/* Home Tab */}
         <button

@@ -122,6 +122,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string; snippet: string } | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState<string>('');
+  const [swipingCommentId, setSwipingCommentId] = useState<string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const swipeStartX = React.useRef<number | null>(null);
 
   // Attachments State (initialized empty and populated from real task.imageUrl or uploaded files)
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
@@ -1389,11 +1392,49 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       const canDelete = isAuthor || isOwnerOrAdmin;
                       const isBeingEdited = editingCommentId === c.id;
 
+                      const isSwiping = swipingCommentId === c.id;
+                      const currentTranslate = isSwiping ? swipeOffset : 0;
+
                       return (
                         <div
                           key={c.id}
-                          className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-1 border border-slate-100 dark:border-slate-800"
+                          className="relative overflow-hidden rounded-2xl"
                         >
+                          {/* Background Reply Action Icon (Telegram swipe style) */}
+                          <div className="absolute inset-y-0 right-0 w-16 bg-blue-500/15 dark:bg-blue-500/25 flex items-center justify-center rounded-r-2xl pointer-events-none">
+                            <Reply className={`w-4 h-4 text-blue-600 dark:text-blue-400 transition-transform ${Math.abs(currentTranslate) > 40 ? 'scale-125' : 'scale-90 opacity-60'}`} />
+                          </div>
+
+                          <div
+                            onTouchStart={(e) => {
+                              swipeStartX.current = e.touches[0].clientX;
+                              setSwipingCommentId(c.id);
+                            }}
+                            onTouchMove={(e) => {
+                              if (swipeStartX.current === null) return;
+                              const diff = e.touches[0].clientX - swipeStartX.current;
+                              // Only allow swiping to the left (negative diff) up to -70px
+                              if (diff < 0) {
+                                setSwipeOffset(Math.max(-70, diff));
+                              } else {
+                                setSwipeOffset(0);
+                              }
+                            }}
+                            onTouchEnd={() => {
+                              if (Math.abs(swipeOffset) > 45) {
+                                triggerHaptic('medium');
+                                setReplyingTo({ id: c.id, author: c.user, snippet: c.text.slice(0, 30) });
+                              }
+                              swipeStartX.current = null;
+                              setSwipingCommentId(null);
+                              setSwipeOffset(0);
+                            }}
+                            style={{
+                              transform: `translateX(${currentTranslate}px)`,
+                              transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                            }}
+                            className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs space-y-1 border border-slate-100 dark:border-slate-800 relative z-10"
+                          >
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                               {c.avatar ? (
@@ -1505,6 +1546,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                               {c.text}
                             </p>
                           )}
+                          </div>
                         </div>
                       );
                     })
@@ -1611,7 +1653,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       {previewAttachment && (
         <div
           onClick={() => setPreviewAttachment(null)}
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in font-sans"
+          className="fixed inset-0 z-[90] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in font-sans"
         >
           <div
             onClick={(e) => e.stopPropagation()}

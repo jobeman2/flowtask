@@ -24,7 +24,6 @@ import {
   Plus,
   Send,
   Settings,
-  ArrowRight,
 } from 'lucide-react';
 import { ManageWorkspaceModal } from '../../workspaces/components/manage-workspace-modal';
 
@@ -186,29 +185,67 @@ export function TeamView() {
   const currentRole = currentMember?.role || 'MEMBER';
   const canManageMembers = currentRole === 'OWNER' || currentRole === 'ADMIN';
 
-  // Invite Member Mutation
+  // Invite Member Mutation (supports single or multiple usernames)
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!inviteIdentifier.trim() || !workspaceId) return;
       setInviteError(null);
-      const res = await apiClient.inviteWorkspaceMember(workspaceId, {
-        username: inviteIdentifier.trim().replace(/^@/, ''),
-        role: inviteRole,
+
+      const rawUsernames = inviteIdentifier
+        .split(/[\s,]+/)
+        .map((u) => u.trim().replace(/^@/, ''))
+        .filter(Boolean);
+
+      if (rawUsernames.length === 0) return;
+
+      const results = await Promise.allSettled(
+        rawUsernames.map((username) =>
+          apiClient.inviteWorkspaceMember(workspaceId, {
+            username,
+            role: inviteRole,
+          })
+        )
+      );
+
+      const successfulUsernames: string[] = [];
+      const failedUsernames: { username: string; error: string }[] = [];
+
+      results.forEach((res, idx) => {
+        const username = rawUsernames[idx];
+        if (res.status === 'fulfilled' && !res.value.error) {
+          successfulUsernames.push(username);
+        } else {
+          const err = res.status === 'fulfilled' ? res.value.error : (res.reason?.message || 'Failed');
+          failedUsernames.push({ username, error: err || 'Failed' });
+        }
       });
-      if (res.error) throw new Error(res.error);
-      return res.data;
+
+      if (successfulUsernames.length === 0 && failedUsernames.length > 0) {
+        throw new Error(failedUsernames.map((f) => `@${f.username}: ${f.error}`).join('\n'));
+      }
+
+      return { successfulUsernames, failedUsernames };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       triggerHaptic('medium');
-      saveToInviteHistory(inviteIdentifier);
+      if (data?.successfulUsernames) {
+        data.successfulUsernames.forEach((u) => saveToInviteHistory(u));
+      }
       queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });
       setInviteIdentifier('');
       setInviteError(null);
       setIsInviteOpen(false);
+
+      if (data?.failedUsernames && data.failedUsernames.length > 0) {
+        setSyncStatus(
+          `Invited ${data.successfulUsernames.length} members. Failed: ${data.failedUsernames.map((f) => `@${f.username}`).join(', ')}`
+        );
+        setTimeout(() => setSyncStatus(null), 6000);
+      }
     },
     onError: (err: any) => {
       triggerHaptic('heavy');
-      setInviteError(err.message || 'Failed to invite member');
+      setInviteError(err.message || 'Failed to invite members');
     },
   });
 
@@ -350,23 +387,6 @@ export function TeamView() {
             </div>
           )}
 
-          {/* Quick link to switch workspaces */}
-          <div
-            onClick={() => {
-              triggerHaptic('light');
-              setActiveTab('WORKSPACES');
-            }}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center justify-between text-xs cursor-pointer hover:border-blue-300 transition-colors"
-          >
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-              <Building2 className="w-3.5 h-3.5 text-blue-500" />
-              <span>Workspace: <strong className="text-slate-800 dark:text-slate-200">{currentWorkspace?.name || 'Default'}</strong></span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400">
-              <span>View all ({workspaces.length})</span>
-              <ArrowRight className="w-3 h-3" />
-            </div>
-          </div>
 
           {/* Search Bar */}
           <div className="relative">
@@ -760,9 +780,12 @@ export function TeamView() {
                 type="text"
                 value={inviteIdentifier}
                 onChange={(e) => setInviteIdentifier(e.target.value)}
-                placeholder="@username (e.g. @john_doe)"
+                placeholder="@username or multiple (e.g. @alice @bob, @carol)"
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium"
               />
+              <p className="text-[10px] text-slate-400 font-medium">
+                Tip: Enter multiple usernames separated by spaces or commas to invite them all at once.
+              </p>
 
               {/* 1-Tap Recent Collaborators */}
               {inviteHistory.length > 0 && (
@@ -777,7 +800,7 @@ export function TeamView() {
                         type="button"
                         onClick={() => {
                           triggerHaptic('light');
-                          setInviteIdentifier(`@${item.username}`);
+                          setInviteIdentifier((prev) => (prev ? `${prev} @${item.username}` : `@${item.username}`));
                         }}
                         className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/60 dark:hover:text-blue-400 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 active:scale-95"
                       >
@@ -826,7 +849,7 @@ export function TeamView() {
               onClick={() => inviteMutation.mutate()}
               className="w-full py-3 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
             >
-              {inviteMutation.isPending ? 'Sending Invite...' : 'Send Telegram Invite'}
+              {inviteMutation.isPending ? 'Sending Invites...' : 'Send Telegram Invite(s)'}
             </button>
           </div>
         </div>,

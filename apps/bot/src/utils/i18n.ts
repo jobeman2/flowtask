@@ -65,7 +65,7 @@ export const en = {
 } as const;
 
 export type Lang = 'am' | 'en';
-export type I18nStrings = typeof en;
+export type I18nStrings = Record<string, any>;
 
 const translations: Record<Lang, I18nStrings> = { am, en };
 

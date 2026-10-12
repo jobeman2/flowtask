@@ -64,12 +64,6 @@ export function WorkspaceSwitcher() {
       if (newWs?.id) {
         setWorkspaceId(newWs.id);
       }
-      const wsName = newWs?.name || newWsName.trim() || 'New workspace';
-      addNotification({
-        type: 'SYSTEM',
-        title: 'Workspace Created',
-        message: `Workspace "${wsName}" is ready!`,
-      });
       setNewWsName('');
       setErrorMessage(null);
       setIsCreating(false);
