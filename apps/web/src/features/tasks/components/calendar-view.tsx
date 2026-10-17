@@ -286,15 +286,15 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
                       triggerHaptic('medium');
                       setSelectedMeetingTask(task);
                     }}
-                    className="bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3 hover:border-purple-400 transition-all cursor-pointer group"
+                    className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-indigo-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-indigo-950/20 rounded-2xl p-3.5 border border-blue-200/80 dark:border-blue-800/60 shadow-xs flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/25">
                         <Video className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50">
                             MEETING
                           </span>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">

@@ -20,6 +20,7 @@ import {
   Calendar,
   Eye,
   Download,
+  Sparkles,
 } from 'lucide-react';
 
 export interface AttachmentFile {
@@ -305,28 +306,36 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
         }
       }}
     >
-      <div role="dialog" aria-modal="true" aria-label={projectId ? 'Create project issue' : 'Create task'} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[28px] sm:rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[calc(100dvh-0.75rem)] sm:max-h-[92dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+      <div role="dialog" aria-modal="true" aria-label={projectId ? 'Create project issue' : 'Create task'} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-3xl shadow-2xl border border-slate-200/60 dark:border-slate-800 max-h-[calc(100dvh-0.75rem)] sm:max-h-[92dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+        {/* Top Handle Indicator */}
+        <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto mt-2.5 mb-1 shrink-0" />
+
         {/* Fixed Header */}
-        <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">{projectId ? `New issue · ${selectedProject?.name || 'project'}` : 'New task · Inbox'}</p>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{projectId ? 'Create issue' : 'Create task'}</h3>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-wider mb-1 border border-blue-200/50 dark:border-blue-900/50 shadow-2xs">
+              <Sparkles className="w-2.5 h-2.5 text-blue-500" />
+              <span>{projectId ? `Issue · ${selectedProject?.name || 'Project'}` : 'New Task · Inbox'}</span>
+            </span>
+            <h3 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+              {projectId ? 'Create Project Issue' : 'Create Task'}
+            </h3>
           </div>
           <button
             onClick={onClose}
             aria-label="Close task form"
-            className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4">
 
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold">
-            {errorMsg}
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs rounded-2xl font-bold flex items-center gap-2">
+            <span>{errorMsg}</span>
           </div>
         )}
 
@@ -339,9 +348,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
           className="space-y-4"
         >
           {/* Task Name */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Task title
+          <div className="space-y-1.5">
+            <label className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Task Title</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Required</span>
             </label>
             <input
               type="text"
@@ -360,27 +370,28 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               autoCapitalize="sentences"
               autoCorrect="on"
               spellCheck={true}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium transition-all"
+              className="w-full bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl px-4 py-3 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-bold transition-all shadow-2xs"
             />
           </div>
 
           {/* Description */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Description
+          <div className="space-y-1.5">
+            <label className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Description</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Optional</span>
             </label>
             <textarea
               ref={descriptionInputRef}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onFocus={handleInputFocus}
-              placeholder="Add context, checklist items, or links…"
+              placeholder="Add context, checklist items, links, or instructions…"
               rows={3}
               enterKeyHint="done"
               autoCapitalize="sentences"
               autoCorrect="on"
               spellCheck={true}
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium resize-none transition-all"
+              className="w-full bg-slate-50/90 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl px-4 py-3 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium resize-none transition-all shadow-2xs leading-relaxed"
             />
           </div>
 
@@ -516,8 +527,9 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
           {/* Due Date & Quick Time Chips */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Due Date & Time
+              <label className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                <span>Due Date & Time</span>
               </label>
               {dueDate && (
                 <button
@@ -527,7 +539,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
                     setDueDate('');
                     setSelectedQuickChip(null);
                   }}
-                  className="text-[10px] text-rose-500 font-bold hover:underline"
+                  className="text-[10px] text-rose-500 hover:text-rose-600 font-bold hover:underline"
                 >
                   Clear
                 </button>
@@ -539,10 +551,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               <button
                 type="button"
                 onClick={() => setQuickDueDate(0, 18, 'today')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 border ${
                   selectedQuickChip === 'today'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-md shadow-blue-500/25 border-transparent'
+                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
                 }`}
               >
                 {selectedQuickChip === 'today' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -551,10 +563,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               <button
                 type="button"
                 onClick={() => setQuickDueDate(1, 10, 'tomorrow')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 border ${
                   selectedQuickChip === 'tomorrow'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-md shadow-blue-500/25 border-transparent'
+                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
                 }`}
               >
                 {selectedQuickChip === 'tomorrow' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -563,10 +575,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               <button
                 type="button"
                 onClick={() => setQuickDueDate(2, 18, 'in2days')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 border ${
                   selectedQuickChip === 'in2days'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-md shadow-blue-500/25 border-transparent'
+                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
                 }`}
               >
                 {selectedQuickChip === 'in2days' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -575,10 +587,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               <button
                 type="button"
                 onClick={() => setQuickDueDate(7, 10, 'nextWeek')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-95 flex items-center gap-1.5 border ${
                   selectedQuickChip === 'nextWeek'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-md shadow-blue-500/25 border-transparent'
+                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
                 }`}
               >
                 {selectedQuickChip === 'nextWeek' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -590,10 +602,10 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
                   triggerHaptic('light');
                   setShowCustomDate(!showCustomDate);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1 border ${
                   showCustomDate || selectedQuickChip === 'custom'
-                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 shadow-2xs'
+                    : 'bg-slate-100/90 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-200'
                 }`}
               >
                 <span>{showCustomDate ? 'Hide Picker' : 'Custom...'}</span>
@@ -602,8 +614,8 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
 
             {/* Formatted selection label preview */}
             {dueDate && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200/60 dark:border-blue-800/60 animate-in fade-in">
-                <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-blue-50/90 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200/80 dark:border-blue-800/80 animate-in fade-in shadow-2xs">
+                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>
                   Due: {new Date(dueDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                 </span>
@@ -620,34 +632,38 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
                   setSelectedQuickChip(e.target.value ? 'custom' : null);
                 }}
                 onFocus={handleInputFocus}
-                className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors"
+                className="w-full bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-bold transition-colors shadow-2xs"
               />
             )}
           </div>
 
-          {/* Priority Pills */}
+          {/* Priority Selector with Distinct Colors */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Priority
+            <label className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Priority</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Select level</span>
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => {
-                const isSel = priority === p;
+              {[
+                { id: 'LOW', label: 'Low', activeClass: 'bg-slate-700 text-white shadow-xs', inactiveClass: 'bg-slate-100/90 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60' },
+                { id: 'MEDIUM', label: 'Medium', activeClass: 'bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-md shadow-blue-500/25', inactiveClass: 'bg-blue-50/60 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/40' },
+                { id: 'HIGH', label: 'High', activeClass: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25', inactiveClass: 'bg-amber-50/60 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40' },
+                { id: 'URGENT', label: 'Urgent', activeClass: 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-500/25', inactiveClass: 'bg-rose-50/60 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40' },
+              ].map((p) => {
+                const isSel = priority === p.id;
                 return (
                   <button
-                    key={p}
+                    key={p.id}
                     type="button"
                     onClick={() => {
                       triggerHaptic('light');
-                      setPriority(p);
+                      setPriority(p.id as any);
                     }}
-                    className={`py-2 rounded-xl text-[11px] font-bold transition-all ${
-                      isSel
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                    className={`py-2.5 rounded-2xl text-[11px] font-black transition-all active:scale-95 text-center ${
+                      isSel ? p.activeClass : p.inactiveClass
                     }`}
                   >
-                    {p === 'URGENT' ? 'Urgent' : p === 'HIGH' ? 'High' : p === 'MEDIUM' ? 'Medium' : 'Low'}
+                    {p.label}
                   </button>
                 );
               })}
@@ -888,21 +904,21 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
             </div>
 
             {/* Modern Multi-File Dropzone / Upload Trigger */}
-            <div className="relative overflow-hidden cursor-pointer group flex items-center justify-between p-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 transition-all">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="relative overflow-hidden cursor-pointer group flex items-center justify-between p-3.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 transition-all shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
                   <UploadCloud className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
+                  <p className="text-xs font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">
                     Add files or photos
                   </p>
                   <p className="text-[10px] text-slate-400 font-medium">
-                    Select multiple at once (Photos, PDFs, Docs)
+                    Upload multiple at once (Photos, PDFs, Docs)
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-bold text-[11px] shadow-xs group-hover:border-blue-300">
+              <span className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-bold text-[11px] shadow-xs group-hover:border-blue-300">
                 + Browse
               </span>
               <input
@@ -977,13 +993,20 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
           </div>
 
           {/* Submit Button */}
-          <div className="sticky bottom-0 -mx-4 mt-2 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] backdrop-blur-md">
+          <div className="sticky bottom-0 -mx-4 sm:-mx-5 mt-2 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-4 sm:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] backdrop-blur-md">
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full py-3 rounded-2xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full py-3.5 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md shadow-blue-500/25 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {createMutation.isPending ? 'Creating…' : projectId ? 'Create issue' : 'Create task in Inbox'}
+              {createMutation.isPending ? (
+                <span>Creating…</span>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-sky-200" />
+                  <span>{projectId ? 'Create Project Issue' : 'Create Task in Inbox'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>

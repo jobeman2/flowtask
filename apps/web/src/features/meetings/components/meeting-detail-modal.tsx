@@ -90,20 +90,24 @@ export function MeetingDetailModal({
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm font-sans"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[88dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-3xl shadow-2xl border border-slate-200/60 dark:border-slate-800 max-h-[88dvh] flex flex-col animate-in slide-in-from-bottom duration-200">
+        {/* Top Handle Indicator */}
+        <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto mt-2.5 mb-1 shrink-0" />
+
         {/* Fixed Header */}
-        <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">
-              Meeting
-            </p>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight truncate">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-wider mb-1 border border-blue-200/50 dark:border-blue-900/50 shadow-2xs">
+              <Video className="w-2.5 h-2.5 text-blue-500" />
+              <span>Meeting Details</span>
+            </span>
+            <h3 className="text-base font-black text-slate-900 dark:text-white leading-tight truncate">
               {title}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 ml-3"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 ml-3"
           >
             <X className="w-5 h-5" />
           </button>

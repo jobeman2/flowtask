@@ -191,7 +191,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                           </span>
 
                           {isAiGenerated && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center gap-0.5 shadow-2xs">
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center gap-0.5 shadow-2xs border border-blue-200/50 dark:border-blue-900/50">
                               <Bot className="w-2.5 h-2.5" />
                               <span>Flow AI</span>
                             </span>
@@ -218,7 +218,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                                   className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
                                 />
                               ) : (
-                                <User className="w-3 h-3 text-purple-500" />
+                                <User className="w-3 h-3 text-blue-500" />
                               )}
                               {task.assignee.name.split(' ')[0]}
                             </span>
@@ -227,7 +227,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                           )}
 
                           {isAiGenerated && (
-                            <div className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-[8px] shadow-2xs" title="Created by Flow AI Project Manager">
+                            <div className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[8px] shadow-2xs" title="Created by Flow AI Project Manager">
                               🤖
                             </div>
                           )}
