@@ -33,6 +33,13 @@ export class AdminService {
       throw new UnauthorizedException('Invalid administrator credentials');
     }
 
+    // Ensure users.isSuperAdmin exists in database
+    if (typeof (this.prisma as any).$executeRawUnsafe === 'function') {
+      try {
+        await (this.prisma as any).$executeRawUnsafe('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "isSuperAdmin" BOOLEAN DEFAULT false');
+      } catch {}
+    }
+
     // Ensure a Super Admin User record exists in Postgres
     let adminUser = await this.prisma.user.findFirst({
       where: { email: 'admin@flowtask.app' },
