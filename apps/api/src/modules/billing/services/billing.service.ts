@@ -219,4 +219,58 @@ export class BillingService {
       orderId: result.orderId,
     };
   }
+
+  async submitBankReceipt(userId: string, dto: {
+    workspaceId: string;
+    planCode: string;
+    receiptImageUrl?: string;
+    transactionId?: string;
+    payerName?: string;
+    paymentMethod?: string;
+    durationDays?: number;
+  }) {
+    const {
+      workspaceId,
+      planCode,
+      receiptImageUrl,
+      transactionId,
+      payerName,
+      paymentMethod = 'BANK_RECEIPT',
+      durationDays = 30,
+    } = dto;
+
+    if (!receiptImageUrl && !transactionId) {
+      throw new BadRequestException('Please provide a receipt screenshot or transaction reference code.');
+    }
+
+    const planPrices: Record<string, number> = { PRO: 199, TEAM: 999 };
+    const amountEtb = ((planPrices[planCode] || 199) * durationDays) / 30;
+    const orderCode = `REC-${planCode}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+    const order = await this.prisma.paymentOrder.create({
+      data: {
+        orderCode,
+        workspaceId,
+        userId,
+        planCode,
+        amountEtb,
+        durationDays,
+        status: 'PENDING',
+        receiptImageUrl,
+        transactionId: transactionId ? transactionId.trim().toUpperCase() : null,
+        payerName: payerName ? payerName.trim() : null,
+        paymentMethod,
+      } as any,
+    });
+
+    this.logger.log(`Bank receipt submitted for workspace ${workspaceId}, order: ${order.orderCode}`);
+
+    return {
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: 'PENDING',
+      message: 'Receipt submitted successfully! The admin team will verify and activate your workspace shortly.',
+    };
+  }
 }
+

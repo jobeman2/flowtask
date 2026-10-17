@@ -74,6 +74,7 @@ model User {
   name             String
   avatarUrl        String?
   timezone         String            @default("UTC")
+  isSuperAdmin     Boolean           @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -117,6 +118,7 @@ model Workspace {
   slug        String        @unique
   ownerId     String
   type        WorkspaceType @default(PERSONAL)
+  planCode    String        @default("FREE")
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -381,8 +383,11 @@ model PaymentOrder {
   status              String   @default("PENDING")
   telebirrPhone       String?
   payerName           String?
+  paymentMethod       String   @default("TELEBIRR")
   transactionId       String?
   receiptImageUrl     String?
+  adminNotes          String?
+  reviewedBy          String?
   verifiedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

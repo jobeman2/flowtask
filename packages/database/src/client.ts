@@ -634,6 +634,14 @@ export class MockPrismaClient {
       this.saveToDisk();
       return record;
     },
+    count: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.users.values());
+      if (where?.createdAt?.gte) {
+        list = list.filter((u: any) => new Date(u.createdAt) >= new Date(where.createdAt.gte));
+      }
+      return list.length;
+    },
     update: async ({ where, data }: any) => {
       this.loadFromDisk();
       const user = this.users.get(where.id);
@@ -847,6 +855,11 @@ export class MockPrismaClient {
         list = list.filter((ws: any) => ws.ownerId === where.ownerId);
       }
       return list;
+    },
+    count: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      const list = await this.workspace.findMany({ where });
+      return list.length;
     },
     update: async ({ where, data }: any) => {
       this.loadFromDisk();
@@ -1614,6 +1627,11 @@ export class MockPrismaClient {
       }
       return list;
     },
+    count: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      const list = await this.telegramChat.findMany({ where });
+      return list.length;
+    },
     create: async ({ data }: any) => {
       this.loadFromDisk();
       const id = data.id || `chat_${Date.now()}`;
@@ -1813,6 +1831,12 @@ export class MockPrismaClient {
       }
       return sub;
     },
+    count: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      let list = Array.from(this.subscriptions.values());
+      if (where?.status) list = list.filter((s: any) => s.status === where.status);
+      return list.length;
+    },
   };
 
   paymentOrder = {
@@ -1821,6 +1845,11 @@ export class MockPrismaClient {
       if (where?.id) return this.paymentOrders.get(where.id) || null;
       if (where?.orderCode) return Array.from(this.paymentOrders.values()).find((o: any) => o.orderCode === where.orderCode) || null;
       return null;
+    },
+    count: async ({ where }: any = {}) => {
+      this.loadFromDisk();
+      const list = await this.paymentOrder.findMany({ where });
+      return list.length;
     },
     findFirst: async ({ where }: any = {}) => {
       this.loadFromDisk();

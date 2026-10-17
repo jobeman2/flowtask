@@ -21,8 +21,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "parentTaskId" TEXT;
             ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMP(3);
             ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3);
+
+            ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "isSuperAdmin" BOOLEAN DEFAULT false;
+            ALTER TABLE "workspaces" ADD COLUMN IF NOT EXISTS "planCode" TEXT DEFAULT 'FREE';
+
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "paymentMethod" TEXT DEFAULT 'TELEBIRR';
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "receiptImageUrl" TEXT;
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "transactionId" TEXT;
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "payerName" TEXT;
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT;
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "reviewedBy" TEXT;
+            ALTER TABLE "payment_orders" ADD COLUMN IF NOT EXISTS "verifiedAt" TIMESTAMP(3);
           `);
-          this.logger.log(' Schema self-healing verified for tasks table');
+          this.logger.log(' Schema self-healing verified for tasks, users, and payment tables');
         } catch (schemaErr) {
           this.logger.warn('Schema self-healing notice: ' + (schemaErr as any)?.message);
         }

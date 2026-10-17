@@ -315,6 +315,21 @@ class ApiClient {
       body: JSON.stringify(data),
     });
   }
+
+  async submitBankReceipt(data: {
+    workspaceId: string;
+    planCode: string;
+    receiptImageUrl?: string;
+    transactionId?: string;
+    payerName?: string;
+    paymentMethod?: string;
+    durationDays?: number;
+  }) {
+    return this.request<any>('/billing/submit-receipt', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();
