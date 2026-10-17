@@ -31,9 +31,9 @@ export class LiveEventsService {
     });
   }
 
-  getStream(workspaceId?: string): Observable<{ data: LiveEventPayload }> {
+  getStream(workspaceId: string): Observable<{ data: LiveEventPayload }> {
     const workspaceEvents$ = this.events$.asObservable().pipe(
-      filter((e) => !workspaceId || e.workspaceId === workspaceId),
+      filter((e) => e.workspaceId === workspaceId),
       map((event) => ({ data: event }))
     );
 
@@ -41,7 +41,7 @@ export class LiveEventsService {
     const heartbeat$ = interval(15000).pipe(
       map(() => ({
         data: {
-          workspaceId: workspaceId || '',
+          workspaceId,
           type: 'PING' as const,
           timestamp: new Date().toISOString(),
         },

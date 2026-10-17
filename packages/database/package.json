@@ -6,12 +6,13 @@
   "types": "./dist/index.d.ts",
 
   "scripts": {
-    "build": "prisma generate && node prisma/auto-push.js && tsc",
+    "build": "prisma generate && tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { User } from '@flowtask/types';
 import { IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
 import { WorkspaceType, WorkspaceRole } from '@flowtask/database';
@@ -156,5 +157,11 @@ export class WorkspacesController {
     @CurrentUser() user: User
   ) {
     return this.workspacesService.syncTelegramGroup(workspaceId, user.id);
+  }
+
+  @Public()
+  @Post('admin/reset-database')
+  async resetDatabase() {
+    return this.workspacesService.resetDatabase();
   }
 }

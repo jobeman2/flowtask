@@ -166,6 +166,7 @@ interface TaskCardProps {
   currentUserId?: string;
   onSelect: (taskId: string) => void;
   onComplete: (taskId: string) => void;
+  onToggleAssigneeDone?: (taskId: string, completedAssigneeIds: string[]) => void;
   isCompleting?: boolean;
 }
 
@@ -174,6 +175,7 @@ export function TaskCard({
   currentUserId,
   onSelect,
   onComplete,
+  onToggleAssigneeDone,
   isCompleting = false,
 }: TaskCardProps) {
   const { triggerHaptic } = useTelegram();
@@ -251,15 +253,38 @@ export function TaskCard({
     }
   }
 
+  const isOneOfAssignees = assigneesList.some((a: any) => a.id === currentUserId);
+  const isMyPartDone = currentUserId ? completedUserIds.includes(currentUserId) : false;
+
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDone || isCompleting) return;
-    const isOneOfAssignees = assigneesList.some((a: any) => a.id === currentUserId);
-    if (task.assigneeId && !isOneOfAssignees && task.creatorId !== currentUserId) {
-      triggerHaptic('heavy');
-      alert(`Only an assignee or creator can complete this task.`);
+
+    // 1. If current user is an assignee of this task:
+    if (isOneOfAssignees && currentUserId && onToggleAssigneeDone) {
+      triggerHaptic('medium');
+      const updated = isMyPartDone
+        ? completedUserIds.filter((id) => id !== currentUserId)
+        : [...completedUserIds, currentUserId];
+      onToggleAssigneeDone(task.id, updated);
       return;
     }
+
+    // 2. If task has assignees and current user is NOT an assignee:
+    if (assigneesList.length > 0 && !isOneOfAssignees) {
+      if (task.creatorId !== currentUserId) {
+        triggerHaptic('heavy');
+        alert(`Only an assignee or creator can complete this task.`);
+        return;
+      }
+      const unfinished = assigneesList.filter((a: any) => !completedUserIds.includes(a.id));
+      if (unfinished.length > 0) {
+        if (!window.confirm(`${unfinished.length} assignee(s) haven't completed their parts yet. Force complete task?`)) {
+          return;
+        }
+      }
+    }
+
     triggerHaptic('medium');
     onComplete(task.id);
   };
@@ -325,15 +350,26 @@ export function TaskCard({
             type="button"
             onClick={handleCheckboxClick}
             disabled={isDone || isCompleting}
+            title={
+              isDone
+                ? 'Completed'
+                : isMyPartDone
+                ? 'Your part is done (Tap to reopen)'
+                : isOneOfAssignees
+                ? 'Mark my part as done'
+                : 'Mark task done'
+            }
             className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
               isDone
                 ? 'bg-emerald-600 text-white shadow-xs'
+                : isMyPartDone
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 text-emerald-600 dark:text-emerald-400'
                 : meta.isClickUp
                 ? 'border-2 border-violet-400 dark:border-violet-600 hover:border-violet-500 hover:scale-105'
                 : 'border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 hover:scale-105'
             }`}
           >
-            {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+            {(isDone || isMyPartDone) && <Check className="w-3 h-3 stroke-[3]" />}
           </button>
         )}
 

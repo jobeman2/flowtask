@@ -45,9 +45,9 @@ class ApiClient {
     }
   }
 
-  getLiveStreamUrl(workspaceId?: string): string {
+  getLiveStreamUrl(workspaceId: string): string {
     const base = API_URL;
-    const query = workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : '';
+    const query = `?workspaceId=${encodeURIComponent(workspaceId)}`;
     return `${base}/tasks/live-stream${query}`;
   }
 

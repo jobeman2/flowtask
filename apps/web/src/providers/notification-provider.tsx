@@ -178,6 +178,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setReadNotifIds((prev) => {
         const next = new Set(prev);
         next.add(id);
+        const target = notifications.find((n) => n.id === id);
+        if (target?.data?.id) next.add(target.data.id);
+        if (target?.data?.taskId) next.add(target.data.taskId);
+        if (target?.data?.entityId) next.add(target.data.entityId);
+        const entityId = target?.data?.taskId || target?.data?.entityId || target?.data?.id;
+        if (entityId) next.add(`${target?.type}_${entityId}`);
         readNotifIdsRef.current = next;
         if (typeof window !== 'undefined') {
           try {
@@ -188,10 +194,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       });
 
       setNotifications((prev) => {
-        const target = prev.find((n) => n.id === id);
-        if (target?.data?.id) {
-          readNotifIdsRef.current.add(target.data.id);
-        }
         const updated = prev.filter((n) => n.id !== id);
         if (typeof window !== 'undefined') {
           try {
@@ -201,7 +203,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         return updated;
       });
     },
-    [readKey, storageKey]
+    [readKey, storageKey, notifications]
   );
 
   const dismissNotification = markAsRead;
@@ -222,6 +224,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         notifications.forEach((n) => {
           if (n?.id) next.add(n.id);
           if (n?.data?.id) next.add(n.data.id);
+          if (n?.data?.taskId) next.add(n.data.taskId);
+          if (n?.data?.entityId) next.add(n.data.entityId);
+          const entityId = n?.data?.taskId || n?.data?.entityId || n?.data?.id;
+          if (entityId) next.add(`${n.type}_${entityId}`);
         });
       }
       readNotifIdsRef.current = next;
@@ -366,7 +372,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             }
 
             // Never re-add notifications the user already read/dismissed
-            if (log.id && (currentReadIds.has(log.id) || readNotifIdsRef.current.has(log.id))) continue;
+            if (
+              (log.id && (currentReadIds.has(log.id) || readNotifIdsRef.current.has(log.id))) ||
+              (log.entityId && (currentReadIds.has(log.entityId) || readNotifIdsRef.current.has(log.entityId))) ||
+              (log.entityId && (currentReadIds.has(`${log.action}_${log.entityId}`) || readNotifIdsRef.current.has(`${log.action}_${log.entityId}`)))
+            ) {
+              continue;
+            }
 
             // If already in active list, skip
             if (log.id && existingIds.has(log.id)) continue;
@@ -397,16 +409,21 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               message = `You were assigned to "${taskTitle}" by ${log.metadata?.assignerName || actorName}`;
             }
           } else if (action === 'TASK_CREATED') {
-            const isAssignedToMe =
-              log.metadata?.assigneeId === currentUserId ||
-              (Array.isArray(log.metadata?.assigneeIds) &&
-                log.metadata.assigneeIds.includes(currentUserId));
+            const taskAssignees: string[] = [];
+            if (log.metadata?.assigneeId) taskAssignees.push(log.metadata.assigneeId);
+            if (Array.isArray(log.metadata?.assigneeIds)) taskAssignees.push(...log.metadata.assigneeIds);
+            const isAssignedToMe = taskAssignees.includes(currentUserId);
+            const isUnassignedTask = taskAssignees.length === 0;
             const isWorkspaceOwner = resolvedOwnerId && resolvedOwnerId === currentUserId;
 
             if (isAssignedToMe) {
               type = 'TASK_CREATED';
               title = 'New Task Assigned';
               message = `"${taskTitle}" was created and assigned to you by ${actorName}`;
+            } else if (isUnassignedTask) {
+              type = 'TASK_CREATED';
+              title = 'New Team Task';
+              message = `"${taskTitle}" was added for the team by ${actorName}`;
             } else if (isWorkspaceOwner) {
               type = 'TASK_CREATED';
               title = 'New Task Created';

@@ -2,7 +2,7 @@
 
 > **Turn Telegram conversations into organized, actionable work.**
 
-FlowTask is a production-ready, scalable task-management platform whose primary interface is **Telegram** and the **Telegram Mini App**, built using a clean **Modular Monolith** architecture on top of NestJS, PostgreSQL (Prisma), Redis (BullMQ), Next.js, and Grammy.
+FlowTask is a Telegram-first task-management platform in active development. It uses a modular monolith API built with NestJS, PostgreSQL (Prisma), a Next.js Mini App, and a Grammy bot. Redis/BullMQ is not currently used by the runtime.
 
 ---
 
@@ -15,7 +15,7 @@ FlowTask is a production-ready, scalable task-management platform whose primary 
 │   ├── web/          # Next.js 15 App Router Telegram Mini App & Web client
 │   └── bot/          # Grammy Telegram Bot service & command adapter
 ├── packages/
-│   ├── database/     # Prisma schema, PostgreSQL migrations, client singleton, seeds
+│   ├── database/     # Prisma schema, client singleton, seeds
 │   ├── types/        # Shared TypeScript domain models & DTOs
 │   ├── validation/   # Zod validation schemas
 │   ├── config/       # Shared constants and configurations
@@ -32,7 +32,6 @@ FlowTask is a production-ready, scalable task-management platform whose primary 
 - Node.js `v20+` or `v24+`
 - pnpm `v9+` or `v11+`
 - PostgreSQL database (Local or Cloud e.g., Supabase / Neon)
-- Redis instance (Local or Cloud e.g., Upstash)
 
 ### 2. Setup Environment
 Copy `.env.example` to `.env` and fill in your connection strings:
@@ -46,12 +45,14 @@ pnpm install
 ```
 
 ### 4. Setup Database
-Generate Prisma Client and push schema to your PostgreSQL database:
+For local development, generate Prisma Client and synchronize a local database:
 ```bash
 pnpm --filter @flowtask/database db:generate
 pnpm --filter @flowtask/database db:push
 pnpm --filter @flowtask/database db:seed
 ```
+
+Production builds never change database schema. Review and commit Prisma migration files, then run `pnpm db:deploy` as a separate release step. See [Runtime and deployment](docs/deployment.md); this repository does not yet contain an initial migration history.
 
 ### 5. Run in Development Mode
 Start API, Web Mini App, and Bot concurrently:
@@ -89,3 +90,4 @@ pnpm build
 - [Telegram Mini App & Bot Integration](docs/architecture/telegram.md)
 - [Database Schema & Data Model](docs/database/schema.md)
 - [Product Roadmap & MVP Scope](docs/product/mvp.md)
+- [Runtime and deployment](docs/deployment.md)

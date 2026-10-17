@@ -110,9 +110,9 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const assigneeDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click or touch
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
         setIsProjectDropdownOpen(false);
       }
@@ -121,7 +121,11 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -414,6 +418,14 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                 }`}
               />
             </button>
+
+            {/* Backdrop to close on tap outside */}
+            {isProjectDropdownOpen && (
+              <div
+                className="fixed inset-0 z-30 bg-transparent"
+                onClick={() => setIsProjectDropdownOpen(false)}
+              />
+            )}
 
             {/* Custom Dropdown Picker */}
             {isProjectDropdownOpen && (
@@ -720,6 +732,14 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
                 />
               </div>
             </button>
+
+            {/* Backdrop to close on tap outside */}
+            {isAssigneeDropdownOpen && (
+              <div
+                className="fixed inset-0 z-30 bg-transparent"
+                onClick={() => setIsAssigneeDropdownOpen(false)}
+              />
+            )}
 
             {/* Dropdown Menu */}
             {isAssigneeDropdownOpen && (

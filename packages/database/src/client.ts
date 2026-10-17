@@ -2,6 +2,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient as RealPrismaClient } from '@prisma/client';
+import { assertProductionDatabaseConfigured, usesRealDatabase } from './database-config';
 
 export enum WorkspaceRole {
   OWNER = 'OWNER',
@@ -99,11 +100,30 @@ export class MockPrismaClient {
   public telebirrSmsLogs = new Map<string, any>();
 
   constructor() {
-    const loaded = this.loadFromDisk();
+    this.loadFromDisk();
     this.seedDefaultPlans();
-    if (!loaded) {
-      this.seedDemoData();
-    }
+    // Fresh clean start: no demo/test users or tasks are created
+    this.saveToDisk();
+  }
+
+  public wipeDatabase(): void {
+    this.users.clear();
+    this.telegramAccounts.clear();
+    this.workspaces.clear();
+    this.workspaceMembers.clear();
+    this.workspaceInvitations.clear();
+    this.tasks.clear();
+    this.projects.clear();
+    this.labels.clear();
+    this.taskLabels.clear();
+    this.comments.clear();
+    this.reminders.clear();
+    this.activityLogs.clear();
+    this.telegramChats.clear();
+    this.subscriptions.clear();
+    this.paymentOrders.clear();
+    this.telebirrSmsLogs.clear();
+    this.seedDefaultPlans();
     this.saveToDisk();
   }
 
@@ -296,7 +316,7 @@ export class MockPrismaClient {
     }
   }
 
-  private seedDemoData() {
+  public seedDemoData() {
     const demoUser = {
       id: 'demo-user-1',
       email: 'demo@flowtask.app',
@@ -1898,17 +1918,15 @@ export class MockPrismaClient {
 }
 
 // Determine whether to use real Prisma with Postgres or fallback to Mock
-const shouldUseRealDb = Boolean(
-  process.env.DATABASE_URL &&
-  process.env.USE_MOCK_DB !== 'true' &&
-  !process.env.DATABASE_URL.includes('localhost:5432/flowtask')
-);
+const shouldUseRealDb = usesRealDatabase();
+assertProductionDatabaseConfigured();
 
 export function createPrismaClient(): any {
   if (shouldUseRealDb) {
     try {
       return new RealPrismaClient();
     } catch (err) {
+      if (process.env.NODE_ENV === 'production') throw err;
       console.warn('[Database] Failed to instantiate RealPrismaClient, falling back to mock:', err);
       return new MockPrismaClient();
     }
@@ -1924,6 +1942,7 @@ export class DynamicPrismaClient extends MockPrismaClient {
       try {
         return new RealPrismaClient(options) as any;
       } catch (err) {
+        if (process.env.NODE_ENV === 'production') throw err;
         console.warn('[Database] Failed to instantiate RealPrismaClient, falling back to mock:', err);
       }
     }
@@ -1936,6 +1955,41 @@ export const prisma = globalForPrisma.prisma || createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
+}
+
+export async function cleanDatabase(targetPrisma?: any): Promise<{ success: boolean; mode: string }> {
+  const p = targetPrisma || prisma;
+  if (p instanceof MockPrismaClient || typeof p.wipeDatabase === 'function') {
+    p.wipeDatabase();
+    return { success: true, mode: 'mock' };
+  }
+  try {
+    await p.$transaction([
+      p.comment.deleteMany(),
+      p.taskLabel.deleteMany(),
+      p.reminder.deleteMany(),
+      p.task.deleteMany(),
+      p.activityLog.deleteMany(),
+      p.workspaceInvitation.deleteMany(),
+      p.workspaceMember.deleteMany(),
+      p.telegramChat.deleteMany(),
+      p.project.deleteMany(),
+      p.label.deleteMany(),
+      p.workspace.deleteMany(),
+      p.paymentOrder.deleteMany(),
+      p.telebirrSmsLog.deleteMany(),
+      p.subscription.deleteMany(),
+      p.telegramAccount.deleteMany(),
+      p.user.deleteMany(),
+    ]);
+    return { success: true, mode: 'real' };
+  } catch (err) {
+    console.warn('[Database] cleanDatabase transaction failed, trying mock fallback:', err);
+    if (typeof p.wipeDatabase === 'function') {
+      p.wipeDatabase();
+    }
+    return { success: true, mode: 'fallback' };
+  }
 }
 
 export { RealPrismaClient, DynamicPrismaClient as PrismaClient };

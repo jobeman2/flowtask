@@ -11,6 +11,7 @@
     "test:coverage": "turbo run test:coverage",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
+    "db:deploy": "turbo run db:deploy",
     "db:seed": "turbo run db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },

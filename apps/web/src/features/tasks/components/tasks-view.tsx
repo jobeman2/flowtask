@@ -75,11 +75,38 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
     enabled: Boolean(workspaceId),
   });
 
+  // Fetch Workspace Members
+  const { data: members = [] } = useQuery({
+    queryKey: ['workspace-members', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getWorkspaceMembers(workspaceId);
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  const currentMember = members.find((m: any) => m.userId === user?.id);
+  const isOwnerOrAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
+
   // Complete Task Mutation
   const completeMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!workspaceId) return;
       return apiClient.completeTask(taskId, workspaceId);
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+
+  // Toggle Single Assignee Completion Mutation
+  const toggleAssigneeCompletionMutation = useMutation({
+    mutationFn: async ({ taskId, completedAssigneeIds }: { taskId: string; completedAssigneeIds: string[] }) => {
+      if (!workspaceId) return;
+      return apiClient.updateTask(taskId, workspaceId, { completedAssigneeIds });
     },
     onSuccess: () => {
       triggerHaptic('medium');
@@ -96,11 +123,23 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
         ? t.assignees
         : (t.assignee ? [t.assignee] : []);
 
+      const isAssignedToMe = assignees.some((a: any) => a.id === user?.id) || t.assigneeId === user?.id;
+      const isCreator = t.creatorId === user?.id;
+      const isUnassigned = assignees.length === 0 && !t.assigneeId;
+
       if (activeFilter === 'MY_TASKS') {
-        const isAssignedToMe = assignees.some((a: any) => a.id === user?.id) || t.assigneeId === user?.id;
         if (!isAssignedToMe) return false;
-      } else if (activeFilter !== 'ALL' && t.status !== activeFilter) {
-        return false;
+      } else {
+        if (activeFilter !== 'ALL' && t.status !== activeFilter) {
+          return false;
+        }
+
+        // Specific assigned task visibility rule:
+        // If a task is assigned to specific person(s), other members (who are not assigned,
+        // not the creator, and not workspace owner/admin) do not have it clutter their active list
+        if (!isUnassigned && !isAssignedToMe && !isCreator && !isOwnerOrAdmin) {
+          return false;
+        }
       }
 
       if (selectedProjectId && t.projectId !== selectedProjectId) return false;
@@ -113,7 +152,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       }
       return true;
     });
-  }, [tasks, activeFilter, selectedProjectId, searchQuery, user?.id]);
+  }, [tasks, activeFilter, selectedProjectId, searchQuery, user?.id, isOwnerOrAdmin]);
 
   // Paginate
   const paginatedTasks = useMemo(
@@ -254,7 +293,10 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                 currentUserId={user?.id}
                 onSelect={onSelectTask}
                 onComplete={(id) => completeMutation.mutate(id)}
-                isCompleting={completeMutation.isPending}
+                onToggleAssigneeDone={(taskId, completedAssigneeIds) =>
+                  toggleAssigneeCompletionMutation.mutate({ taskId, completedAssigneeIds })
+                }
+                isCompleting={completeMutation.isPending || toggleAssigneeCompletionMutation.isPending}
               />
             ))}
 

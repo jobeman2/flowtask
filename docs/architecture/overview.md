@@ -21,8 +21,10 @@ User Ingress (Telegram / Mini App / Web)
                   │
                   ▼
         [Infrastructure Layer]
-(Prisma ORM, PostgreSQL, Redis / BullMQ, SMS/Telegram APIs)
+(Prisma ORM, PostgreSQL, Telegram APIs)
 ```
 
 ## 3. Modular Monolith Approach
 FlowTask starts as a modular monolith inside `apps/api`. Each feature area (tasks, workspaces, auth, telegram, reminders, billing) is contained in its own module with clear boundaries, allowing high cohesion, rapid evolution, and effortless extraction into microservices should future scale demand it.
+
+The current runtime uses PostgreSQL directly. Although Redis configuration and the `ioredis` dependency are present, there is no Redis client or BullMQ worker in use. Bot reminders are polled from PostgreSQL by the bot process; see [Runtime and deployment](../deployment.md).

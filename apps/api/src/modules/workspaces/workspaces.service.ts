@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
-import { WorkspaceType, WorkspaceRole, InvitationStatus } from '@flowtask/database';
+import { WorkspaceType, WorkspaceRole, InvitationStatus, cleanDatabase } from '@flowtask/database';
 import { ConfigService } from '@nestjs/config';
 import { LiveEventsService } from '../tasks/live-events.service';
 
@@ -1110,6 +1110,14 @@ export class WorkspacesService {
       workspaceId,
       telegramChat: tgChat,
       syncResult: syncRes,
+    };
+  }
+
+  async resetDatabase() {
+    const res = await cleanDatabase(this.prisma);
+    return {
+      message: 'Database has been cleanly wiped. All test accounts and tasks removed.',
+      ...res,
     };
   }
 }

@@ -893,6 +893,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                             alert('Only the task creator or workspace admin can move a task to Review or Done.');
                             return;
                           }
+                          if (st.id === 'DONE' && allAssignees.length > 0) {
+                            const unfinished = currentAssigneeIds.filter((id: string) => !completedUserIds.includes(id));
+                            if (unfinished.length > 0) {
+                              if (!window.confirm(`${unfinished.length} assignee(s) have not marked their parts as done. Move to Done anyway?`)) {
+                                return;
+                              }
+                            }
+                          }
                           updateStatusMutation.mutate(st.id);
                         }}
                         className={`py-1.5 rounded-xl text-[10px] font-extrabold transition-all ${
@@ -1620,14 +1628,57 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     <RotateCcw className="w-4 h-4" />
                     <span>Reopen Task</span>
                   </button>
+                ) : isAssigneeOfTask ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleMyCompletion}
+                      disabled={updateTaskMutation.isPending}
+                      className={`flex-1 py-3.5 rounded-2xl font-extrabold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-md ${
+                        isMyPartDone
+                          ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 shadow-emerald-500/20'
+                          : 'text-white bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{isMyPartDone ? '✓ Your Part is Completed (Tap to reopen)' : 'Mark My Part as Done'}</span>
+                    </button>
+                    {(isCreator || isOwnerOrAdmin) && allAssignees.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const unfinished = currentAssigneeIds.filter((id: string) => !completedUserIds.includes(id));
+                          if (unfinished.length > 0) {
+                            if (!window.confirm(`${unfinished.length} assignee(s) haven't completed their parts yet. Force complete entire task?`)) {
+                              return;
+                            }
+                          }
+                          completeMutation.mutate();
+                        }}
+                        disabled={completeMutation.isPending}
+                        title="Force complete entire task"
+                        className="px-3.5 py-3.5 rounded-2xl font-extrabold text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                      >
+                        <span>All Done</span>
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => {
                       if (!isCreator && !isOwnerOrAdmin) {
                         triggerHaptic('heavy');
-                        alert('Only the task creator or workspace admin can mark this task as done.');
+                        alert('Only an assignee, task creator, or workspace admin can mark this task as done.');
                         return;
+                      }
+                      if (allAssignees.length > 0) {
+                        const unfinished = currentAssigneeIds.filter((id: string) => !completedUserIds.includes(id));
+                        if (unfinished.length > 0) {
+                          if (!window.confirm(`${unfinished.length} assignee(s) have not marked their parts as done. Mark task as completely done anyway?`)) {
+                            return;
+                          }
+                        }
                       }
                       completeMutation.mutate();
                     }}

@@ -71,6 +71,19 @@ export function HomeView({
     },
   });
 
+  // Toggle Single Assignee Completion Mutation
+  const toggleAssigneeCompletionMutation = useMutation({
+    mutationFn: async ({ taskId, completedAssigneeIds }: { taskId: string; completedAssigneeIds: string[] }) => {
+      if (!workspaceId) return;
+      return apiClient.updateTask(taskId, workspaceId, { completedAssigneeIds });
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+
   // Dynamic greeting
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -311,7 +324,10 @@ export function HomeView({
               currentUserId={user?.id}
               onSelect={onSelectTask}
               onComplete={(id) => completeMutation.mutate(id)}
-              isCompleting={completeMutation.isPending}
+              onToggleAssigneeDone={(taskId, completedAssigneeIds) =>
+                toggleAssigneeCompletionMutation.mutate({ taskId, completedAssigneeIds })
+              }
+              isCompleting={completeMutation.isPending || toggleAssigneeCompletionMutation.isPending}
             />
           ))}
 

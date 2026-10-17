@@ -9,13 +9,13 @@ import {
   Query,
   UseGuards,
   Sse,
+  BadRequestException,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
 import { WorkspaceGuard } from '../../common/guards/workspace.guard';
 import { User } from '@flowtask/types';
 import { TaskStatus } from '@flowtask/database';
@@ -29,9 +29,11 @@ export class TasksController {
     private liveEventsService: LiveEventsService,
   ) {}
 
-  @Public()
   @Sse('live-stream')
   liveStream(@Query('workspaceId') workspaceId?: string) {
+    if (!workspaceId) {
+      throw new BadRequestException('workspaceId is required');
+    }
     return this.liveEventsService.getStream(workspaceId);
   }
 

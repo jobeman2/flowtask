@@ -55,8 +55,8 @@ export function useLiveEvents(workspaceId?: string | null) {
       const activeList = workspacesRef.current.length > 0 ? workspacesRef.current : (workspaceId ? [{ id: workspaceId }] : []);
       const ownerMap = new Map(workspacesRef.current.map((w: any) => [w.id, w.ownerId]));
 
-      // Poll current workspace and user workspaces (up to 5)
-      const targetIds = Array.from(new Set([workspaceId, ...activeList.map((w: any) => w.id)].filter(Boolean))).slice(0, 5);
+      // Poll current workspace and all user workspaces
+      const targetIds = Array.from(new Set([workspaceId, ...activeList.map((w: any) => w.id)].filter(Boolean)));
 
       const allLogs: any[] = [];
       await Promise.all(
@@ -109,23 +109,59 @@ export function useLiveEvents(workspaceId?: string | null) {
     };
   }, [workspaceId, pollActivity, queryClient]);
 
-  // 2. Real-time EventSource listener across all user workspaces
+  // 2. Authenticated real-time stream for the active workspace
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.EventSource) {
+    if (typeof window === 'undefined' || !workspaceId || !user) {
       return;
     }
 
-    const sseUrl = apiClient.getLiveStreamUrl();
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: any = null;
+    const sseUrl = apiClient.getLiveStreamUrl(workspaceId);
+    let abortController: AbortController | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+    let retryCount = 0;
 
-    function connect() {
+    async function connect() {
+      if (stopped) return;
+      abortController = new AbortController();
       try {
-        eventSource = new EventSource(sseUrl);
+        const response = await fetch(sseUrl, {
+          headers: { Authorization: `Bearer ${apiClient.getToken() || ''}` },
+          signal: abortController.signal,
+        });
+        if (!response.ok || !response.body) throw new Error(`SSE request failed: ${response.status}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (!stopped) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const messages = buffer.split(/\r?\n\r?\n/);
+          buffer = messages.pop() || '';
+          for (const message of messages) {
+            const data = message.split(/\r?\n/)
+              .filter((line) => line.startsWith('data:'))
+              .map((line) => line.slice(5).trimStart())
+              .join('\n');
+            if (data) {
+              retryCount = 0;
+              handleMessage(data);
+            }
+          }
+        }
+        if (!stopped) throw new Error('SSE stream ended');
+      } catch {
+        if (!stopped && retryCount < 3) {
+          retryCount++;
+          reconnectTimeout = setTimeout(connect, 10000);
+        }
+      }
+    }
 
-        eventSource.onmessage = (event) => {
+    function handleMessage(data: string) {
           try {
-            const parsed = JSON.parse(event.data);
+            const parsed = JSON.parse(data);
             if (!parsed) return;
 
             // Heartbeat ping to keep connection alive
@@ -183,9 +219,17 @@ export function useLiveEvents(workspaceId?: string | null) {
                   });
                 }
               } else if (parsed.type === 'TASK_CREATED') {
-                const isAssignedToMe =
-                  parsed.data?.assigneeId === currentUserId ||
-                  (Array.isArray(parsed.data?.assigneeIds) && parsed.data.assigneeIds.includes(currentUserId));
+                const taskAssignees: string[] = [];
+                if (parsed.data?.assigneeId) taskAssignees.push(parsed.data.assigneeId);
+                if (Array.isArray(parsed.data?.assigneeIds)) taskAssignees.push(...parsed.data.assigneeIds);
+                if (parsed.data?.sourceMessageId?.startsWith('meta:')) {
+                  try {
+                    const m = JSON.parse(parsed.data.sourceMessageId.replace(/^meta:/, ''));
+                    if (Array.isArray(m.assigneeIds)) taskAssignees.push(...m.assigneeIds);
+                  } catch {}
+                }
+                const isAssignedToMe = taskAssignees.includes(currentUserId);
+                const isUnassignedTask = taskAssignees.length === 0;
                 const isOwner = ownerId && ownerId === currentUserId;
 
                 if (isAssignedToMe && actorId !== currentUserId) {
@@ -193,6 +237,13 @@ export function useLiveEvents(workspaceId?: string | null) {
                     type: 'TASK_CREATED',
                     title: 'New Task Assigned',
                     message: `"${taskTitle}" was created and assigned to you`,
+                    data: { ...parsed.data, taskId },
+                  });
+                } else if (isUnassignedTask && actorId !== currentUserId) {
+                  notify({
+                    type: 'TASK_CREATED',
+                    title: 'New Team Task',
+                    message: `"${taskTitle}" was added for the team`,
                     data: { ...parsed.data, taskId },
                   });
                 } else if (isOwner && actorId !== currentUserId) {
@@ -240,37 +291,19 @@ export function useLiveEvents(workspaceId?: string | null) {
                   });
                 }
               }
-          } catch {
-            // Non-blocking
-          }
-        };
-
-        let retryCount = 0;
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          // Retry connection up to 3 times, then rely smoothly on live polling
-          if (retryCount < 3) {
-            retryCount++;
-            reconnectTimeout = setTimeout(connect, 10000);
-          }
-        };
       } catch {
-        // Non-blocking fallback to regular React Query polling
+        // Ignore malformed or non-JSON SSE messages.
       }
     }
 
     connect();
 
     return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
+      stopped = true;
+      abortController?.abort();
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
       }
     };
-  }, [workspaceId, queryClient]);
+  }, [workspaceId, queryClient, user]);
 }
