@@ -51,6 +51,12 @@ export class BillingController {
     return { success: true, data: result };
   }
 
+  @Post('submit-receipt')
+  async submitBankReceipt(@Request() req: any, @Body() dto: any) {
+    const result = await this.billingService.submitBankReceipt(req.user.id, dto);
+    return { success: true, data: result };
+  }
+
   @Public()
   @Post('telebirr-sms-webhook')
   async handleSmsWebhook(

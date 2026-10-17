@@ -17,6 +17,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
+  Upload,
+  Building2,
+  Receipt,
+  FileImage,
 } from 'lucide-react';
 
 interface PricingModalProps {
@@ -31,9 +35,14 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
   const [mounted, setMounted] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [paymentTab, setPaymentTab] = useState<'TELEBIRR' | 'BANK_RECEIPT'>('TELEBIRR');
   const [transactionId, setTransactionId] = useState('');
+  const [bankTxId, setBankTxId] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [receiptSubmitted, setReceiptSubmitted] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +52,11 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const handleClose = () => {
     setSelectedOrder(null);
     setVerificationResult(null);
+    setReceiptSubmitted(false);
+    setReceiptImage(null);
     setTransactionId('');
+    setBankTxId('');
+    setPayerName('');
     setErrorMsg(null);
     onClose();
   };
@@ -137,6 +150,50 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
       triggerHaptic('heavy');
     },
   });
+
+  // 3. Submit Manual Bank Receipt Mutation
+  const submitReceiptMutation = useMutation({
+    mutationFn: async () => {
+      if (!receiptImage && !bankTxId.trim()) {
+        throw new Error('Please upload a screenshot of your bank transfer or enter the transaction reference.');
+      }
+      setErrorMsg(null);
+      const targetWsId = workspaceId || user?.defaultWorkspaceId || '';
+      const res = await apiClient.submitBankReceipt({
+        workspaceId: targetWsId,
+        planCode: selectedOrder?.planCode || 'PRO',
+        receiptImageUrl: receiptImage || undefined,
+        transactionId: bankTxId.trim() || undefined,
+        payerName: payerName.trim() || undefined,
+        paymentMethod: 'BANK_TRANSFER',
+      });
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      setReceiptSubmitted(true);
+      triggerHaptic('medium');
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.message || 'Failed to submit receipt. Please try again.');
+      triggerHaptic('heavy');
+    },
+  });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setErrorMsg('Image size too large. Please select an image under 15MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReceiptImage(reader.result as string);
+      setErrorMsg(null);
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen || !mounted) return null;
 
@@ -239,8 +296,33 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
               </button>
             </div>
 
-            {/* Verification Success Celebration */}
-            {verificationResult?.verified ? (
+            {/* 1. Receipt Submitted Celebration */}
+            {receiptSubmitted ? (
+              <div className="py-6 text-center space-y-4 animate-in zoom-in-95">
+                <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center mx-auto shadow-inner">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Bank Receipt Submitted!
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    Your payment receipt has been queued for Super Admin review. Your workspace plan will be activated shortly.
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 text-xs font-semibold">
+                  📋 Status: PENDING SUPER ADMIN APPROVAL
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md"
+                >
+                  Done
+                </Button>
+              </div>
+            ) : verificationResult?.verified ? (
+              /* 2. Telebirr Verified Celebration */
               <div className="py-6 text-center space-y-4 animate-in zoom-in-95">
                 <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
                   <CheckCircle2 className="w-10 h-10" />
@@ -265,7 +347,34 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 </Button>
               </div>
             ) : (
+              /* 3. Payment Method Tabs & Checkout Details */
               <div className="space-y-4 pt-1">
+                {/* Method Switcher Tabs */}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab('TELEBIRR')}
+                    className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      paymentTab === 'TELEBIRR'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Telebirr Instant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTab('BANK_RECEIPT')}
+                    className={`py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      paymentTab === 'BANK_RECEIPT'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Bank Receipt / CBE
+                  </button>
+                </div>
+
                 {errorMsg && (
                   <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -273,102 +382,245 @@ export function PricingModal({ isOpen, onClose }: PricingModalProps) {
                   </div>
                 )}
 
-                {/* Step 1: Telebirr Transfer Info */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                    <span>1. Transfer to Telebirr Account</span>
-                    <span className="text-amber-600 font-extrabold">{selectedOrder.amountEtb} ETB</span>
-                  </div>
+                {paymentTab === 'TELEBIRR' ? (
+                  /* Telebirr Instant Section */
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                        <span>1. Transfer to Telebirr</span>
+                        <span className="text-amber-600 font-extrabold">{selectedOrder.amountEtb} ETB</span>
+                      </div>
 
-                  {/* Phone */}
-                  <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <div>
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Phone Number</span>
-                      <span className="text-sm font-mono font-bold text-slate-900 dark:text-white">
-                        {selectedOrder.telebirrPhone}
-                      </span>
+                      {/* Phone */}
+                      <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div>
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Phone Number</span>
+                          <span className="text-sm font-mono font-bold text-slate-900 dark:text-white">
+                            {selectedOrder.telebirrPhone}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(selectedOrder.telebirrPhone, 'phone')}
+                          className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                        >
+                          {copiedField === 'phone' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'phone' ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+
+                      {/* Receiver Name */}
+                      <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div>
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Receiver Name</span>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            {selectedOrder.telebirrAccountName}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
+                          Verified
+                        </span>
+                      </div>
+
+                      {/* Reference Code */}
+                      <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div>
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Reference Code (Remark)</span>
+                          <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                            {selectedOrder.orderCode}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(selectedOrder.orderCode, 'code')}
+                          className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                        >
+                          {copiedField === 'code' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'code' ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
                     </div>
-                    <button
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                          2. Enter Telebirr TxID
+                        </label>
+                        {process.env.NODE_ENV !== 'production' && (
+                          <button
+                            type="button"
+                            onClick={() => setTransactionId('TT777')}
+                            className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md hover:bg-blue-100 flex items-center gap-1"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>Use Test Code (TT777)</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="e.g. 2B7D91X8 or TT777"
+                        value={transactionId}
+                        onChange={(e) => {
+                          setTransactionId(e.target.value);
+                          setErrorMsg(null);
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 focus:border-amber-500 rounded-xl text-slate-900 dark:text-white font-mono font-bold text-sm outline-none uppercase tracking-wider"
+                      />
+                    </div>
+
+                    <Button
                       type="button"
-                      onClick={() => copyToClipboard(selectedOrder.telebirrPhone, 'phone')}
-                      className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                      disabled={!transactionId.trim() || verifyMutation.isPending}
+                      onClick={() => verifyMutation.mutate()}
+                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                     >
-                      {copiedField === 'phone' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedField === 'phone' ? 'Copied' : 'Copy'}</span>
-                    </button>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>{verifyMutation.isPending ? 'Verifying with Telebirr...' : 'Verify & Activate Plan'}</span>
+                    </Button>
                   </div>
+                ) : (
+                  /* Bank Transfer / CBE Screenshot Section */
+                  <div className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center justify-between">
+                        <span>Official Bank Accounts</span>
+                        <span className="text-blue-600 font-extrabold">{selectedOrder.amountEtb} ETB</span>
+                      </div>
 
-                  {/* Receiver Name */}
-                  <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <div>
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Receiver Name</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {selectedOrder.telebirrAccountName}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
-                      Verified
-                    </span>
-                  </div>
+                      {/* CBE */}
+                      <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-purple-600" />
+                            <span>Commercial Bank of Ethiopia (CBE)</span>
+                          </div>
+                          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                            1000543219876
+                          </div>
+                          <div className="text-[10px] text-slate-400">Account: FlowTask Inc / Tibebe</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard('1000543219876', 'cbe')}
+                          className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                        >
+                          {copiedField === 'cbe' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'cbe' ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
 
-                  {/* Reference Code */}
-                  <div className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <div>
-                      <span className="block text-[10px] text-slate-400 font-bold uppercase">Reference Code (Remark)</span>
-                      <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {selectedOrder.orderCode}
-                      </span>
+                      {/* Awash Bank */}
+                      <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Awash Bank</span>
+                          </div>
+                          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                            01320876543200
+                          </div>
+                          <div className="text-[10px] text-slate-400">Account: FlowTask Inc</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard('01320876543200', 'awash')}
+                          className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                        >
+                          {copiedField === 'awash' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedField === 'awash' ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
                     </div>
-                    <button
+
+                    {/* Receipt Upload & Input Form */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Payer Full Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Name on bank statement"
+                          value={payerName}
+                          onChange={(e) => setPayerName(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Bank Transfer Reference / FT ID
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. FT26012891 or TxID"
+                          value={bankTxId}
+                          onChange={(e) => setBankTxId(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold uppercase"
+                        />
+                      </div>
+
+                      {/* File Upload Button / Preview */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                          Upload Screenshot / Receipt
+                        </label>
+                        {receiptImage ? (
+                          <div className="relative rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-950 p-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <img
+                                src={receiptImage}
+                                alt="Receipt Preview"
+                                className="w-12 h-12 object-cover rounded-lg shrink-0"
+                              />
+                              <div className="text-xs truncate">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
+                                  Screenshot Attached
+                                </span>
+                                <span className="text-[10px] text-emerald-600 font-bold">Ready to submit</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setReceiptImage(null)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all cursor-pointer">
+                            <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Choose receipt screenshot
+                            </span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">
+                              PNG, JPG, or WebP up to 15MB
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button
                       type="button"
-                      onClick={() => copyToClipboard(selectedOrder.orderCode, 'code')}
-                      className="px-2.5 py-1 text-xs rounded-lg font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 flex items-center gap-1"
+                      disabled={(!receiptImage && !bankTxId.trim()) || submitReceiptMutation.isPending}
+                      onClick={() => submitReceiptMutation.mutate()}
+                      className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
                     >
-                      {copiedField === 'code' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedField === 'code' ? 'Copied' : 'Copy'}</span>
-                    </button>
+                      <Receipt className="w-4 h-4" />
+                      <span>{submitReceiptMutation.isPending ? 'Submitting to Admin Queue...' : 'Submit Receipt for Approval'}</span>
+                    </Button>
                   </div>
-                </div>
-
-                {/* Step 2: Verification Input */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                      2. Enter Telebirr TxID
-                    </label>
-                    {process.env.NODE_ENV !== 'production' && (
-                      <button
-                        type="button"
-                        onClick={() => setTransactionId('TT777')}
-                        className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md hover:bg-blue-100 flex items-center gap-1"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>Use Test Code (TT777)</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="e.g. 2B7D91X8 or TT777"
-                    value={transactionId}
-                    onChange={(e) => {
-                      setTransactionId(e.target.value);
-                      setErrorMsg(null);
-                    }}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 focus:border-amber-500 rounded-xl text-slate-900 dark:text-white font-mono font-bold text-sm outline-none uppercase tracking-wider"
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  disabled={!transactionId.trim() || verifyMutation.isPending}
-                  onClick={() => verifyMutation.mutate()}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{verifyMutation.isPending ? 'Verifying with Telebirr...' : 'Verify & Activate Plan'}</span>
-                </Button>
+                )}
               </div>
             )}
           </div>

@@ -13,6 +13,7 @@ import { ActivityModule } from './modules/activity/activity.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { HealthModule } from './modules/health/health.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
@@ -34,6 +35,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     ActivityModule,
     TelegramModule,
     BillingModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [

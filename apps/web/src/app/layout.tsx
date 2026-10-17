@@ -44,7 +44,7 @@ export default function RootLayout({
         <QueryProvider>
           <TelegramProvider>
             <NotificationProvider>
-              <main className="max-w-md mx-auto min-h-screen flex flex-col p-4">
+              <main className="min-h-screen flex flex-col">
                 <ErrorBoundary>
                   {children}
                 </ErrorBoundary>
