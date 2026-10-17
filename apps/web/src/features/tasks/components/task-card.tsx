@@ -207,7 +207,7 @@ export function TaskCard({
   };
 
   const dueInfo = formatDue(task.dueDate);
-  const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
+  const projectTag = task.project?.name || (!task.projectId ? 'Inbox' : task.labels?.[0]?.name || 'Project');
   const projectColor = task.project?.color || '#2563eb';
 
   const [cardPreviewImage, setCardPreviewImage] = useState<string | null>(null);

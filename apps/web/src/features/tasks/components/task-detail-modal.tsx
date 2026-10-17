@@ -113,6 +113,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
+  const [editProjectId, setEditProjectId] = useState('');
   const [isAssignDropdownOpen, setIsAssignDropdownOpen] = useState(false);
   const [assignMemberSearch, setAssignMemberSearch] = useState('');
   const [editPriority, setEditPriority] = useState<string>('MEDIUM');
@@ -177,6 +178,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
+    setEditProjectId(task.projectId || '');
     const initialAssigneeIds = Array.isArray(task.assignees) && task.assignees.length > 0
       ? task.assignees.map((a: any) => a.id)
       : (task.assigneeId ? [task.assigneeId] : []);
@@ -370,6 +372,16 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     enabled: Boolean(workspaceId),
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getProjects(workspaceId);
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+
   // Update Task Mutation (Title, Description, Assignee, Priority, Due Date, etc.)
   const updateTaskMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -382,6 +394,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       setIsEditing(false);
     },
@@ -461,7 +474,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   if (!taskId) return null;
 
   const isDone = task?.status === 'DONE';
-  const projectTag = task?.project?.name || (task?.labels?.[0]?.name ? task.labels[0].name : 'Default Project');
+  const projectTag = task?.project?.name || 'Inbox';
   const projectColor = task?.project?.color || '#2563eb';
 
   const priorityColor =
@@ -808,6 +821,18 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </div>
                   </div>
 
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Project</label>
+                    <select
+                      value={editProjectId}
+                      onChange={(event) => setEditProjectId(event.target.value)}
+                      className="w-full px-2.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                    >
+                      <option value="">Inbox (no project)</option>
+                      {projects.map((project: any) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                    </select>
+                  </div>
+
                   {/* Save Button */}
                   <button
                     type="button"
@@ -818,6 +843,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         description: editDescription.trim(),
                         assigneeId: editAssigneeIds[0] || null,
                         assigneeIds: editAssigneeIds,
+                        projectId: editProjectId || null,
                         priority: editPriority,
                         dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
                       });

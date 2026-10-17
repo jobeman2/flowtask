@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Folder, LayoutGrid, List, Plus, Search, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Folder, Inbox as InboxIcon, LayoutGrid, List, Plus, Search, Sparkles, X } from 'lucide-react';
 import { TaskCard } from '../../tasks/components/task-card';
 import { KanbanView } from '../../tasks/components/kanban-view';
 
@@ -36,6 +36,7 @@ const PROJECT_TEMPLATES = {
 } as const;
 
 type ProjectFilter = 'ALL' | 'ACTIVE' | 'PLANNED' | 'COMPLETED';
+const INBOX_PROJECT_ID = '__flowtask_inbox__';
 
 export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask, onOpenCreate, isOwnerOrAdmin }: ProjectsViewProps) {
   const { workspaceId } = useAuth();
@@ -151,6 +152,30 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
   });
 
   const selectedProject = projectRows.find((row: any) => row.project.id === selectedProjectId);
+  const inboxTasks = tasks.filter((task: any) => !task.projectId && !task.archivedAt);
+  const inboxCompleted = inboxTasks.filter((task: any) => task.status === 'DONE').length;
+  const inboxBlocked = inboxTasks.filter((task: any) => task.taskMetadata?.isBlocked).length;
+  const inboxUpcoming = inboxTasks
+    .filter((task: any) => task.dueDate && task.status !== 'DONE')
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+
+  if (selectedProjectId === INBOX_PROJECT_ID) {
+    return (
+      <ProjectWorkspace
+        project={{ id: INBOX_PROJECT_ID, name: 'Inbox', description: 'Unassigned tasks and Telegram captures waiting to be triaged.' }}
+        projectTasks={inboxTasks}
+        completed={inboxCompleted}
+        blocked={inboxBlocked}
+        state="ACTIVE"
+        upcoming={inboxUpcoming}
+        isInbox
+        onBack={() => onSelectProject(null)}
+        onSelectTask={onSelectTask}
+        onOpenCreate={() => onOpenCreate()}
+        isOwnerOrAdmin={isOwnerOrAdmin}
+      />
+    );
+  }
 
   if (selectedProject) {
     return (
@@ -216,6 +241,14 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
         {(['ALL', 'ACTIVE', 'PLANNED', 'COMPLETED'] as ProjectFilter[]).map((value) => <button key={value} type="button" onClick={() => setFilter(value)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap ${filter === value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{value === 'ALL' ? 'All projects' : value[0] + value.slice(1).toLowerCase()}</button>)}
       </div>
 
+      <button type="button" onClick={() => onSelectProject(INBOX_PROJECT_ID)} className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-dashed border-blue-200 dark:border-blue-900/70 bg-blue-50/60 dark:bg-blue-950/20 text-left hover:border-blue-400 transition-colors">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 flex items-center justify-center"><InboxIcon className="w-4 h-4" /></span>
+          <span className="min-w-0"><span className="block text-xs font-extrabold text-slate-900 dark:text-white">Inbox</span><span className="block text-[10px] text-slate-500 truncate">Unassigned work and Telegram captures to triage</span></span>
+        </div>
+        <span className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700 dark:text-blue-300"><span className="px-2 py-1 rounded-full bg-white dark:bg-slate-900">{inboxTasks.length}</span><ArrowRight className="w-3.5 h-3.5" /></span>
+      </button>
+
       {isLoading ? <div className="py-8 text-center text-xs text-slate-400 animate-pulse">Loading projects…</div>
         : filteredProjects.length === 0 ? <div className="py-10 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2"><Folder className="w-8 h-8 text-slate-300 mx-auto" /><p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects in this view</p><p className="text-[11px] text-slate-400">Create a project or change your filters.</p></div>
         : <div className="space-y-3">{filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming }: any) => {
@@ -252,7 +285,7 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
   );
 }
 
-function ProjectWorkspace({ project, projectTasks, completed, blocked, state, upcoming, onBack, onSelectTask, onOpenCreate, isOwnerOrAdmin }: any) {
+function ProjectWorkspace({ project, projectTasks, completed, blocked, state, upcoming, onBack, onSelectTask, onOpenCreate, isOwnerOrAdmin, isInbox = false }: any) {
   const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
@@ -298,6 +331,7 @@ function ProjectWorkspace({ project, projectTasks, completed, blocked, state, up
     return true;
   });
   const progress = projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0;
+  const openCount = projectTasks.filter((task: any) => task.status !== 'DONE' && task.status !== 'CANCELLED').length;
   const statusFilters = [
     ['ALL', 'All issues'], ['BACKLOG', 'Backlog'], ['TODO', 'To do'],
     ['IN_PROGRESS', 'In progress'], ['IN_REVIEW', 'In review'], ['DONE', 'Done'],
@@ -313,19 +347,25 @@ function ProjectWorkspace({ project, projectTasks, completed, blocked, state, up
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">{project.name}</h2>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${state === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : state === 'ACTIVE' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isInbox ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' : state === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : state === 'ACTIVE' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{isInbox ? 'Needs triage' : state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}</span>
               </div>
               <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap">{project.description || 'Add a project goal to give the team a shared outcome to work toward.'}</p>
             </div>
           </div>
-          <button type="button" onClick={onOpenCreate} className="shrink-0 px-3 py-2 rounded-xl bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />New issue</button>
+          <button type="button" onClick={onOpenCreate} className="shrink-0 px-3 py-2 rounded-xl bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />{isInbox ? 'Capture task' : 'New issue'}</button>
         </div>
         <div className="grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
-          <div><div className="text-[10px] text-slate-500">Progress</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{progress}%</div></div>
-          <div><div className="text-[10px] text-slate-500">Issues</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{completed}/{projectTasks.length} done</div></div>
-          <div><div className="text-[10px] text-slate-500">Blocked</div><div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>{blocked}</div></div>
+          {isInbox ? <>
+            <div><div className="text-[10px] text-slate-500">Open</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{openCount}</div></div>
+            <div><div className="text-[10px] text-slate-500">Blocked</div><div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>{blocked}</div></div>
+            <div><div className="text-[10px] text-slate-500">To triage</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{projectTasks.length}</div></div>
+          </> : <>
+            <div><div className="text-[10px] text-slate-500">Progress</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{progress}%</div></div>
+            <div><div className="text-[10px] text-slate-500">Issues</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{completed}/{projectTasks.length} done</div></div>
+            <div><div className="text-[10px] text-slate-500">Blocked</div><div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>{blocked}</div></div>
+          </>}
         </div>
-        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }} /></div>
+        {!isInbox && <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }} /></div>}
         {upcoming && <div className="text-[10px] text-slate-500 inline-flex items-center gap-1"><CalendarDays className="w-3 h-3" />Next issue due {new Date(upcoming.dueDate).toLocaleDateString()}</div>}
       </section>
 
@@ -340,7 +380,7 @@ function ProjectWorkspace({ project, projectTasks, completed, blocked, state, up
         <div className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search project issues" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500" /></div>
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar">{statusFilters.map(([value, label]) => <button key={value} type="button" onClick={() => setStatusFilter(value)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap ${statusFilter === value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{label}</button>)}</div>
         <div className="space-y-2">{filteredTasks.map((task: any) => <TaskCard key={task.id} task={task} currentUserId={user?.id} onSelect={onSelectTask} onComplete={(taskId) => completeMutation.mutate(taskId)} onToggleAssigneeDone={(taskId, completedAssigneeIds) => assigneeCompletionMutation.mutate({ taskId, completedAssigneeIds })} isCompleting={completeMutation.isPending || assigneeCompletionMutation.isPending} />)}
-          {filteredTasks.length === 0 && <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">No issues match this view. Add an issue to move the project forward.</div>}
+          {filteredTasks.length === 0 && <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">{isInbox ? 'Inbox is clear. New Telegram captures without a project will show up here.' : 'No issues match this view. Add an issue to move the project forward.'}</div>}
         </div>
       </>}
       {view === 'BOARD' && <KanbanView tasks={visibleTasks} onSelectTask={onSelectTask} onOpenCreate={onOpenCreate} />}

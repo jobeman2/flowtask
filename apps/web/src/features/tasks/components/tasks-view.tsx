@@ -47,7 +47,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-  const [activeView, setActiveView] = useState<ViewMode>('LIST');
+  const [activeView, setActiveView] = useState<ViewMode>('PROJECTS');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,10 +167,10 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       {/* 1. Multi-View Mode Switcher */}
       <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
         {([
+          { id: 'PROJECTS', label: 'Projects', icon: Folder },
           { id: 'LIST', label: 'List', icon: List },
           { id: 'BOARD', label: 'Board', icon: LayoutGrid },
           { id: 'CALENDAR', label: 'Calendar', icon: CalendarIcon },
-          { id: 'PROJECTS', label: 'Projects', icon: Folder },
         ] as const).map((view) => {
           const Icon = view.icon;
           const isActive = activeView === view.id;

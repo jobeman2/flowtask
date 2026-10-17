@@ -164,7 +164,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
               <div className="space-y-2.5 flex-1 min-h-[120px] max-h-[62vh] overflow-y-auto no-scrollbar">
                 {colTasks.map((task) => {
                   const dueText = formatDue(task.dueDate);
-                  const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'General');
+                  const projectTag = task.project?.name || (!task.projectId ? 'Inbox' : task.labels?.[0]?.name || 'Project');
                   const projectColor = task.project?.color || '#2563eb';
                   const isAiGenerated = task.description?.includes('🤖') || task.description?.includes('AI Project Manager') || task.title?.includes('[AI]');
 

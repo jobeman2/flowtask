@@ -357,6 +357,14 @@ export class TasksService {
 
     const { labelIds, assigneeIds, attachments, ...taskData } = dto;
 
+    if (taskData.projectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: taskData.projectId, workspaceId: targetWorkspaceId, isArchived: false },
+        select: { id: true },
+      });
+      if (!project) throw new NotFoundException('Project not found in this workspace');
+    }
+
     const allAssigneeIds: string[] = Array.isArray(assigneeIds) && assigneeIds.length > 0
       ? assigneeIds
       : (taskData.assigneeId ? [taskData.assigneeId] : []);
@@ -517,6 +525,14 @@ export class TasksService {
       existing,
       dto.status === 'DONE' ? 'COMPLETE' : 'UPDATE'
     );
+
+    if (dto.projectId) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: dto.projectId, workspaceId, isArchived: false },
+        select: { id: true },
+      });
+      if (!project) throw new NotFoundException('Project not found in this workspace');
+    }
 
     const {
       labelIds,

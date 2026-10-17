@@ -271,7 +271,7 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
             {selectedDateTasks.map((task) => {
               const isMeeting = task.title.toLowerCase().startsWith('[meeting]');
               const isDone = task.status === 'DONE';
-              const projectTag = task.project?.name || (task.labels?.[0]?.name ? task.labels[0].name : 'Task');
+              const projectTag = task.project?.name || (!task.projectId ? 'Inbox' : task.labels?.[0]?.name || 'Project');
 
               // Extract meeting call link if available
               const urlMatch = task.description?.match(/Join URL:\s*(https?:\/\/[^\n\s]+)/i);
