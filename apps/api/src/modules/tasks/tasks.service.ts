@@ -365,9 +365,10 @@ export class TasksService {
       if (!project) throw new NotFoundException('Project not found in this workspace');
     }
 
-    const allAssigneeIds: string[] = Array.isArray(assigneeIds) && assigneeIds.length > 0
+    const requestedAssigneeIds: string[] = Array.isArray(assigneeIds) && assigneeIds.length > 0
       ? assigneeIds
       : (taskData.assigneeId ? [taskData.assigneeId] : []);
+    const allAssigneeIds = requestedAssigneeIds.length > 0 ? requestedAssigneeIds : [creatorId];
     const primaryAssigneeId = allAssigneeIds[0] || null;
 
     const rawAttachments: any[] = Array.isArray(attachments) ? attachments : [];
@@ -441,7 +442,9 @@ export class TasksService {
       data: result,
     });
 
-    const assigneesToNotify = allAssigneeIds.length > 0 ? allAssigneeIds : (dto.assigneeId ? [dto.assigneeId] : []);
+    // The creator is the default assignee, so only emit assignment events for
+    // additional teammates explicitly selected during task creation.
+    const assigneesToNotify = allAssigneeIds.filter((assigneeId) => assigneeId !== creatorId);
     for (const aId of assigneesToNotify) {
       this.liveEventsService.emit({
         workspaceId: targetWorkspaceId,

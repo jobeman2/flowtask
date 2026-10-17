@@ -209,6 +209,11 @@ export function TaskCard({
   const dueInfo = formatDue(task.dueDate);
   const projectTag = task.project?.name || (!task.projectId ? 'Inbox' : task.labels?.[0]?.name || 'Project');
   const projectColor = task.project?.color || '#2563eb';
+  const statusLabel: Record<string, string> = {
+    BACKLOG: 'Backlog', TODO: 'To do', IN_PROGRESS: 'In progress',
+    IN_REVIEW: 'In review', DONE: 'Done', CANCELLED: 'Canceled',
+  };
+  const priorityLabel: Record<string, string> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', URGENT: 'Urgent' };
 
   const [cardPreviewImage, setCardPreviewImage] = useState<string | null>(null);
 
@@ -303,23 +308,11 @@ export function TaskCard({
         markTaskSeen(task.id);
         onSelect(task.id);
       }}
-      className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
-        isDone
-          ? 'bg-slate-50/80 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800 opacity-65'
-          : meta.isMeeting
-          ? 'bg-white dark:bg-slate-800/90 border-blue-200/80 dark:border-blue-900/50 hover:border-blue-300 shadow-[0_3px_12px_-3px_rgba(59,130,246,0.12)]'
-          : meta.isClickUp
-          ? 'bg-white dark:bg-slate-800/90 border-violet-200/80 dark:border-violet-900/50 hover:border-violet-300 shadow-[0_3px_12px_-3px_rgba(139,92,246,0.12)]'
-          : meta.isNotion
-          ? 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 hover:border-slate-300 shadow-[0_3px_12px_-3px_rgba(0,0,0,0.05)]'
-          : task.priority === 'URGENT' || task.priority === 'HIGH'
-          ? 'bg-white dark:bg-slate-800/90 border-rose-200/80 dark:border-rose-900/50 hover:border-rose-300 shadow-[0_3px_12px_-3px_rgba(244,63,94,0.1)]'
-          : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-blue-300 shadow-[0_3px_12px_-3px_rgba(59,130,246,0.07)]'
-      }`}
+      className={`relative rounded-2xl p-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm transition-colors cursor-pointer group hover:border-blue-300 dark:hover:border-blue-700 active:scale-[0.99] overflow-hidden ${isDone ? 'opacity-65' : ''}`}
     >
       {/* Sleek left accent indicator pill (does not touch corners) */}
       <div
-        className={`absolute left-0.5 top-3 bottom-3 w-1 rounded-full ${
+        className={`absolute left-1 top-4 bottom-4 w-1 rounded-full ${
           isDone
             ? 'bg-slate-300 dark:bg-slate-700'
             : meta.isMeeting
@@ -336,11 +329,11 @@ export function TaskCard({
         }`}
       />
 
-      <div className="flex items-start gap-2.5 pl-1.5">
+      <div className="flex items-start gap-3 pl-1">
         {/* Checkbox button (Meetings cannot be marked as done like tasks) */}
         {meta.isMeeting ? (
           <div
-            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60"
+            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700"
             title="Meeting"
           >
             <Video className="w-3 h-3" />
@@ -359,7 +352,7 @@ export function TaskCard({
                 ? 'Mark my part as done'
                 : 'Mark task done'
             }
-            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+            className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
               isDone
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : isMyPartDone
@@ -378,7 +371,7 @@ export function TaskCard({
           {/* Top Line: Title + Telegram Double Ticks + Assignee Avatar */}
           <div className="flex items-start justify-between gap-2">
             <h4
-              className={`text-[13px] font-bold leading-snug tracking-tight break-words ${
+              className={`text-sm font-semibold leading-5 tracking-tight break-words ${
                 isDone
                   ? 'line-through text-slate-400 dark:text-slate-500'
                   : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
@@ -487,6 +480,8 @@ export function TaskCard({
             </div>
           </div>
 
+          {task.description && <p className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400 line-clamp-2">{task.description}</p>}
+
           {/* Attachment Images Preview Carousel / Grid */}
           {previewImages.length > 0 && (
             <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar py-0.5">
@@ -516,7 +511,13 @@ export function TaskCard({
           )}
 
           {/* Bottom Line: Badges & Metadata (Clean compact chips) */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-semibold ${isDone ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+              {statusLabel[task.status] || 'To do'}
+            </span>
+            <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-medium ${task.priority === 'URGENT' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' : task.priority === 'HIGH' ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' : 'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+              {priorityLabel[task.priority] || 'Medium'}
+            </span>
             {totalAttachmentsCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
                 {previewImages.length > 0 ? (
