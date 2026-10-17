@@ -1,18 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
-import { Folder, Plus, ArrowRight, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Folder, LayoutGrid, List, Plus, Search, Sparkles, X } from 'lucide-react';
+import { TaskCard } from '../../tasks/components/task-card';
+import { KanbanView } from '../../tasks/components/kanban-view';
 
 interface ProjectsViewProps {
   onSelectProject: (projectId: string | null) => void;
   selectedProjectId: string | null;
+  onSelectTask: (taskId: string) => void;
+  onOpenCreate: (projectId?: string) => void;
+  isOwnerOrAdmin: boolean;
 }
 
-export function ProjectsView({ onSelectProject, selectedProjectId }: ProjectsViewProps) {
+const PROJECT_TEMPLATES = {
+  product: {
+    label: 'Product launch',
+    description: 'Plan and deliver a product release from scope through launch review.',
+    tasks: ['Define the launch goal and success metrics', 'Confirm scope and owners', 'Build and test the release', 'Prepare launch communications', 'Review launch results'],
+  },
+  sprint: {
+    label: 'Sprint',
+    description: 'Plan a focused delivery cycle, track work, and review the outcome.',
+    tasks: ['Set the sprint goal', 'Break work into issues', 'Review completed work', 'Capture follow-up actions'],
+  },
+  campaign: {
+    label: 'Campaign',
+    description: 'Coordinate a campaign from brief to performance review.',
+    tasks: ['Write the campaign brief', 'Confirm audience and channels', 'Create and review assets', 'Launch the campaign', 'Review performance'],
+  },
+} as const;
+
+type ProjectFilter = 'ALL' | 'ACTIVE' | 'PLANNED' | 'COMPLETED';
+
+export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask, onOpenCreate, isOwnerOrAdmin }: ProjectsViewProps) {
   const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
@@ -20,6 +45,9 @@ export function ProjectsView({ onSelectProject, selectedProjectId }: ProjectsVie
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#2563eb');
+  const [templateId, setTemplateId] = useState<keyof typeof PROJECT_TEMPLATES | 'blank'>('blank');
+  const [filter, setFilter] = useState<ProjectFilter>('ALL');
+  const [search, setSearch] = useState('');
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects', workspaceId],
@@ -31,199 +59,291 @@ export function ProjectsView({ onSelectProject, selectedProjectId }: ProjectsVie
     enabled: Boolean(workspaceId),
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ['task-stats', workspaceId],
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['project-issues-summary', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await apiClient.getTaskStats(workspaceId);
-      return res.data;
+      if (!workspaceId) return [];
+      const allTasks: any[] = [];
+      let page = 1;
+      let pageTasks: any[] = [];
+      do {
+        const res = await apiClient.getTasks(workspaceId, { page, limit: 100 });
+        if (res.error) throw new Error(res.error);
+        pageTasks = Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+        allTasks.push(...pageTasks);
+        page += 1;
+      } while (pageTasks.length === 100);
+      return allTasks;
     },
     enabled: Boolean(workspaceId),
   });
 
   const createProjectMutation = useMutation({
     mutationFn: async () => {
-      if (!workspaceId || !name.trim()) return;
-      return apiClient.createProject(workspaceId, {
+      if (!workspaceId || !name.trim()) throw new Error('Add a project name first.');
+      const projectResult = await apiClient.createProject(workspaceId, {
         name: name.trim(),
         description: description.trim() || undefined,
         color,
       });
+      if (projectResult.error || !projectResult.data?.id) {
+        throw new Error(projectResult.error || 'Could not create the project.');
+      }
+
+      const template = templateId === 'blank' ? null : PROJECT_TEMPLATES[templateId];
+      if (template) {
+        for (const title of template.tasks) {
+          const taskResult = await apiClient.createTask({
+            workspaceId,
+            projectId: projectResult.data.id,
+            title,
+            status: 'BACKLOG',
+            priority: 'MEDIUM',
+          });
+          if (taskResult.error) {
+            throw new Error(`Project created, but a starter issue failed: ${taskResult.error}`);
+          }
+        }
+      }
+      return projectResult.data;
     },
-    onSuccess: () => {
+    onSuccess: (project: any) => {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       setName('');
       setDescription('');
+      setTemplateId('blank');
       setIsCreating(false);
+      onSelectProject(project.id);
+    },
+    onError: () => {
+      // The project is created before its starter issues, so refresh in case
+      // a later starter issue fails after the project has already been saved.
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
     },
   });
 
-  const colorPalette = [
-    '#2563eb', // royal blue
-    '#7c3aed', // violet
-    '#db2777', // pink
-    '#e11d48', // rose
-    '#d97706', // amber
-    '#059669', // emerald
-    '#0891b2', // cyan
-    '#475569', // slate
-  ];
+  const colorPalette = ['#2563eb', '#7c3aed', '#db2777', '#e11d48', '#d97706', '#059669', '#0891b2', '#475569'];
+
+  const projectRows = useMemo(() => projects.map((project: any) => {
+    const projectTasks = tasks.filter((task: any) => task.projectId === project.id && !task.archivedAt);
+    const completed = projectTasks.filter((task: any) => task.status === 'DONE').length;
+    const blocked = projectTasks.filter((task: any) => task.taskMetadata?.isBlocked).length;
+    const active = projectTasks.some((task: any) => task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW');
+    const state = projectTasks.length > 0 && completed === projectTasks.length
+      ? 'COMPLETED'
+      : active ? 'ACTIVE' : 'PLANNED';
+    const upcoming = projectTasks
+      .filter((task: any) => task.dueDate && task.status !== 'DONE')
+      .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+    return { project, projectTasks, completed, blocked, state, upcoming };
+  }), [projects, tasks]);
+
+  const filteredProjects = projectRows.filter((row: any) => {
+    if (filter !== 'ALL' && row.state !== filter) return false;
+    return !search.trim() || `${row.project.name} ${row.project.description || ''}`.toLowerCase().includes(search.toLowerCase());
+  });
+
+  const selectedProject = projectRows.find((row: any) => row.project.id === selectedProjectId);
+
+  if (selectedProject) {
+    return (
+      <ProjectWorkspace
+        {...selectedProject}
+        onBack={() => onSelectProject(null)}
+        onSelectTask={onSelectTask}
+        onOpenCreate={() => onOpenCreate(selectedProject.project.id)}
+        isOwnerOrAdmin={isOwnerOrAdmin}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4 animate-in fade-in font-sans">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Workspace Projects</h2>
-          <p className="text-xs text-slate-400 font-medium">Organize tasks into milestones and boards</p>
+          <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Projects</h2>
+          <p className="text-xs text-slate-400 font-medium">Goals, delivery progress, and the issues moving work forward</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            setIsCreating(true);
-          }}
-          className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all"
-        >
-          <Plus className="w-3.5 h-3.5 stroke-[3]" />
-          <span>New Project</span>
+        <button type="button" onClick={() => { triggerHaptic('light'); setIsCreating(true); }} className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all">
+          <Plus className="w-3.5 h-3.5 stroke-[3]" /><span>New Project</span>
         </button>
       </div>
 
-      {/* New Project Inline Form */}
       {isCreating && (
         <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-blue-200 dark:border-blue-800/80 shadow-lg space-y-3.5">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Create Project</span>
-            </h4>
-            <button
-              onClick={() => setIsCreating(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /><span>Start a project</span></h4>
+            <button type="button" onClick={() => setIsCreating(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-4 h-4" /></button>
           </div>
-
+          <select value={templateId} onChange={(event) => {
+            const value = event.target.value as keyof typeof PROJECT_TEMPLATES | 'blank';
+            setTemplateId(value);
+            if (value !== 'blank') setDescription(PROJECT_TEMPLATES[value].description);
+          }} className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white">
+            <option value="blank">Blank project</option>
+            {Object.entries(PROJECT_TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label} template</option>)}
+          </select>
           <div className="space-y-2">
-            <input
-              type="text"
-              required
-              autoFocus
-              placeholder="Project Name (e.g. Mobile App Redesign)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-semibold"
-            />
-            <input
-              type="text"
-              placeholder="Brief description (optional)"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white font-medium"
-            />
+            <input type="text" required autoFocus placeholder="Project name" value={name} onChange={(event) => setName(event.target.value)} className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-semibold" />
+            <textarea rows={2} placeholder="Project goal and context" value={description} onChange={(event) => setDescription(event.target.value)} className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white font-medium resize-y" />
           </div>
-
-          {/* Color Palette */}
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-slate-500 font-bold">Theme Color:</span>
-            <div className="flex gap-2">
-              {colorPalette.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-5 h-5 rounded-full transition-transform ${color === c ? 'scale-125 ring-2 ring-blue-500 ring-offset-2' : ''}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
+            <span className="text-xs text-slate-500 font-bold">Theme color</span>
+            <div className="flex gap-2">{colorPalette.map((entry) => <button key={entry} type="button" aria-label={`Use project color ${entry}`} onClick={() => setColor(entry)} className={`w-5 h-5 rounded-full transition-transform ${color === entry ? 'scale-125 ring-2 ring-blue-500 ring-offset-2' : ''}`} style={{ backgroundColor: entry }} />)}</div>
           </div>
-
-          {/* Action buttons */}
+          {createProjectMutation.error && <p role="alert" className="text-xs text-rose-600">{createProjectMutation.error.message}</p>}
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => setIsCreating(false)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!name.trim() || createProjectMutation.isPending}
-              onClick={() => createProjectMutation.mutate()}
-              className="px-4 py-1.5 rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/25 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {createProjectMutation.isPending ? 'Saving...' : 'Save Project'}
+            <button type="button" onClick={() => setIsCreating(false)} className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800">Cancel</button>
+            <button type="button" disabled={!name.trim() || createProjectMutation.isPending} onClick={() => createProjectMutation.mutate()} className="px-4 py-1.5 rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md disabled:opacity-50">
+              {createProjectMutation.isPending ? 'Creating…' : templateId === 'blank' ? 'Create Project' : 'Create with Starter Issues'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Projects List */}
-      {isLoading ? (
-        <div className="py-8 text-center text-xs text-slate-400 animate-pulse">Loading projects...</div>
-      ) : projects.length === 0 ? (
-        <div className="py-10 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
-          <Folder className="w-8 h-8 text-slate-300 mx-auto mb-1" />
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects created yet</p>
-          <p className="text-[11px] text-slate-400 font-medium">Group related tasks into organized milestones</p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {projects.map((proj: any) => {
-            const isSelected = selectedProjectId === proj.id;
-            const projectStat = stats?.projectsSummary?.find((p) => p.id === proj.id);
-            const count = projectStat?.taskCount ?? 0;
-            const projColor = proj.color || '#2563eb';
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500" />
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {(['ALL', 'ACTIVE', 'PLANNED', 'COMPLETED'] as ProjectFilter[]).map((value) => <button key={value} type="button" onClick={() => setFilter(value)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap ${filter === value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{value === 'ALL' ? 'All projects' : value[0] + value.slice(1).toLowerCase()}</button>)}
+      </div>
 
-            return (
-              <div
-                key={proj.id}
-                onClick={() => {
-                  triggerHaptic('light');
-                  onSelectProject(isSelected ? null : proj.id);
-                }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] hover:shadow-md ${
-                  isSelected
-                    ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40'
-                    : 'border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 hover:border-blue-200'
-                }`}
-              >
-                <div className="flex items-center space-x-3.5 min-w-0">
-                  <div
-                    className="w-3 h-10 rounded-full shrink-0 shadow-xs"
-                    style={{ backgroundColor: projColor }}
-                  />
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 truncate">
-                      <span>{proj.name}</span>
-                      {isSelected && (
-                        <span className="text-[9px] uppercase font-extrabold text-blue-600 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
-                          Active
-                        </span>
-                      )}
-                    </h3>
-                    {proj.description && (
-                      <p className="text-xs text-slate-400 line-clamp-1 mt-0.5 font-medium">{proj.description}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    {count} {count === 1 ? 'task' : 'tasks'}
-                  </span>
-                  <ArrowRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-blue-600 translate-x-1' : 'text-slate-300 dark:text-slate-600'}`} />
+      {isLoading ? <div className="py-8 text-center text-xs text-slate-400 animate-pulse">Loading projects…</div>
+        : filteredProjects.length === 0 ? <div className="py-10 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2"><Folder className="w-8 h-8 text-slate-300 mx-auto" /><p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects in this view</p><p className="text-[11px] text-slate-400">Create a project or change your filters.</p></div>
+        : <div className="space-y-3">{filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming }: any) => {
+          const isSelected = selectedProjectId === project.id;
+          const count = projectTasks.length;
+          const progress = count ? Math.round((completed / count) * 100) : 0;
+          return <article key={project.id} className={`p-4 rounded-2xl border bg-white dark:bg-slate-900 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] ${isSelected ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-slate-100 dark:border-slate-800'}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-1.5 h-11 rounded-full shrink-0" style={{ backgroundColor: project.color || '#2563eb' }} />
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">{project.name}</h3>
+                  {project.description && <p className="text-xs text-slate-500 line-clamp-2 mt-1">{project.description}</p>}
                 </div>
               </div>
-            );
-          })}
+              <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${state === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : state === 'ACTIVE' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                {state === 'COMPLETED' ? <CheckCircle2 className="w-3 h-3" /> : <CircleDot className="w-3 h-3" />}{state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-[10px] font-semibold text-slate-500"><span>Issue progress</span><span>{completed}/{count} complete · {progress}%</span></div>
+              <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }} /></div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>{blocked > 0 ? <span className="text-amber-600 font-bold">{blocked} blocked</span> : `${count} ${count === 1 ? 'issue' : 'issues'}`}</span>
+                {upcoming && <span className="inline-flex items-center gap-1"><CalendarDays className="w-3 h-3" />Next due {new Date(upcoming.dueDate).toLocaleDateString()}</span>}
+              </div>
+            </div>
+            <button type="button" onClick={() => { triggerHaptic('light'); onSelectProject(project.id); }} className="w-full mt-3 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
+              <span>Open project</span><ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </article>;
+        })}</div>}
+    </div>
+  );
+}
+
+function ProjectWorkspace({ project, projectTasks, completed, blocked, state, upcoming, onBack, onSelectTask, onOpenCreate, isOwnerOrAdmin }: any) {
+  const { workspaceId, user } = useAuth();
+  const { triggerHaptic } = useTelegram();
+  const queryClient = useQueryClient();
+  const [view, setView] = useState<'LIST' | 'BOARD'>('LIST');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
+
+  const completeMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      if (!workspaceId) throw new Error('No active workspace selected.');
+      const result = await apiClient.completeTask(taskId, workspaceId);
+      if (result.error) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+  const assigneeCompletionMutation = useMutation({
+    mutationFn: async ({ taskId, completedAssigneeIds }: { taskId: string; completedAssigneeIds: string[] }) => {
+      if (!workspaceId) throw new Error('No active workspace selected.');
+      const result = await apiClient.updateTask(taskId, workspaceId, { completedAssigneeIds });
+      if (result.error) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+
+  const visibleTasks = projectTasks.filter((task: any) => {
+    const assignees = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : (task.assignee ? [task.assignee] : []);
+    const assignedToMe = assignees.some((assignee: any) => assignee.id === user?.id) || task.assigneeId === user?.id;
+    const isUnassigned = assignees.length === 0 && !task.assigneeId;
+    return isUnassigned || assignedToMe || task.creatorId === user?.id || isOwnerOrAdmin;
+  });
+  const filteredTasks = visibleTasks.filter((task: any) => {
+    if (statusFilter !== 'ALL' && task.status !== statusFilter) return false;
+    if (search.trim() && !`${task.title || ''} ${task.description || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  const progress = projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0;
+  const statusFilters = [
+    ['ALL', 'All issues'], ['BACKLOG', 'Backlog'], ['TODO', 'To do'],
+    ['IN_PROGRESS', 'In progress'], ['IN_REVIEW', 'In review'], ['DONE', 'Done'],
+  ];
+
+  return (
+    <div className="space-y-4 pb-24 animate-in fade-in font-sans">
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600"><ArrowLeft className="w-3.5 h-3.5" />All projects</button>
+      <section className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-2 h-12 rounded-full shrink-0" style={{ backgroundColor: project.color || '#2563eb' }} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">{project.name}</h2>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${state === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : state === 'ACTIVE' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap">{project.description || 'Add a project goal to give the team a shared outcome to work toward.'}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onOpenCreate} className="shrink-0 px-3 py-2 rounded-xl bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />New issue</button>
         </div>
-      )}
+        <div className="grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
+          <div><div className="text-[10px] text-slate-500">Progress</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{progress}%</div></div>
+          <div><div className="text-[10px] text-slate-500">Issues</div><div className="text-sm font-extrabold text-slate-900 dark:text-white">{completed}/{projectTasks.length} done</div></div>
+          <div><div className="text-[10px] text-slate-500">Blocked</div><div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>{blocked}</div></div>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }} /></div>
+        {upcoming && <div className="text-[10px] text-slate-500 inline-flex items-center gap-1"><CalendarDays className="w-3 h-3" />Next issue due {new Date(upcoming.dueDate).toLocaleDateString()}</div>}
+      </section>
+
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Issues <span className="text-slate-400">{projectTasks.length}</span></h3>
+        <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+          <button type="button" title="List view" onClick={() => setView('LIST')} className={`p-1.5 rounded-lg ${view === 'LIST' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs' : 'text-slate-500'}`}><List className="w-3.5 h-3.5" /></button>
+          <button type="button" title="Board view" onClick={() => setView('BOARD')} className={`p-1.5 rounded-lg ${view === 'BOARD' ? 'bg-white dark:bg-slate-900 text-blue-600 shadow-xs' : 'text-slate-500'}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+      {view === 'LIST' && <>
+        <div className="relative"><Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search project issues" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500" /></div>
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">{statusFilters.map(([value, label]) => <button key={value} type="button" onClick={() => setStatusFilter(value)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap ${statusFilter === value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{label}</button>)}</div>
+        <div className="space-y-2">{filteredTasks.map((task: any) => <TaskCard key={task.id} task={task} currentUserId={user?.id} onSelect={onSelectTask} onComplete={(taskId) => completeMutation.mutate(taskId)} onToggleAssigneeDone={(taskId, completedAssigneeIds) => assigneeCompletionMutation.mutate({ taskId, completedAssigneeIds })} isCompleting={completeMutation.isPending || assigneeCompletionMutation.isPending} />)}
+          {filteredTasks.length === 0 && <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">No issues match this view. Add an issue to move the project forward.</div>}
+        </div>
+      </>}
+      {view === 'BOARD' && <KanbanView tasks={visibleTasks} onSelectTask={onSelectTask} onOpenCreate={onOpenCreate} />}
     </div>
   );
 }

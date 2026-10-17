@@ -27,6 +27,7 @@ export default function HomePage() {
   const [activeNav, setActiveNav] = useState<NavTab>('HOME');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createTaskProjectId, setCreateTaskProjectId] = useState<string | undefined>();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -59,6 +60,7 @@ export default function HomePage() {
           setSelectedTaskId(null);
         } else if (isCreateOpen) {
           setIsCreateOpen(false);
+          setCreateTaskProjectId(undefined);
         } else if (isPricingOpen) {
           setIsPricingOpen(false);
         } else if (isNotificationsOpen) {
@@ -198,7 +200,7 @@ export default function HomePage() {
         {activeNav === 'TASKS' && (
           <TasksView
             onSelectTask={(id) => setSelectedTaskId(id)}
-            onOpenCreate={() => setIsCreateOpen(true)}
+            onOpenCreate={(projectId) => { setCreateTaskProjectId(projectId); setIsCreateOpen(true); }}
           />
         )}
 
@@ -217,7 +219,8 @@ export default function HomePage() {
       {/* 4. Global Modals & Sheets */}
       <CreateTaskSheet
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        initialProjectId={createTaskProjectId}
+        onClose={() => { setIsCreateOpen(false); setCreateTaskProjectId(undefined); }}
       />
 
       <TaskDetailModal

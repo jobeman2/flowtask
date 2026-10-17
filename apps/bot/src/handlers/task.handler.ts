@@ -167,6 +167,16 @@ export async function handleTaskCommand(ctx: Context) {
     }
 
     // 4. Create Task
+    if (!ctx.chat) return;
+    const sourceMessageId = ctx.message?.message_id;
+    const sourceChatId = String(ctx.chat.id);
+    const sourceMessageUrl = sourceMessageId && ctx.chat.type !== 'private'
+      ? ctx.chat.username
+        ? `https://t.me/${ctx.chat.username}/${sourceMessageId}`
+        : sourceChatId.startsWith('-100')
+          ? `https://t.me/c/${sourceChatId.slice(4)}/${sourceMessageId}`
+          : null
+      : null;
     const task = await prisma.task.create({
       data: {
         workspaceId: activeWorkspace.id,
@@ -180,7 +190,16 @@ export async function handleTaskCommand(ctx: Context) {
         recurrenceRule: parsed.recurrenceRule,
         creatorId: creatorUserId,
         assigneeId: assigneeId || (isGroup ? undefined : creatorUserId),
-        sourceMessageId: ctx.message?.message_id.toString(),
+        sourceMessageId: sourceMessageId?.toString(),
+        taskMetadata: {
+          source: {
+            provider: 'telegram',
+            chatId: sourceChatId,
+            messageId: sourceMessageId,
+            messageUrl: sourceMessageUrl,
+            chatTitle: 'title' in ctx.chat ? ctx.chat.title : ctx.chat.username || 'Telegram chat',
+          },
+        },
       },
     });
 

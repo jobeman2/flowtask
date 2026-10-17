@@ -102,7 +102,7 @@ interface AttachmentItem {
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
-  const { addNotification } = useNotifications();
+  const { showToast } = useNotifications();
   const queryClient = useQueryClient();
 
   const [isUploading, setIsUploading] = useState(false);
@@ -117,6 +117,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [assignMemberSearch, setAssignMemberSearch] = useState('');
   const [editPriority, setEditPriority] = useState<string>('MEDIUM');
   const [editDueDate, setEditDueDate] = useState('');
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
+  const [nextAction, setNextAction] = useState('');
 
   // Comment reply & edit state
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string; snippet: string } | null>(null);
@@ -180,6 +183,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     setEditAssigneeIds(initialAssigneeIds);
     setEditPriority(task.priority || 'MEDIUM');
     setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
+    const flowMetadata = task.taskMetadata && typeof task.taskMetadata === 'object' ? task.taskMetadata : {};
+    setIsBlocked(Boolean(flowMetadata.isBlocked));
+    setBlockedReason(flowMetadata.blockedReason || '');
+    setNextAction(flowMetadata.nextAction || '');
 
     // Attachments: seed from real task attachments or imageUrl
     const initialAtts: AttachmentItem[] = [];
@@ -262,7 +269,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-      addNotification({ type: 'TASK_COMPLETED', title: 'Task Completed', message: `"${task?.title || 'Task'}" marked as done` });
+      showToast({ type: 'TASK_COMPLETED', title: 'Task Completed', message: `"${task?.title || 'Task'}" marked as done` });
     },
   });
 
@@ -278,7 +285,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       if (status === 'IN_PROGRESS') {
-        addNotification({ type: 'SYSTEM', title: 'Task Reopened', message: 'Task moved back to In Progress' });
+        showToast({ type: 'SYSTEM', title: 'Task Reopened', message: 'Task moved back to In Progress' });
       }
     },
   });
@@ -421,7 +428,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
 
       const deletedTitle = task?.title || 'Task';
-      addNotification({
+      showToast({
         type: 'SYSTEM',
         title: 'Task Deleted',
         message: `"${deletedTitle}" has been removed`,
@@ -476,6 +483,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   };
 
   const meta = parseTaskMeta(task);
+  const telegramSource = task?.taskMetadata?.source;
 
   if (task && meta.isMeeting) {
     return (
@@ -868,6 +876,19 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       {projectTag}
                     </span>
                   </div>
+                  {telegramSource?.provider === 'telegram' && (
+                    <a
+                      href={telegramSource.messageUrl || undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 dark:text-sky-300 hover:underline"
+                    >
+                      Telegram source{telegramSource.chatTitle ? ` · ${telegramSource.chatTitle}` : ''}
+                      {telegramSource.messageUrl && <ExternalLink className="w-3 h-3" />}
+                      {!telegramSource.messageUrl && telegramSource.messageId && ` · message ${telegramSource.messageId}`}
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -920,6 +941,21 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 font-medium whitespace-pre-wrap">
                 {cleanDescription || 'No description provided for this task.'}
               </p>
+
+              <section className={`rounded-2xl border p-3 space-y-2 ${isBlocked ? 'border-amber-300 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/60'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100">Blocker and handoff</h4>
+                    <p className="text-[10px] text-slate-500">Make the obstacle and next owner/action visible.</p>
+                  </div>
+                  {canEditTask && <button type="button" onClick={() => updateTaskMutation.mutate({ isBlocked: !isBlocked })} className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${isBlocked ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{isBlocked ? 'Blocked' : 'Mark blocked'}</button>}
+                </div>
+                {isBlocked && <>
+                  <textarea value={blockedReason} onChange={(event) => setBlockedReason(event.target.value)} placeholder="What is blocking this issue?" rows={2} readOnly={!canEditTask} className="w-full rounded-xl border border-amber-200 bg-white/80 dark:border-amber-900 dark:bg-slate-900 px-3 py-2 text-xs outline-none" />
+                  <input value={nextAction} onChange={(event) => setNextAction(event.target.value)} placeholder="Next action or handoff (e.g. ask Hana for API access)" readOnly={!canEditTask} className="w-full rounded-xl border border-amber-200 bg-white/80 dark:border-amber-900 dark:bg-slate-900 px-3 py-2 text-xs outline-none" />
+                  {canEditTask && <button type="button" onClick={() => updateTaskMutation.mutate({ blockedReason, nextAction })} disabled={updateTaskMutation.isPending} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50">Save handoff</button>}
+                </>}
+              </section>
 
               {/* Key-Value Attributes List */}
               <div className="space-y-2 text-xs divide-y divide-slate-100 dark:divide-slate-800/60">

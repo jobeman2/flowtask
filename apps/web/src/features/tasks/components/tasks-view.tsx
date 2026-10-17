@@ -21,16 +21,17 @@ import {
 
 interface TasksViewProps {
   onSelectTask: (taskId: string) => void;
-  onOpenCreate: () => void;
+  onOpenCreate: (projectId?: string) => void;
 }
 
 export type ViewMode = 'LIST' | 'BOARD' | 'CALENDAR' | 'PROJECTS';
 
-type StatusFilter = 'ALL' | 'MY_TASKS' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BACKLOG' | 'DONE' | 'CANCELLED';
+type StatusFilter = 'ALL' | 'MY_TASKS' | 'BLOCKED' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BACKLOG' | 'DONE' | 'CANCELLED';
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   ALL: 'All',
   MY_TASKS: 'Assigned to Me',
+  BLOCKED: 'Blocked',
   BACKLOG: 'Backlog',
   TODO: 'To Do',
   IN_PROGRESS: 'In Progress',
@@ -127,19 +128,19 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       const isCreator = t.creatorId === user?.id;
       const isUnassigned = assignees.length === 0 && !t.assigneeId;
 
-      if (activeFilter === 'MY_TASKS') {
+      if (activeFilter === 'BLOCKED') {
+        if (!t.taskMetadata?.isBlocked) return false;
+      } else if (activeFilter === 'MY_TASKS') {
         if (!isAssignedToMe) return false;
       } else {
         if (activeFilter !== 'ALL' && t.status !== activeFilter) {
           return false;
         }
+      }
 
-        // Specific assigned task visibility rule:
-        // If a task is assigned to specific person(s), other members (who are not assigned,
-        // not the creator, and not workspace owner/admin) do not have it clutter their active list
-        if (!isUnassigned && !isAssignedToMe && !isCreator && !isOwnerOrAdmin) {
-          return false;
-        }
+      // Keep assigned-task visibility consistent across every filter.
+      if (!isUnassigned && !isAssignedToMe && !isCreator && !isOwnerOrAdmin) {
+        return false;
       }
 
       if (selectedProjectId && t.projectId !== selectedProjectId) return false;
@@ -195,7 +196,10 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       {activeView === 'PROJECTS' && (
         <ProjectsView
           selectedProjectId={selectedProjectId}
-          onSelectProject={(projId) => { setSelectedProjectId(projId); setActiveView('LIST'); }}
+          onSelectProject={setSelectedProjectId}
+          onSelectTask={onSelectTask}
+          onOpenCreate={onOpenCreate}
+          isOwnerOrAdmin={isOwnerOrAdmin}
         />
       )}
 
@@ -247,7 +251,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
 
           {/* Status Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-            {(['ALL', 'MY_TASKS', 'BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'] as StatusFilter[]).map((filter) => {
+            {(['ALL', 'MY_TASKS', 'BLOCKED', 'BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'] as StatusFilter[]).map((filter) => {
               const isActive = activeFilter === filter;
               return (
                 <button
@@ -309,7 +313,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                 </p>
                 <button
                   type="button"
-                  onClick={onOpenCreate}
+                  onClick={() => onOpenCreate()}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   + Create a new task

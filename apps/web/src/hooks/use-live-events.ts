@@ -94,6 +94,7 @@ export function useLiveEvents(workspaceId?: string | null) {
         pollActivity();
         if (workspaceId) {
           queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+          queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
           queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
         }
       }
@@ -171,6 +172,7 @@ export function useLiveEvents(workspaceId?: string | null) {
             if (!parsed.workspaceId || parsed.workspaceId === workspaceId) {
               if (workspaceId) {
                 queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+                queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
                 queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
                 queryClient.invalidateQueries({ queryKey: ['activity', workspaceId] });
                 queryClient.invalidateQueries({ queryKey: ['workspace-members', workspaceId] });

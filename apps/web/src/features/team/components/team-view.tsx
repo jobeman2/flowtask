@@ -1040,20 +1040,43 @@ export function TeamView() {
                   </p>
                 </div>
 
+                {/* Option 1: 1-Tap Add Bot & Auto-Connect */}
+                <a
+                  href={`https://t.me/flowtaskmanager_bot?startgroup=link_${currentWorkspace?.id || ''}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 px-3 rounded-2xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 active:scale-98 transition-all flex items-center justify-center gap-2 text-center"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>➕ Add Bot to Group (Auto-connects)</span>
+                </a>
+
+                <div className="flex items-center gap-2 pt-0.5 pb-0.5">
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Or link existing group</span>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Telegram Group Link or Chat ID
+                    Public Group Link or Chat ID
                   </label>
                   <input
                     type="text"
                     value={telegramInput}
                     onChange={(e) => setTelegramInput(e.target.value)}
-                    placeholder="https://t.me/your_group or -1001234567890"
+                    placeholder="e.g. @your_group or https://t.me/your_group"
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
                   />
-                  <p className="text-[10px] text-slate-400 pt-0.5">
-                    Make sure the bot @flowtaskmanager_bot is added as admin to the Telegram group.
-                  </p>
+                  {(telegramInput.includes('+') || telegramInput.includes('joinchat')) ? (
+                    <p className="text-[10px] text-amber-500 font-medium pt-0.5">
+                      ⚠️ Private invite links cannot be queried directly. Simply send <code className="font-bold">/link</code> in your group to connect it in 1 tap!
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 pt-0.5">
+                      💡 Tip: If you already added the bot, just send <code className="font-bold text-blue-500">/link</code> inside your Telegram group!
+                    </p>
+                  )}
                 </div>
 
                 <button

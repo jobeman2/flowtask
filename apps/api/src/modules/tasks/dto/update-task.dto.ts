@@ -42,6 +42,18 @@ export class UpdateTaskDto {
   isRecurring?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isBlocked?: boolean;
+
+  @IsOptional()
+  @IsString()
+  blockedReason?: string;
+
+  @IsOptional()
+  @IsString()
+  nextAction?: string;
+
+  @IsOptional()
   @IsString()
   recurrenceRule?: string;
 

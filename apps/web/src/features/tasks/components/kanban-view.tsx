@@ -42,6 +42,15 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
 
   const COLUMNS = [
     {
+      id: 'BACKLOG',
+      label: 'Backlog',
+      dotColor: 'bg-slate-300',
+      bgLight: 'bg-slate-50/70 dark:bg-slate-900/60',
+      borderLight: 'border-slate-200/80 dark:border-slate-800',
+      nextStatus: 'TODO',
+      nextLabel: 'Move to To Do →',
+    },
+    {
       id: 'TODO',
       label: 'To Do',
       dotColor: 'bg-slate-400',
@@ -74,6 +83,15 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
       dotColor: 'bg-emerald-500',
       bgLight: 'bg-emerald-50/40 dark:bg-emerald-950/20',
       borderLight: 'border-emerald-200/80 dark:border-emerald-900/40',
+      nextStatus: null,
+      nextLabel: null,
+    },
+    {
+      id: 'CANCELLED',
+      label: 'Canceled',
+      dotColor: 'bg-slate-400',
+      bgLight: 'bg-slate-50/70 dark:bg-slate-900/60',
+      borderLight: 'border-slate-200/80 dark:border-slate-800',
       nextStatus: null,
       nextLabel: null,
     },

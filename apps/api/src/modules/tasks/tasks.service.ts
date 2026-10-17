@@ -518,14 +518,30 @@ export class TasksService {
       dto.status === 'DONE' ? 'COMPLETE' : 'UPDATE'
     );
 
-    const { labelIds, attachments, assigneeIds, completedAssigneeIds, ...updateFields } = dto;
+    const {
+      labelIds,
+      attachments,
+      assigneeIds,
+      completedAssigneeIds,
+      isBlocked,
+      blockedReason,
+      nextAction,
+      ...updateFields
+    } = dto;
 
     let newSourceMessageId = existing.sourceMessageId;
     let newImageUrl = updateFields.imageUrl !== undefined ? updateFields.imageUrl : existing.imageUrl;
 
     let newMetaObj: any = undefined;
 
-    if (attachments !== undefined || assigneeIds !== undefined || completedAssigneeIds !== undefined) {
+    if (
+      attachments !== undefined ||
+      assigneeIds !== undefined ||
+      completedAssigneeIds !== undefined ||
+      isBlocked !== undefined ||
+      blockedReason !== undefined ||
+      nextAction !== undefined
+    ) {
       let metaObj: any = {};
       if (existing.taskMetadata && typeof existing.taskMetadata === 'object') {
         metaObj = { ...existing.taskMetadata };
@@ -559,13 +575,15 @@ export class TasksService {
           updateFields.status = TaskStatus.IN_PROGRESS;
         }
       }
+      if (isBlocked !== undefined) metaObj.isBlocked = isBlocked;
+      if (blockedReason !== undefined) metaObj.blockedReason = blockedReason;
+      if (nextAction !== undefined) metaObj.nextAction = nextAction;
       if (updateFields.status === 'DONE') {
         const currentAssignees: string[] = Array.isArray(metaObj.assigneeIds)
           ? metaObj.assigneeIds
           : (existing.assigneeId ? [existing.assigneeId] : []);
         metaObj.completedAssigneeIds = currentAssignees;
       }
-      newSourceMessageId = 'meta:' + JSON.stringify(metaObj);
       newMetaObj = metaObj;
     }
 

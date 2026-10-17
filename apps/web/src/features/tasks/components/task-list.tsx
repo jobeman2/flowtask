@@ -62,6 +62,18 @@ export function TaskList() {
     enabled: !!workspaceId,
   });
 
+  const { data: workspaceMembers = [] } = useQuery({
+    queryKey: ['workspace-members', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getWorkspaceMembers(workspaceId);
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+  const currentMember = workspaceMembers.find((member: any) => member.userId === currentUser?.id);
+  const isOwnerOrAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
+
   // 3. Fetch Tasks
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks', workspaceId, selectedProjectId],
@@ -259,12 +271,10 @@ export function TaskList() {
       ) : activeTab === 'PROJECTS' ? (
         <ProjectsView
           selectedProjectId={selectedProjectId}
-          onSelectProject={(pId) => {
-            setSelectedProjectId(pId);
-            if (pId) {
-              setActiveTab('ALL');
-            }
-          }}
+          onSelectProject={setSelectedProjectId}
+          onSelectTask={setSelectedTaskId}
+          onOpenCreate={() => setIsCreateOpen(true)}
+          isOwnerOrAdmin={isOwnerOrAdmin}
         />
       ) : (
         <>

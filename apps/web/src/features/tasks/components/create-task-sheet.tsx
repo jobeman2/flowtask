@@ -34,6 +34,7 @@ export interface AttachmentFile {
 interface CreateTaskSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  initialProjectId?: string;
 }
 
 function compressImageFile(file: File): Promise<string> {
@@ -81,7 +82,7 @@ function compressImageFile(file: File): Promise<string> {
   });
 }
 
-export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
+export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTaskSheetProps) {
   const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const { showToast } = useNotifications();
@@ -104,6 +105,10 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
   const [projectSearch, setProjectSearch] = useState('');
   const projectDropdownRef = useRef<HTMLDivElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isOpen) setProjectId(initialProjectId || '');
+  }, [isOpen, initialProjectId]);
 
   // Custom Assignee Multi-Select Dropdown State
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
@@ -218,6 +223,7 @@ export function CreateTaskSheet({ isOpen, onClose }: CreateTaskSheetProps) {
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
 
       const taskName = data?.title || title.trim() || 'New task';
       showToast({

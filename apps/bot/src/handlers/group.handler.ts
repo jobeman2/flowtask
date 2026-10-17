@@ -330,27 +330,27 @@ export async function handleBotAddedToGroup(ctx: Context) {
 
   const workspace = await resolveGroupWorkspace(ctx, tgUser);
 
+  const botInfo = await ctx.api.getMe();
   const keyboard = new InlineKeyboard()
-    .url('📱 Open Group Mini App', botConfig.webAppUrl)
+    .url('📱 Open Group Board', `${botConfig.webAppUrl}?workspaceId=${workspace.id}`)
+    .row()
+    .url('🔗 Link Existing Workspace', `https://t.me/${botInfo.username}?start=link_${Math.abs(ctx.chat!.id)}`)
     .row()
     .text('📋 Active Tasks', 'tasks:filter:PENDING:1')
     .text('📊 Team Summary', 'action:group_summary');
 
-  const chatIdStr = ctx.chat?.id ? String(ctx.chat.id) : '';
-
   await ctx.reply(
-    `👥 *FlowTask Group Task Board Initialized!*\n\n` +
-    `🏢 *Workspace:* *${escapeMarkdown(workspace.name)}*\n` +
-    (chatIdStr ? `🆔 *Chat ID:* \`${chatIdStr}\`\n\n` : '\n') +
-    `This Telegram group is now synced with your team's collaborative task board.\n\n` +
-    `🚀 *Group Commands:*\n` +
-    `• \`/task <title> [@member] [!priority] [due date]\` — Add task\n` +
-    `• *Reply* to any group message with \`/task\` to turn it into a task\n` +
-    `• \`/tasks\` — List all active group tasks\n` +
-    `• \`/mytasks\` or \`/assigned\` — View tasks assigned to you\n` +
-    `• \`/summary\` — Daily standup and workload report\n` +
-    `• \`/done <id>\` — Quick-complete a task\n\n` +
-    `_Tip: Tag teammates with @username to assign tasks instantly!_`,
+    `✨ *Welcome to FlowTask! Group Board Ready.*\n\n` +
+    `🏢 *Board:* *${escapeMarkdown(workspace.name)}*\n\n` +
+    `Collaborate with your team, assign tasks, and track progress right here in this group.\n\n` +
+    `⚡️ *Quick Actions:*\n` +
+    `• \`/task <title>\` — Create a new task\n` +
+    `• *Reply* with \`/task\` — Convert any message to a task\n` +
+    `• \`/tasks\` — View active team tasks\n` +
+    `• \`/mytasks\` — View your assigned tasks\n` +
+    `• \`/summary\` — Daily team standup summary\n\n` +
+    `💡 _Tip: Tag teammates with @username to assign tasks instantly._\n` +
+    `_Group admins can tap "Link Existing Workspace" below to connect another workspace._`,
     { parse_mode: 'Markdown', reply_markup: keyboard }
   );
 }

@@ -384,7 +384,12 @@ export function TaskCard({
                   : 'text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'
               }`}
             >
-              {meta.cleanTitle}
+              <span>{meta.cleanTitle}</span>
+              {task.taskMetadata?.isBlocked && (
+                <span className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 text-[9px] font-extrabold uppercase tracking-wide align-middle">
+                  <AlertTriangle className="w-3 h-3" />Blocked
+                </span>
+              )}
             </h4>
 
             <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
