@@ -298,10 +298,19 @@ export function TaskCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => {
         triggerHaptic('light');
         markTaskSeen(task.id);
         onSelect(task.id);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          markTaskSeen(task.id);
+          onSelect(task.id);
+        }
       }}
       className={`relative rounded-2xl p-3.5 border transition-all cursor-pointer group shadow-[0_2px_8px_-2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md active:scale-[0.99] overflow-hidden ${
         isDone

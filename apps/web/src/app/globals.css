@@ -24,3 +24,44 @@ body {
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: inherit;
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgb(37 99 235 / 0.45);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(37 99 235 / 0.18);
+}

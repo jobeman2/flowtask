@@ -285,7 +285,7 @@ export function TeamView() {
   return (
     <div className="space-y-4 pb-24 font-sans animate-in fade-in duration-300">
       {/* 1. View Mode Switcher: Team Members vs Workspaces & Groups */}
-      <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
+      <div className="flex p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 w-full">
         <button
           type="button"
           onClick={() => {
@@ -298,7 +298,8 @@ export function TeamView() {
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          Members ({members.length + 1})
+          Members
+          <span className="ml-1 text-[10px] font-extrabold text-slate-400">{members.length + 1}</span>
         </button>
         <button
           type="button"
@@ -312,7 +313,8 @@ export function TeamView() {
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          Workspaces ({workspaces.length})
+          Workspaces
+          <span className="ml-1 text-[10px] font-extrabold text-slate-400">{workspaces.length}</span>
         </button>
       </div>
 
@@ -396,7 +398,7 @@ export function TeamView() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search team members..."
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors shadow-xs"
             />
           </div>
 
@@ -445,7 +447,7 @@ export function TeamView() {
               return (
                 <div
                   key={member.id}
-                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3"
+                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3 min-h-[64px]"
                 >
                   {/* Avatar + Info */}
                   <div className="flex items-center gap-3 min-w-0">
