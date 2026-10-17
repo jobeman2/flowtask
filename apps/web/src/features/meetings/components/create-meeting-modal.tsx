@@ -119,10 +119,20 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in font-sans">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar">
+    <div
+      role="presentation"
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in font-sans"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="schedule-meeting-title"
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[calc(100dvh-0.75rem)] sm:max-h-[92dvh] overflow-y-auto overscroll-contain no-scrollbar pb-[max(1rem,env(safe-area-inset-bottom,1rem))]"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+        <div className="sticky top-[-1rem] sm:top-[-1.25rem] z-10 -mx-4 sm:-mx-5 -mt-4 sm:-mt-5 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 bg-white dark:bg-slate-900 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
               <Calendar className="w-4 h-4" />
@@ -137,8 +147,10 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close meeting form"
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -304,17 +316,17 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         </div>
 
         {/* Submit Button */}
-        <div className="pt-2">
+        <div className="sticky bottom-[-1rem] sm:bottom-[-1.25rem] -mx-4 sm:-mx-5 px-4 sm:px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             disabled={createMeetingMutation.isPending}
             onClick={() => createMeetingMutation.mutate()}
-            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="w-full py-3 rounded-2xl font-extrabold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             <Calendar className="w-4 h-4" />
             <span>
               {createMeetingMutation.isPending
-                ? 'Scheduling Meeting...'
+                ? 'Scheduling…'
                 : 'Schedule & Alert Team'}
             </span>
           </button>
