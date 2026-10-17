@@ -210,7 +210,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         {/* Top Header */}
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-sm shadow-sm shadow-blue-500/20">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-500 to-indigo-600 text-white flex items-center justify-center font-extrabold text-sm shadow-md shadow-purple-500/20">
               <ArrowRightLeft className="w-4 h-4" />
             </div>
             <div>
@@ -218,8 +218,8 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-none">
                   ClickUp Sync
                 </h3>
-                <span className="text-[9px] font-semibold uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center gap-0.5">
-                  <Crown className="w-2.5 h-2.5 fill-current" />
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xs flex items-center gap-0.5">
+                  <Crown className="w-2.5 h-2.5 fill-white" />
                   Pro Plan
                 </span>
               </div>
@@ -259,7 +259,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         {/* Connected Workspace Status Card */}
         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+            <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
               NU
             </div>
             <div className="min-w-0">
@@ -283,13 +283,13 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-blue-500" />
+              <Key className="w-3.5 h-3.5 text-purple-500" />
               Personal API Key
             </span>
             <button
               type="button"
               onClick={() => setShowKey(!showKey)}
-              className="text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 hover:underline"
+              className="text-[10px] text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1 hover:underline"
             >
               {showKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
               <span>{showKey ? 'Hide' : 'Reveal'}</span>
@@ -301,7 +301,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="pk_93814784_..."
-              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors font-mono"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-purple-500 font-medium transition-colors font-mono"
             />
           </div>
         </div>
@@ -309,13 +309,13 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
         {/* Space Selector */}
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-blue-500" />
+            <Layers className="w-3.5 h-3.5 text-indigo-500" />
             Target Spaces & Sprints
           </label>
           <select
             value={selectedSpace}
             onChange={(e) => setSelectedSpace(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium transition-colors cursor-pointer"
+            className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-purple-500 font-medium transition-colors cursor-pointer"
           >
             <option value="ALL">📦 All Spaces (Project 1, Project 2 & Backlog)</option>
             <option value="P1">📁 Project 1 (Active Tasks)</option>
@@ -328,7 +328,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
           <div className="space-y-0.5 pr-2">
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <span>Two-Way Live Sync</span>
-              <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.2 rounded-md">
+              <span className="text-[9px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded-md">
                 PRO
               </span>
             </h4>
@@ -343,7 +343,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
               setTwoWaySync(!twoWaySync);
             }}
             className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors shrink-0 ${
-              twoWaySync ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+              twoWaySync ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
             }`}
           >
             <div
@@ -356,17 +356,17 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
 
         {/* Sync Progress Bar */}
         {isSyncing && (
-          <div className="space-y-1.5 p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 animate-in fade-in">
-            <div className="flex justify-between items-center text-xs font-bold text-blue-900 dark:text-blue-200">
+          <div className="space-y-1.5 p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 animate-in fade-in">
+            <div className="flex justify-between items-center text-xs font-bold text-purple-900 dark:text-purple-200">
               <span className="flex items-center gap-1.5">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600" />
                 Syncing ClickUp workspace...
               </span>
               <span>{syncProgress}%</span>
             </div>
-            <div className="w-full bg-blue-200 dark:bg-blue-900/60 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-purple-200 dark:bg-purple-900/60 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-blue-600 to-blue-500 h-full rounded-full transition-all duration-200"
+                className="bg-gradient-to-r from-purple-600 to-pink-500 h-full rounded-full transition-all duration-200"
                 style={{ width: `${syncProgress}%` }}
               />
             </div>
@@ -380,7 +380,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
             type="button"
             disabled={isSyncing}
             onClick={() => handleStartSync(false)}
-            className="w-full py-3.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 active:scale-[0.99] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="w-full py-3.5 rounded-2xl font-extrabold text-xs text-white bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:opacity-95 shadow-md shadow-purple-500/25 active:scale-98 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             <FolderSync className="w-4 h-4" />
             <span>{isSyncing ? 'Syncing ClickUp Backlog...' : 'Sync ClickUp via API'}</span>
@@ -391,7 +391,7 @@ export function ClickUpSyncModal({ isOpen, onClose }: ClickUpSyncModalProps) {
             type="button"
             disabled={isSyncing}
             onClick={() => handleStartSync(true)}
-            className="w-full py-2.5 rounded-2xl font-bold text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 border border-blue-200 dark:border-blue-900/60 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 rounded-2xl font-bold text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 border border-purple-200 dark:border-purple-900/60 active:scale-98 transition-all flex items-center justify-center gap-1.5"
           >
             <Database className="w-3.5 h-3.5" />
             <span>⚡ Test with Sample 6-Month Backlog</span>

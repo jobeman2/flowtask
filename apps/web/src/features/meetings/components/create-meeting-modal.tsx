@@ -9,6 +9,7 @@ import { useNotifications } from '../../../providers/notification-provider';
 import {
   X,
   Calendar,
+  Clock,
   Video,
   Mic,
   MapPin,
@@ -245,33 +246,41 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         )}
 
         {/* Date, Time & Duration */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="min-w-0 space-y-1">
-            <label className="block h-4 text-[11px] font-medium text-slate-600 dark:text-slate-300">Date</label>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1">
+            <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-blue-500" />
+              Date
+            </label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="box-border h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             />
           </div>
 
-          <div className="min-w-0 space-y-1">
-            <label className="block h-4 text-[11px] font-medium text-slate-600 dark:text-slate-300">Time</label>
+          <div className="space-y-1">
+            <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-blue-500" />
+              Time
+            </label>
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="box-border h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             />
           </div>
 
-          <div className="col-span-2 min-w-0 space-y-1 sm:col-span-1">
-            <label className="block h-4 text-[11px] font-medium text-slate-600 dark:text-slate-300">Duration</label>
+          <div className="space-y-1">
+            <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+              Duration
+            </label>
             <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="box-border h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 font-medium"
             >
               <option value="15m">15 mins</option>
               <option value="30m">30 mins</option>
