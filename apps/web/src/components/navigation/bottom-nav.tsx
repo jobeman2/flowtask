@@ -37,18 +37,18 @@ export function BottomNav({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] pt-1 pointer-events-none flex justify-center font-sans">
-      <div className="w-full max-w-sm bg-white/92 dark:bg-slate-900/92 backdrop-blur-xl rounded-full border border-slate-200/80 dark:border-slate-800/80 shadow-[0_10px_32px_rgb(15,23,42,0.12)] px-2.5 py-1.5 flex items-center justify-between pointer-events-auto">
+      <div className="w-full max-w-sm bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-200/80 dark:border-slate-800/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] px-4 py-1.5 flex items-center justify-between pointer-events-auto transition-all">
         {/* Home Tab */}
         <button
           type="button"
           onClick={() => handleTabClick('HOME')}
-          className={`flex flex-col items-center justify-center py-1.5 px-3 min-w-[52px] rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all duration-200 ${
             activeTab === 'HOME'
-              ? 'text-blue-600 dark:text-blue-400 font-extrabold bg-blue-50 dark:bg-blue-950/60'
+              ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
           }`}
         >
-          <Home className={`w-5 h-5 ${activeTab === 'HOME' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <Home className={`w-5 h-5 transition-transform ${activeTab === 'HOME' ? 'stroke-[2.5]' : 'stroke-2'}`} />
           <span className="text-[10px] mt-0.5 tracking-tight">Home</span>
         </button>
 
@@ -56,13 +56,13 @@ export function BottomNav({
         <button
           type="button"
           onClick={() => handleTabClick('TASKS')}
-          className={`flex flex-col items-center justify-center py-1.5 px-3 min-w-[52px] rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all duration-200 ${
             activeTab === 'TASKS'
-              ? 'text-blue-600 dark:text-blue-400 font-extrabold bg-blue-50 dark:bg-blue-950/60'
+              ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
           }`}
         >
-          <CheckSquare className={`w-5 h-5 ${activeTab === 'TASKS' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <CheckSquare className={`w-5 h-5 transition-transform ${activeTab === 'TASKS' ? 'stroke-[2.5]' : 'stroke-2'}`} />
           <span className="text-[10px] mt-0.5 tracking-tight">Tasks</span>
         </button>
 
@@ -82,13 +82,13 @@ export function BottomNav({
         <button
           type="button"
           onClick={() => handleTabClick('TEAM')}
-          className={`flex flex-col items-center justify-center py-1.5 px-3 min-w-[52px] rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all duration-200 ${
             activeTab === 'TEAM'
-              ? 'text-blue-600 dark:text-blue-400 font-extrabold bg-blue-50 dark:bg-blue-950/60'
+              ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
           }`}
         >
-          <Users className={`w-5 h-5 ${activeTab === 'TEAM' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <Users className={`w-5 h-5 transition-transform ${activeTab === 'TEAM' ? 'stroke-[2.5]' : 'stroke-2'}`} />
           <span className="text-[10px] mt-0.5 tracking-tight">Team</span>
         </button>
 
@@ -96,13 +96,13 @@ export function BottomNav({
         <button
           type="button"
           onClick={() => handleTabClick('PROFILE')}
-          className={`flex flex-col items-center justify-center py-1.5 px-3 min-w-[52px] rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition-all duration-200 ${
             activeTab === 'PROFILE'
-              ? 'text-blue-600 dark:text-blue-400 font-extrabold bg-blue-50 dark:bg-blue-950/60'
+              ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
           }`}
         >
-          <User className={`w-5 h-5 ${activeTab === 'PROFILE' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <User className={`w-5 h-5 transition-transform ${activeTab === 'PROFILE' ? 'stroke-[2.5]' : 'stroke-2'}`} />
           <span className="text-[10px] mt-0.5 tracking-tight">Profile</span>
         </button>
       </div>

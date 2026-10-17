@@ -92,17 +92,18 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
     });
   }, [tasks, selectedDate]);
 
-  const countTasksOnDate = (dateObj: Date | null) => {
-    if (!dateObj) return 0;
+  // Check if date has tasks
+  const hasTasksOnDate = (dateObj: Date | null) => {
+    if (!dateObj) return false;
     const y = dateObj.getFullYear();
     const m = dateObj.getMonth();
     const d = dateObj.getDate();
 
-    return tasks.filter((t) => {
+    return tasks.some((t) => {
       if (!t.dueDate) return false;
       const dt = new Date(t.dueDate);
       return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
-    }).length;
+    });
   };
 
   const isSameDay = (d1: Date, d2: Date) => {
@@ -150,7 +151,7 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
               triggerHaptic('medium');
               setIsCreateMeetingOpen(true);
             }}
-            className="p-3 rounded-2xl bg-blue-600 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+            className="p-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 active:scale-98 transition-all flex items-center justify-center gap-1.5"
           >
             <Video className="w-3.5 h-3.5" />
             <span>Schedule Meeting</span>
@@ -216,15 +217,15 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-y-1.5 text-center text-xs">
+          <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
             {calendarDays.map((item, idx) => {
               if (!item.dayNumber || !item.dateObj) {
-                return <div key={`empty-${idx}`} className="h-10" />;
+                return <div key={`empty-${idx}`} className="h-8" />;
               }
 
               const isSelected = isSameDay(item.dateObj, selectedDate);
               const isToday = isSameDay(item.dateObj, new Date());
-              const taskCount = countTasksOnDate(item.dateObj);
+              const hasTask = hasTasksOnDate(item.dateObj);
 
               return (
                 <button
@@ -234,20 +235,17 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
                     triggerHaptic('light');
                     if (item.dateObj) setSelectedDate(item.dateObj);
                   }}
-                  className={`h-10 w-10 mx-auto rounded-2xl flex flex-col items-center justify-center font-bold relative transition-all ${
+                  className={`h-8 w-8 mx-auto rounded-full flex flex-col items-center justify-center font-bold relative transition-all ${
                     isSelected
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105'
                       : isToday
                       ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-extrabold'
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span className="leading-none">{item.dayNumber}</span>
-                  {taskCount > 0 && !isSelected && (
-                    <span className="flex items-center gap-0.5 absolute bottom-1">
-                      <span className="w-1 h-1 bg-blue-500 rounded-full" />
-                      {taskCount > 1 && <span className="w-1 h-1 bg-blue-400/70 rounded-full" />}
-                    </span>
+                  <span>{item.dayNumber}</span>
+                  {hasTask && !isSelected && (
+                    <span className="w-1 h-1 bg-blue-500 rounded-full absolute bottom-1" />
                   )}
                 </button>
               );
@@ -288,15 +286,15 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
                       triggerHaptic('medium');
                       setSelectedMeetingTask(task);
                     }}
-                    className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-indigo-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-indigo-950/20 rounded-2xl p-3.5 border border-blue-200/80 dark:border-blue-800/60 shadow-xs flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer group"
+                    className="bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3 hover:border-purple-400 transition-all cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/25">
+                      <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                         <Video className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50">
+                          <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded-md bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                             MEETING
                           </span>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -333,10 +331,7 @@ export function CalendarView({ tasks, onSelectTask, onOpenCreate }: CalendarView
               return (
                 <div
                   key={task.id}
-                  onClick={() => {
-                    triggerHaptic('light');
-                    onSelectTask(task.id);
-                  }}
+                  onClick={() => onSelectTask(task.id)}
                   className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.03)] flex items-center justify-between gap-3 hover:border-blue-200 transition-all cursor-pointer group"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">

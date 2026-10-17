@@ -191,13 +191,13 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
 
   return (
     <div className="space-y-4 animate-in fade-in font-sans">
-      <div className="flex items-center justify-between px-1 gap-3">
-        <div className="min-w-0">
+      <div className="flex items-center justify-between px-1">
+        <div>
           <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Projects</h2>
-          <p className="text-xs text-slate-400 font-medium">Progress, issues, and what is due next</p>
+          <p className="text-xs text-slate-400 font-medium">Goals, delivery progress, and the issues moving work forward</p>
         </div>
-        <button type="button" onClick={() => { triggerHaptic('light'); setIsCreating(true); }} className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 active:scale-95 transition-all">
-          <Plus className="w-3.5 h-3.5 stroke-[3]" /><span>New</span>
+        <button type="button" onClick={() => { triggerHaptic('light'); setIsCreating(true); }} className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all">
+          <Plus className="w-3.5 h-3.5 stroke-[3]" /><span>New Project</span>
         </button>
       </div>
 
@@ -253,13 +253,13 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
 
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500" />
       </div>
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
         {(['ALL', 'ACTIVE', 'PLANNED', 'COMPLETED'] as ProjectFilter[]).map((value) => <button key={value} type="button" onClick={() => setFilter(value)} className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap ${filter === value ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>{value === 'ALL' ? 'All projects' : value[0] + value.slice(1).toLowerCase()}</button>)}
       </div>
 
-      <button type="button" onClick={() => { triggerHaptic('light'); onSelectProject(INBOX_PROJECT_ID); }} className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-dashed border-blue-200 dark:border-blue-900/70 bg-blue-50/60 dark:bg-blue-950/20 text-left hover:border-blue-400 active:scale-[0.99] transition-all">
+      <button type="button" onClick={() => onSelectProject(INBOX_PROJECT_ID)} className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-dashed border-blue-200 dark:border-blue-900/70 bg-blue-50/60 dark:bg-blue-950/20 text-left hover:border-blue-400 transition-colors">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 flex items-center justify-center"><InboxIcon className="w-4 h-4" /></span>
           <span className="min-w-0"><span className="block text-xs font-extrabold text-slate-900 dark:text-white">Inbox</span><span className="block text-[10px] text-slate-500 truncate">Unassigned work and Telegram captures to triage</span></span>
@@ -273,7 +273,7 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
           const isSelected = selectedProjectId === project.id;
           const count = projectTasks.length;
           const progress = count ? Math.round((completed / count) * 100) : 0;
-          return <button type="button" key={project.id} onClick={() => { triggerHaptic('light'); onSelectProject(project.id); }} className={`w-full text-left p-4 rounded-2xl border bg-white dark:bg-slate-900 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] active:scale-[0.99] transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-slate-100 dark:border-slate-800'}`}>
+          return <article key={project.id} className={`p-4 rounded-2xl border bg-white dark:bg-slate-900 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] ${isSelected ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-slate-100 dark:border-slate-800'}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-1.5 h-11 rounded-full shrink-0" style={{ backgroundColor: project.color || '#2563eb' }} />
@@ -294,10 +294,10 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
                 {upcoming && <span className="inline-flex items-center gap-1"><CalendarDays className="w-3 h-3" />Next due {new Date(upcoming.dueDate).toLocaleDateString()}</span>}
               </div>
             </div>
-            <div className="w-full mt-3 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
+            <button type="button" onClick={() => { triggerHaptic('light'); onSelectProject(project.id); }} className="w-full mt-3 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
               <span>Open project</span><ArrowRight className="w-3.5 h-3.5" />
-            </div>
-          </button>;
+            </button>
+          </article>;
         })}</div>}
     </div>
   );
@@ -357,8 +357,8 @@ function ProjectWorkspace({ project, projectTasks, completed, blocked, state, up
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in font-sans">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 px-1 py-1"><ArrowLeft className="w-3.5 h-3.5" />All projects</button>
-      <section className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 shadow-xs">
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600"><ArrowLeft className="w-3.5 h-3.5" />All projects</button>
+      <section className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-2 h-12 rounded-full shrink-0" style={{ backgroundColor: project.color || '#2563eb' }} />

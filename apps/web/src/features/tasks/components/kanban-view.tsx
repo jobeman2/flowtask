@@ -121,35 +121,31 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
   };
 
   return (
-    <div className="space-y-3.5 pb-24 font-sans animate-in fade-in duration-300">
+    <div className="space-y-4 pb-24 font-sans animate-in fade-in duration-300">
       {/* Top Column Scroller Header */}
       <div className="flex items-center justify-between px-1">
-        <div>
-          <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
-            Board
-          </h3>
-          <p className="text-[10px] text-slate-400 font-medium">Swipe columns · tap to move</p>
-        </div>
+        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+          Kanban Stages
+        </h3>
         <button
           type="button"
           onClick={onOpenCreate}
-          className="px-2.5 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs active:scale-95"
+          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>New</span>
+          <span>New Task</span>
         </button>
       </div>
 
       {/* Horizontal Kanban Columns Container */}
-      <div className="flex gap-3 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory no-scrollbar -mx-1 px-1">
+      <div className="flex gap-3 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory no-scrollbar">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((t) => (t.status || 'TODO') === col.id);
-          if (col.id === 'CANCELLED' && colTasks.length === 0) return null;
 
           return (
             <div
               key={col.id}
-              className={`w-[78vw] max-w-[300px] shrink-0 ${col.bgLight} rounded-3xl p-3.5 border ${col.borderLight} flex flex-col snap-center space-y-3 shadow-xs`}
+              className={`w-[280px] shrink-0 ${col.bgLight} rounded-3xl p-3.5 border ${col.borderLight} flex flex-col snap-center space-y-3 shadow-xs`}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between px-1">
@@ -175,11 +171,8 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                   return (
                     <div
                       key={task.id}
-                      onClick={() => {
-                        triggerHaptic('light');
-                        onSelectTask(task.id);
-                      }}
-                      className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-blue-200 active:scale-[0.99] transition-all cursor-pointer space-y-2.5 group"
+                      onClick={() => onSelectTask(task.id)}
+                      className="bg-white dark:bg-slate-900 rounded-2xl p-3 border border-slate-100 dark:border-slate-800/80 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-blue-200 transition-all cursor-pointer space-y-2.5 group"
                     >
                       {/* Top Row: Tag + Priority + AI badge */}
                       <div className="flex items-center justify-between gap-1.5 flex-wrap">
@@ -198,7 +191,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                           </span>
 
                           {isAiGenerated && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 flex items-center gap-0.5 shadow-2xs border border-blue-200/50 dark:border-blue-900/50">
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center gap-0.5 shadow-2xs">
                               <Bot className="w-2.5 h-2.5" />
                               <span>Flow AI</span>
                             </span>
@@ -225,7 +218,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                                   className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
                                 />
                               ) : (
-                                <User className="w-3 h-3 text-blue-500" />
+                                <User className="w-3 h-3 text-purple-500" />
                               )}
                               {task.assignee.name.split(' ')[0]}
                             </span>
@@ -234,7 +227,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                           )}
 
                           {isAiGenerated && (
-                            <div className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[8px] shadow-2xs" title="Created by Flow AI Project Manager">
+                            <div className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-[8px] shadow-2xs" title="Created by Flow AI Project Manager">
                               🤖
                             </div>
                           )}
@@ -264,7 +257,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                               status: col.nextStatus,
                             });
                           }}
-                          className="w-full py-2 rounded-xl text-[10px] font-bold bg-slate-50 dark:bg-slate-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center gap-1 transition-all active:scale-[0.98]"
+                          className="w-full py-1.5 rounded-xl text-[10px] font-bold bg-slate-50 dark:bg-slate-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-center gap-1 transition-all"
                         >
                           <span>{col.nextLabel}</span>
                         </button>

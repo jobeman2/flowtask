@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
@@ -117,11 +117,8 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
   });
 
   // Filter Tasks (client-side, on top of already-fetched data)
-  useEffect(() => {
-    setPage(1);
-  }, [activeFilter, selectedProjectId, searchQuery]);
-
   const filteredTasks = useMemo(() => {
+    setPage(1); // reset page when filters change
     return tasks.filter((t: any) => {
       const assignees: any[] = Array.isArray(t.assignees) && t.assignees.length > 0
         ? t.assignees
@@ -168,12 +165,12 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-300 font-sans">
       {/* 1. Multi-View Mode Switcher */}
-      <div className="flex p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 w-full">
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
         {([
           { id: 'PROJECTS', label: 'Projects', icon: Folder },
           { id: 'LIST', label: 'List', icon: List },
           { id: 'BOARD', label: 'Board', icon: LayoutGrid },
-          { id: 'CALENDAR', label: 'Cal', icon: CalendarIcon },
+          { id: 'CALENDAR', label: 'Calendar', icon: CalendarIcon },
         ] as const).map((view) => {
           const Icon = view.icon;
           const isActive = activeView === view.id;
@@ -182,9 +179,9 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
               key={view.id}
               type="button"
               onClick={() => { triggerHaptic('light'); setActiveView(view.id); }}
-              className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 isActive
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
               }`}
             >
@@ -215,19 +212,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       )}
 
       {activeView === 'LIST' && (
-        <div className="space-y-3.5">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); }}
-              placeholder="Search tasks, projects, people…"
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors shadow-xs"
-            />
-          </div>
-
+        <div className="space-y-4">
           {/* Project Quick Filter Chips */}
           {projects.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
@@ -273,7 +258,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                   key={filter}
                   type="button"
                   onClick={() => { triggerHaptic('light'); setActiveFilter(filter); setPage(1); }}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                     isActive
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -285,24 +270,16 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
             })}
           </div>
 
-          <div className="flex items-center justify-between px-0.5">
-            <p className="text-[11px] font-bold text-slate-500">
-              {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
-            </p>
-            {(activeFilter !== 'ALL' || selectedProjectId || searchQuery.trim()) && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setActiveFilter('ALL');
-                  setSelectedProjectId(null);
-                  setSearchQuery('');
-                }}
-                className="text-[11px] font-bold text-blue-600 dark:text-blue-400"
-              >
-                Clear filters
-              </button>
-            )}
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+              placeholder="Search tasks by title, project, assignee..."
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors shadow-xs"
+            />
           </div>
 
           {/* Task Cards — paginated */}
@@ -329,21 +306,17 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
 
             {!isTasksLoading && filteredTasks.length === 0 && (
               <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2.5">
-                <div className="w-10 h-10 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
-                  <List className="w-5 h-5" />
-                </div>
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                  {activeFilter === 'ALL' && !searchQuery.trim()
-                    ? 'No tasks yet'
-                    : `No matches for “${STATUS_LABELS[activeFilter]}”`}
+                <p className="text-xs font-bold text-slate-500">
+                  {activeFilter === 'ALL'
+                    ? 'No tasks yet.'
+                    : `No tasks with status "${STATUS_LABELS[activeFilter]}".`}
                 </p>
-                <p className="text-[11px] text-slate-400">Create one, or clear filters to see everything.</p>
                 <button
                   type="button"
                   onClick={() => onOpenCreate()}
-                  className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Create a task
+                  + Create a new task
                 </button>
               </div>
             )}

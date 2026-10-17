@@ -285,7 +285,7 @@ export function TeamView() {
   return (
     <div className="space-y-4 pb-24 font-sans animate-in fade-in duration-300">
       {/* 1. View Mode Switcher: Team Members vs Workspaces & Groups */}
-      <div className="flex p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 w-full">
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 w-full">
         <button
           type="button"
           onClick={() => {
@@ -298,8 +298,7 @@ export function TeamView() {
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          Members
-          <span className="ml-1 text-[10px] font-extrabold text-slate-400">{members.length + 1}</span>
+          Members ({members.length + 1})
         </button>
         <button
           type="button"
@@ -313,8 +312,7 @@ export function TeamView() {
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
           }`}
         >
-          Workspaces
-          <span className="ml-1 text-[10px] font-extrabold text-slate-400">{workspaces.length}</span>
+          Workspaces ({workspaces.length})
         </button>
       </div>
 
@@ -398,17 +396,17 @@ export function TeamView() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search team members..."
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors shadow-xs"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Members List */}
           <div className="space-y-2.5">
             {/* 🤖 Permanent Virtual AI Copilot Member */}
-            <div className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-indigo-50/60 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-indigo-950/30 rounded-2xl p-3.5 border border-blue-200/80 dark:border-blue-800/60 shadow-xs flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-700 transition-all">
+            <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-pink-50/50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/25">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center font-bold shadow-md shadow-purple-500/20">
                     <Bot className="w-5 h-5" />
                   </div>
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
@@ -419,18 +417,17 @@ export function TeamView() {
                     <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
                       Flow AI
                     </h4>
-                    <Sparkles className="w-3.5 h-3.5 text-blue-500 fill-blue-500/30 animate-pulse" />
+                    <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
                   </div>
-                  <p className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 truncate">
+                  <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 truncate">
                     @flowtaskmanager_bot • Autonomous PM
                   </p>
                 </div>
               </div>
 
               <div className="shrink-0">
-                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-600 to-sky-600 text-white shadow-xs flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 text-sky-200" />
-                  <span>AI Copilot</span>
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs">
+                  AI Copilot
                 </span>
               </div>
             </div>
@@ -447,7 +444,7 @@ export function TeamView() {
               return (
                 <div
                   key={member.id}
-                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3 min-h-[64px]"
+                  className="bg-white dark:bg-slate-900/90 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between gap-3"
                 >
                   {/* Avatar + Info */}
                   <div className="flex items-center gap-3 min-w-0">
@@ -705,30 +702,22 @@ export function TeamView() {
 
       {/* 4. Invite Member Bottom Sheet (Portaled to document.body) */}
       {isInviteOpen && mounted && createPortal(
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-3xl p-5 shadow-2xl border border-slate-200/60 dark:border-slate-800 space-y-4 max-h-[88dvh] overflow-y-auto pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))]">
-            {/* Top Handle Indicator */}
-            <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto -mt-1 mb-2 shrink-0" />
-
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[85dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-500/20 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
                   <UserPlus className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    Invite Teammate
-                  </h3>
-                  <p className="text-[10px] text-slate-400 font-medium pt-0.5">
-                    Add members to current workspace
-                  </p>
-                </div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Invite Teammate
+                </h3>
               </div>
               <button
                 onClick={() => setIsInviteOpen(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -902,29 +891,21 @@ export function TeamView() {
 
       {/* 5. Create Workspace / Connect Telegram Group Modal */}
       {isCreatingWs && mounted && createPortal(
-        <div className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-t-[32px] sm:rounded-3xl p-5 shadow-2xl border border-slate-200/60 dark:border-slate-800 space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))]">
-            {/* Top Handle Indicator */}
-            <div className="w-10 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto -mt-1 mb-2 shrink-0" />
-
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-500/20 shrink-0">
-                  {createWsMode === 'TELEGRAM' ? <Users className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                  {createWsMode === 'TELEGRAM' ? <Users className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white leading-none">
-                    {createWsMode === 'TELEGRAM' ? 'Connect Telegram Group' : 'Create Workspace'}
-                  </h4>
-                  <p className="text-[10px] text-slate-400 font-medium pt-0.5">
-                    {createWsMode === 'TELEGRAM' ? 'Sync team chat & tasks' : 'New team collaboration board'}
-                  </p>
-                </div>
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  {createWsMode === 'TELEGRAM' ? 'Connect Telegram Group' : 'Create Workspace'}
+                </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreatingWs(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

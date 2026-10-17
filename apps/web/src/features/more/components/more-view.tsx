@@ -117,16 +117,15 @@ export function MoreView() {
         <ChevronRight className="w-5 h-5 text-white/80 shrink-0" />
       </div>
 
-      {/* 3. Tools */}
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-1">Tools</p>
-      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800 text-xs -mt-3">
+      {/* 3. Settings & Tools List */}
+      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:border-slate-800/80 text-xs">
         {/* 🤖 AI Project Manager (Copilot) */}
         <div
           onClick={() => {
             triggerHaptic('medium');
             setIsAiPmOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group bg-blue-50/30 dark:bg-blue-950/20"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group bg-blue-50/30 dark:bg-blue-950/20"
         >
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
@@ -155,7 +154,7 @@ export function MoreView() {
             triggerHaptic('medium');
             setIsCreateMeetingOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -179,7 +178,7 @@ export function MoreView() {
             triggerHaptic('medium');
             setIsClickUpSyncOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center">
@@ -196,17 +195,14 @@ export function MoreView() {
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
-      </div>
 
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-1">Workspace</p>
-      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800 text-xs -mt-3">
         {/* Notifications Modal trigger */}
         <div
           onClick={() => {
             triggerHaptic('light');
             setIsNotificationsOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -228,7 +224,7 @@ export function MoreView() {
             triggerHaptic('light');
             setIsWorkspaceManageOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -243,17 +239,14 @@ export function MoreView() {
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
-      </div>
 
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-1">Preferences</p>
-      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800 text-xs -mt-3">
         {/* General App Settings & Preferences */}
         <div
           onClick={() => {
             triggerHaptic('light');
             setIsSettingsOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex items-center justify-center">
@@ -272,7 +265,7 @@ export function MoreView() {
         {/* Appearance Quick Toggle */}
         <div
           onClick={toggleDarkMode}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -287,7 +280,7 @@ export function MoreView() {
         </div>
 
         {/* Language */}
-        <div className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
+        <div className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <Globe className="w-3.5 h-3.5" />
@@ -299,17 +292,14 @@ export function MoreView() {
             <ChevronRight className="w-4 h-4" />
           </div>
         </div>
-      </div>
 
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-1">Support</p>
-      <div className="bg-white dark:bg-slate-900/90 rounded-3xl border border-slate-100 dark:border-slate-800/80 shadow-xs divide-y divide-slate-100 dark:divide-slate-800 text-xs -mt-3">
         {/* Help & Support Center */}
         <div
           onClick={() => {
             triggerHaptic('medium');
             setIsHelpOpen(true);
           }}
-          className="flex items-center justify-between p-3.5 min-h-[56px] hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
+          className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group"
         >
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center">
