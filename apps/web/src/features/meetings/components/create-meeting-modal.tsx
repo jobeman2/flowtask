@@ -129,7 +129,7 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
         aria-modal="true"
         aria-labelledby="schedule-meeting-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[calc(100dvh-0.75rem)] sm:max-h-[88dvh] overflow-y-auto overscroll-contain no-scrollbar pb-[max(1rem,env(safe-area-inset-bottom,1rem))]"
+        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[calc(100dvh-0.75rem)] sm:max-h-[92dvh] overflow-y-auto overscroll-contain no-scrollbar pb-[max(1rem,env(safe-area-inset-bottom,1rem))]"
       >
         {/* Header */}
         <div className="sticky top-[-1rem] sm:top-[-1.25rem] z-10 -mx-4 sm:-mx-5 -mt-4 sm:-mt-5 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 bg-white dark:bg-slate-900 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
@@ -141,6 +141,9 @@ export function CreateMeetingModal({ isOpen, onClose, initialDate }: CreateMeeti
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-none">
                 Schedule Meeting
               </h3>
+              <p className="text-[10px] text-slate-400 font-medium pt-0.5">
+                Automated team alerts & 1-tap call join
+              </p>
             </div>
           </div>
           <button

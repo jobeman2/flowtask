@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleDot, Folder, Inbox as InboxIcon, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, CircleDot, Folder, Inbox as InboxIcon, LayoutGrid, List, Plus, Search, X } from 'lucide-react';
 import { TaskCard } from '../../tasks/components/task-card';
 import { KanbanView } from '../../tasks/components/kanban-view';
 
@@ -196,54 +196,55 @@ export function ProjectsView({ onSelectProject, selectedProjectId, onSelectTask,
           <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Projects</h2>
           <p className="text-xs text-slate-400 font-medium">Goals, delivery progress, and the issues moving work forward</p>
         </div>
-        <button type="button" onClick={() => { triggerHaptic('light'); setName(''); setDescription(''); setColor('#2563eb'); setTemplateId('blank'); createProjectMutation.reset(); setIsCreating(true); }} className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all">
+        <button type="button" onClick={() => { triggerHaptic('light'); setIsCreating(true); }} className="px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all">
           <Plus className="w-3.5 h-3.5 stroke-[3]" /><span>New Project</span>
         </button>
       </div>
 
       {isCreating && (
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm" onClick={(event) => { if (event.target === event.currentTarget) setIsCreating(false); }}>
-          <form role="dialog" aria-modal="true" aria-labelledby="new-project-title" onSubmit={(event) => { event.preventDefault(); if (name.trim() && !createProjectMutation.isPending) createProjectMutation.mutate(); }} className="w-full max-w-lg max-h-[calc(100dvh-0.75rem)] sm:max-h-[88dvh] rounded-t-2xl sm:rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+          <form role="dialog" aria-modal="true" aria-labelledby="new-project-title" onSubmit={(event) => { event.preventDefault(); if (name.trim() && !createProjectMutation.isPending) createProjectMutation.mutate(); }} className="w-full max-w-md max-h-[calc(100dvh-0.75rem)] sm:max-h-[90dvh] rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/70 dark:border-slate-800 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
             <header className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <h3 id="new-project-title" className="text-base font-semibold text-slate-900 dark:text-white">New project</h3>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Projects</p>
+                <h3 id="new-project-title" className="text-base font-extrabold text-slate-900 dark:text-white">Create a project</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">Set a goal, then organize the work into issues.</p>
+              </div>
               <button type="button" aria-label="Close project form" onClick={() => setIsCreating(false)} className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-4 h-4" /></button>
             </header>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="project-name" className="text-xs font-medium text-slate-600 dark:text-slate-300">Project name</label>
-                <input id="project-name" type="text" required placeholder="e.g. Mobile app launch" value={name} onChange={(event) => setName(event.target.value)} className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:border-blue-500" />
+                <label htmlFor="project-template" className="text-xs font-bold text-slate-700 dark:text-slate-300">Start from</label>
+                <select id="project-template" value={templateId} onChange={(event) => {
+                  const value = event.target.value as keyof typeof PROJECT_TEMPLATES | 'blank';
+                  setTemplateId(value);
+                  setDescription(value === 'blank' ? '' : PROJECT_TEMPLATES[value].description);
+                }} className="w-full px-3.5 py-3 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500">
+                  <option value="blank">Blank project</option>
+                  {Object.entries(PROJECT_TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
+                </select>
+                <p className="text-[10px] text-slate-500">{templateId === 'blank' ? 'Start with an empty project.' : `${PROJECT_TEMPLATES[templateId].tasks.length} starter issues will be added.`}</p>
               </div>
-              <div className="space-y-1.5">
-                <label htmlFor="project-goal" className="text-xs font-medium text-slate-600 dark:text-slate-300">Goal <span className="text-slate-400">(optional)</span></label>
-                <textarea id="project-goal" rows={3} placeholder="What should this project accomplish?" value={description} onChange={(event) => setDescription(event.target.value)} className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:border-blue-500 resize-y" />
-              </div>
-              <details className="group rounded-xl border border-slate-200 dark:border-slate-800">
-                <summary className="flex cursor-pointer list-none items-center justify-between px-3.5 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 [&::-webkit-details-marker]:hidden">Template and color<ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" /></summary>
-                <div className="space-y-4 border-t border-slate-100 px-3.5 py-4 dark:border-slate-800">
-                  <div className="space-y-1.5">
-                    <label htmlFor="project-template" className="text-xs font-medium text-slate-600 dark:text-slate-300">Start from</label>
-                    <select id="project-template" value={templateId} onChange={(event) => {
-                      const value = event.target.value as keyof typeof PROJECT_TEMPLATES | 'blank';
-                      setTemplateId(value);
-                      setDescription(value === 'blank' ? '' : PROJECT_TEMPLATES[value].description);
-                    }} className="w-full px-3.5 py-3 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:border-blue-500">
-                      <option value="blank">Blank project</option>
-                      {Object.entries(PROJECT_TEMPLATES).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
-                    </select>
-                    {templateId !== 'blank' && <p className="text-xs text-slate-500">{PROJECT_TEMPLATES[templateId].tasks.length} starter issues will be added.</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Project color</p>
-                    <div className="flex items-center gap-3">{colorPalette.map((entry) => <button key={entry} type="button" aria-label={`Use project color ${entry}`} aria-pressed={color === entry} onClick={() => setColor(entry)} className={`w-7 h-7 rounded-full transition-transform ${color === entry ? 'scale-110 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`} style={{ backgroundColor: entry }} />)}</div>
-                  </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="project-name" className="text-xs font-bold text-slate-700 dark:text-slate-300">Project name</label>
+                  <input id="project-name" type="text" required placeholder="e.g. Mobile app launch" value={name} onChange={(event) => setName(event.target.value)} className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-semibold" />
                 </div>
-              </details>
+                <div className="space-y-1.5">
+                  <label htmlFor="project-goal" className="text-xs font-bold text-slate-700 dark:text-slate-300">Goal <span className="font-normal text-slate-400">· optional</span></label>
+                  <textarea id="project-goal" rows={3} placeholder="What should this project accomplish?" value={description} onChange={(event) => setDescription(event.target.value)} className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-medium resize-y" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Project color</p>
+                <div className="flex items-center gap-3">{colorPalette.map((entry) => <button key={entry} type="button" aria-label={`Use project color ${entry}`} aria-pressed={color === entry} onClick={() => setColor(entry)} className={`w-7 h-7 rounded-full transition-transform ${color === entry ? 'scale-110 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900' : ''}`} style={{ backgroundColor: entry }} />)}</div>
+              </div>
               {createProjectMutation.error && <p role="alert" className="text-xs text-rose-600 bg-rose-50 dark:bg-rose-950/30 rounded-xl p-3">{createProjectMutation.error.message}</p>}
             </div>
             <footer className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] backdrop-blur-md flex gap-2">
               <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">Cancel</button>
               <button type="submit" disabled={!name.trim() || createProjectMutation.isPending} className="flex-1 px-4 py-3 rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm disabled:opacity-50">
-                {createProjectMutation.isPending ? 'Creating…' : templateId === 'blank' ? 'Create project' : `Create project with ${PROJECT_TEMPLATES[templateId].tasks.length} issues`}
+                {createProjectMutation.isPending ? 'Creating…' : templateId === 'blank' ? 'Create project' : `Create project + ${PROJECT_TEMPLATES[templateId].tasks.length} issues`}
               </button>
             </footer>
           </form>

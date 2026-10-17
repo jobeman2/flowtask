@@ -83,7 +83,7 @@ function compressImageFile(file: File): Promise<string> {
 }
 
 export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTaskSheetProps) {
-  const { workspaceId, user } = useAuth();
+  const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const { showToast } = useNotifications();
   const queryClient = useQueryClient();
@@ -305,12 +305,12 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
         }
       }}
     >
-      <div role="dialog" aria-modal="true" aria-label={projectId ? 'Create project issue' : 'Create task'} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 max-h-[calc(100dvh-0.75rem)] sm:max-h-[88dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+      <div role="dialog" aria-modal="true" aria-label={projectId ? 'Create project issue' : 'Create task'} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[28px] sm:rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800 max-h-[calc(100dvh-0.75rem)] sm:max-h-[92dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
         {/* Fixed Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="flex items-center justify-between p-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">{projectId ? 'New issue' : 'New task'}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{projectId ? `In ${selectedProject?.name || 'this project'}` : 'Add it to your workspace inbox'}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-0.5">{projectId ? `New issue · ${selectedProject?.name || 'project'}` : 'New task · Inbox'}</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{projectId ? 'Create issue' : 'Create task'}</h3>
           </div>
           <button
             onClick={onClose}
@@ -322,7 +322,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4">
 
         {errorMsg && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold">
@@ -360,7 +360,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               autoCapitalize="sentences"
               autoCorrect="on"
               spellCheck={true}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-3 text-[16px] sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium transition-all"
             />
           </div>
 
@@ -380,7 +380,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               autoCapitalize="sentences"
               autoCorrect="on"
               spellCheck={true}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-3 text-[16px] sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 font-medium resize-none transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-[16px] sm:text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-medium resize-none transition-all"
             />
           </div>
 
@@ -513,12 +513,6 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
             )}
           </div>
 
-          <details className="group rounded-xl border border-slate-200 dark:border-slate-800">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-3.5 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 [&::-webkit-details-marker]:hidden">
-              <span>More options</span>
-              <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="space-y-4 border-t border-slate-100 px-3.5 py-4 dark:border-slate-800">
           {/* Due Date & Quick Time Chips */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -703,7 +697,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
                 {selectedMembers.length === 0 ? (
                   <div className="flex items-center gap-2 text-slate-400 font-medium text-xs">
                     <User className="w-4 h-4 text-slate-400" />
-                    <span>{user?.name ? `Assigned to ${user.name}` : 'Assigned to task creator'}</span>
+                    <span>Select Assignees (Unassigned)</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 min-w-0">
@@ -982,17 +976,14 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
             )}
           </div>
 
-            </div>
-          </details>
-
           {/* Submit Button */}
-          <div className="sticky bottom-0 -mx-5 mt-2 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] backdrop-blur-md">
+          <div className="sticky bottom-0 -mx-4 mt-2 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] backdrop-blur-md">
             <button
               type="submit"
               disabled={createMutation.isPending}
               className="w-full py-3 rounded-2xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              {createMutation.isPending ? 'Creating…' : projectId ? 'Create issue' : 'Create task'}
+              {createMutation.isPending ? 'Creating…' : projectId ? 'Create issue' : 'Create task in Inbox'}
             </button>
           </div>
         </form>
