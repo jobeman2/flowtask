@@ -90,6 +90,49 @@ export interface AdminWorkspaceItem {
   createdAt: string;
 }
 
+export interface AdminAnalytics {
+  growthTrend: Array<{ date: string; users: number; revenueEtb: number }>;
+  tasksByStatus: Record<string, number>;
+  tasksByPriority: Record<string, number>;
+  topWorkspaces: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    planCode: string;
+    membersCount: number;
+    tasksCount: number;
+    telegramGroup: string | null;
+  }>;
+  topCreators: Array<{
+    id: string;
+    name: string;
+    email?: string;
+    telegram: string | null;
+    tasksCount: number;
+  }>;
+  systemHealth: {
+    status: string;
+    uptime: string;
+    uptimeSeconds: number;
+    heapUsedMb: number;
+    heapTotalMb: number;
+    rssMb: number;
+    botStatus: string;
+    botMode: string;
+    connectedTelegramGroupsCount: number;
+  };
+}
+
+export interface PlatformActivityItem {
+  id: string;
+  type: 'PAYMENT' | 'USER_SIGNUP' | 'TASK_CREATED';
+  title: string;
+  description: string;
+  timestamp: string;
+  badge: string;
+  badgeColor: string;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   meta: {
@@ -252,6 +295,34 @@ class AdminApiClient {
       {
         method: 'PATCH',
         body: JSON.stringify({ planCode }),
+      }
+    );
+  }
+
+  async getAnalytics() {
+    return this.request<AdminAnalytics>('/admin/analytics');
+  }
+
+  async getActivity() {
+    return this.request<PlatformActivityItem[]>('/admin/activity');
+  }
+
+  async toggleUserRole(userId: string, isSuperAdmin: boolean) {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/users/${userId}/role`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ isSuperAdmin }),
+      }
+    );
+  }
+
+  async broadcastAnnouncement(message: string, target?: string) {
+    return this.request<{ success: boolean; message: string; recipientCount?: number }>(
+      '/admin/broadcast',
+      {
+        method: 'POST',
+        body: JSON.stringify({ message, target }),
       }
     );
   }

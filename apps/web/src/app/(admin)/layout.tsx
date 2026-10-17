@@ -15,6 +15,9 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
+  LineChart,
+  Activity,
+  Radio,
 } from 'lucide-react';
 import { adminClient, AdminUser } from '../../lib/admin-client';
 
@@ -98,6 +101,12 @@ export default function AdminLayout({
       badge: null,
     },
     {
+      label: 'Deep Analytics',
+      href: '/admin/analytics',
+      icon: LineChart,
+      badge: null,
+    },
+    {
       label: 'Receipt Review',
       href: '/admin/receipts',
       icon: Receipt,
@@ -114,6 +123,18 @@ export default function AdminLayout({
       label: 'Workspaces & Groups',
       href: '/admin/workspaces',
       icon: Briefcase,
+      badge: null,
+    },
+    {
+      label: 'Live Activity Feed',
+      href: '/admin/activity',
+      icon: Activity,
+      badge: null,
+    },
+    {
+      label: 'Global Broadcast',
+      href: '/admin/broadcast',
+      icon: Radio,
       badge: null,
     },
   ];

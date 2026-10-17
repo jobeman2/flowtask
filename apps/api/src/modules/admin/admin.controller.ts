@@ -10,7 +10,13 @@ import {
   Request,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { AdminLoginDto, ReceiptActionDto, UpdatePlanDto } from './dto/admin.dto';
+import {
+  AdminLoginDto,
+  ReceiptActionDto,
+  UpdatePlanDto,
+  ToggleSuperAdminDto,
+  BroadcastMessageDto,
+} from './dto/admin.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 
@@ -132,6 +138,43 @@ export class AdminController {
     const result = await this.adminService.updateWorkspacePlan(
       workspaceId,
       dto.planCode,
+    );
+    return { success: true, ...result };
+  }
+
+  @UseGuards(SuperAdminGuard)
+  @Get('analytics')
+  async getAnalytics() {
+    const result = await this.adminService.getAnalytics();
+    return { success: true, data: result };
+  }
+
+  @UseGuards(SuperAdminGuard)
+  @Get('activity')
+  async getActivity() {
+    const result = await this.adminService.getPlatformActivity();
+    return { success: true, data: result };
+  }
+
+  @UseGuards(SuperAdminGuard)
+  @Patch('users/:id/role')
+  async toggleUserRole(
+    @Param('id') userId: string,
+    @Body() dto: ToggleSuperAdminDto,
+  ) {
+    const result = await this.adminService.toggleUserSuperAdmin(
+      userId,
+      dto.isSuperAdmin,
+    );
+    return { success: true, ...result };
+  }
+
+  @UseGuards(SuperAdminGuard)
+  @Post('broadcast')
+  async broadcastAnnouncement(@Body() dto: BroadcastMessageDto) {
+    const result = await this.adminService.broadcastAnnouncement(
+      dto.message,
+      dto.target,
     );
     return { success: true, ...result };
   }

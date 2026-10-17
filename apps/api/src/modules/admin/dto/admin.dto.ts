@@ -20,3 +20,15 @@ export class UpdatePlanDto {
   @IsNotEmpty()
   planCode!: string; // 'FREE' | 'PRO' | 'TEAM' | 'ENTERPRISE'
 }
+
+export class ToggleSuperAdminDto {
+  isSuperAdmin!: boolean;
+}
+
+export class BroadcastMessageDto {
+  @IsString()
+  @IsNotEmpty()
+  message!: string;
+
+  target?: 'ALL_GROUPS' | 'SUPER_ADMINS';
+}

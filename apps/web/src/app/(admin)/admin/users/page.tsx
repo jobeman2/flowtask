@@ -24,6 +24,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
@@ -53,6 +55,28 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setPage(1);
     fetchUsers();
+  };
+
+  const handleToggleRole = async (user: AdminUserItem) => {
+    const newStatus = !user.isSuperAdmin;
+    const confirmMsg = newStatus
+      ? `Promote ${user.name} to Super Admin? They will have full access to this platform management console.`
+      : `Demote ${user.name}? They will lose Super Admin platform privileges.`;
+    if (!confirm(confirmMsg)) return;
+
+    setUpdatingUserId(user.id);
+    try {
+      const res = await adminClient.toggleUserRole(user.id, newStatus);
+      if (res.data?.success) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === user.id ? { ...u, isSuperAdmin: newStatus } : u))
+        );
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setUpdatingUserId(null);
+    }
   };
 
   return (
@@ -190,18 +214,37 @@ export default function AdminUsersPage() {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
 
-                    {/* Role */}
+                    {/* Role & Toggle */}
                     <td className="py-3.5 px-4 text-right">
-                      {u.isSuperAdmin ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                          <ShieldCheck className="w-3 h-3" />
-                          <span>Super Admin</span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold text-slate-400">
-                          Member
-                        </span>
-                      )}
+                      <div className="inline-flex items-center gap-2">
+                        {u.isSuperAdmin ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Super Admin</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            Member
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={updatingUserId === u.id}
+                          onClick={() => handleToggleRole(u)}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all cursor-pointer ${
+                            u.isSuperAdmin
+                              ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900'
+                              : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-900'
+                          }`}
+                        >
+                          {updatingUserId === u.id
+                            ? '...'
+                            : u.isSuperAdmin
+                            ? 'Demote'
+                            : 'Promote'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
