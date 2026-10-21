@@ -20,6 +20,7 @@ import {
   Calendar,
   Eye,
   Download,
+  Layers,
 } from 'lucide-react';
 
 export interface AttachmentFile {
@@ -35,6 +36,7 @@ interface CreateTaskSheetProps {
   isOpen: boolean;
   onClose: () => void;
   initialProjectId?: string;
+  initialPhase?: string;
 }
 
 function compressImageFile(file: File): Promise<string> {
@@ -82,7 +84,7 @@ function compressImageFile(file: File): Promise<string> {
   });
 }
 
-export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTaskSheetProps) {
+export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhase }: CreateTaskSheetProps) {
   const { workspaceId } = useAuth();
   const { triggerHaptic } = useTelegram();
   const { showToast } = useNotifications();
@@ -95,6 +97,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
   const [selectedQuickChip, setSelectedQuickChip] = useState<'today' | 'tomorrow' | 'in2days' | 'nextWeek' | 'custom' | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [projectId, setProjectId] = useState<string>('');
+  const [phase, setPhase] = useState<string>('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<AttachmentFile | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -107,8 +110,11 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (isOpen) setProjectId(initialProjectId || '');
-  }, [isOpen, initialProjectId]);
+    if (isOpen) {
+      setProjectId(initialProjectId || '');
+      setPhase(initialPhase || '');
+    }
+  }, [isOpen, initialProjectId, initialPhase]);
 
   // Custom Assignee Multi-Select Dropdown State
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
@@ -204,6 +210,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
         assigneeId: assigneeIds[0] || undefined,
         assigneeIds: assigneeIds.length > 0 ? assigneeIds : undefined,
         projectId: projectId || undefined,
+        phase: phase.trim() || undefined,
         attachments: attachments.map((a) => ({
           id: a.id,
           name: a.name,
@@ -239,6 +246,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
       setDueDate('');
       setAssigneeIds([]);
       setProjectId('');
+      setPhase('');
       setAttachments([]);
       setErrorMsg(null);
       onClose();
@@ -459,6 +467,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
                   onClick={() => {
                     triggerHaptic('light');
                     setProjectId('');
+      setPhase('');
                     setIsProjectDropdownOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
@@ -512,6 +521,58 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId }: CreateTas
               </div>
             )}
           </div>
+
+          {/* Phase / Milestone */}
+          {projectId && (
+            <div className="space-y-1.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  Phase / Milestone <span className="font-normal text-slate-400">· optional</span>
+                </label>
+                {phase && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setPhase('');
+                    }}
+                    className="text-[10px] text-rose-500 font-bold hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="e.g. Phase 1: Foundation, Sprint 2..."
+                  value={phase}
+                  onChange={(e) => setPhase(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-[16px] sm:text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-blue-500 font-semibold"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                {['Phase 1: Foundation', 'Phase 2: Core Build', 'Phase 3: QA & Testing', 'Phase 4: Launch'].map((suggested) => (
+                  <button
+                    key={suggested}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setPhase(suggested);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-all ${
+                      phase === suggested
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {suggested}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Due Date & Quick Time Chips */}
           <div className="space-y-1.5">

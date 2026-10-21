@@ -21,7 +21,7 @@ import {
 
 interface TasksViewProps {
   onSelectTask: (taskId: string) => void;
-  onOpenCreate: (projectId?: string) => void;
+  onOpenCreate: (projectId?: string, phase?: string) => void;
 }
 
 export type ViewMode = 'LIST' | 'BOARD' | 'CALENDAR' | 'PROJECTS';

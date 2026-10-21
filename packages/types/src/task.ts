@@ -24,6 +24,7 @@ export interface Task {
   parentTaskId: string | null;
   completedAt: Date | null;
   imageUrl?: string | null;
+  phase?: string | null;
   createdAt: Date;
   updatedAt: Date;
   archivedAt: Date | null;

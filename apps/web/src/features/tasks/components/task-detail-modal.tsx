@@ -32,6 +32,7 @@ import {
   Loader2,
   Check,
   Reply,
+  Layers,
   CornerDownRight,
   Edit2,
 } from 'lucide-react';
@@ -114,6 +115,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [editDescription, setEditDescription] = useState('');
   const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
   const [editProjectId, setEditProjectId] = useState('');
+  const [editPhase, setEditPhase] = useState('');
   const [isAssignDropdownOpen, setIsAssignDropdownOpen] = useState(false);
   const [assignMemberSearch, setAssignMemberSearch] = useState('');
   const [editPriority, setEditPriority] = useState<string>('MEDIUM');
@@ -179,6 +181,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
     setEditProjectId(task.projectId || '');
+    setEditPhase(task.phase || flowMetadata.phase || '');
     const initialAssigneeIds = Array.isArray(task.assignees) && task.assignees.length > 0
       ? task.assignees.map((a: any) => a.id)
       : (task.assigneeId ? [task.assigneeId] : []);
@@ -833,6 +836,20 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </select>
                   </div>
 
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                      <Layers className="w-3 h-3 text-blue-500" />
+                      Phase / Milestone
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Phase 1: Foundation"
+                      value={editPhase}
+                      onChange={(e) => setEditPhase(e.target.value)}
+                      className="w-full px-2.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
+                    />
+                  </div>
+
                   {/* Save Button */}
                   <button
                     type="button"
@@ -844,6 +861,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         assigneeId: editAssigneeIds[0] || null,
                         assigneeIds: editAssigneeIds,
                         projectId: editProjectId || null,
+                        phase: editPhase.trim() || null,
                         priority: editPriority,
                         dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
                       });
@@ -901,6 +919,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: projectColor }} />
                       {projectTag}
                     </span>
+                    {(task.phase || (task.taskMetadata as any)?.phase) && (
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                        <Layers className="w-3 h-3 text-violet-500" />
+                        {task.phase || (task.taskMetadata as any)?.phase}
+                      </span>
+                    )}
                   </div>
                   {telegramSource?.provider === 'telegram' && (
                     <a

@@ -28,6 +28,7 @@ export default function HomePage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createTaskProjectId, setCreateTaskProjectId] = useState<string | undefined>();
+  const [createTaskPhase, setCreateTaskPhase] = useState<string | undefined>();
   const [isPricingOpen, setIsPricingOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -200,7 +201,7 @@ export default function HomePage() {
         {activeNav === 'TASKS' && (
           <TasksView
             onSelectTask={(id) => setSelectedTaskId(id)}
-            onOpenCreate={(projectId) => { setCreateTaskProjectId(projectId); setIsCreateOpen(true); }}
+            onOpenCreate={(projectId, phase) => { setCreateTaskProjectId(projectId); setCreateTaskPhase(phase); setIsCreateOpen(true); }}
           />
         )}
 
@@ -220,7 +221,8 @@ export default function HomePage() {
       <CreateTaskSheet
         isOpen={isCreateOpen}
         initialProjectId={createTaskProjectId}
-        onClose={() => { setIsCreateOpen(false); setCreateTaskProjectId(undefined); }}
+        initialPhase={createTaskPhase}
+        onClose={() => { setIsCreateOpen(false); setCreateTaskProjectId(undefined); setCreateTaskPhase(undefined); }}
       />
 
       <TaskDetailModal

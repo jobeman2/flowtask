@@ -273,6 +273,13 @@ class ApiClient {
     });
   }
 
+  async updateProject(projectId: string, workspaceId: string, data: { name?: string; description?: string; color?: string }) {
+    return this.request<any>(`/projects/${projectId}?workspaceId=${workspaceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getLabels(workspaceId: string) {
     return this.request<any[]>(`/labels?workspaceId=${workspaceId}`);
   }

@@ -67,4 +67,8 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  phase?: string;
 }

@@ -193,6 +193,7 @@ export class TasksService {
         assignees,
         completedAssigneeIds,
         attachments,
+        phase: meta.phase || (t.taskMetadata as any)?.phase || null,
       };
     });
 
@@ -302,6 +303,7 @@ export class TasksService {
       assignees,
       completedAssigneeIds,
       attachments,
+      phase: taskMeta.phase || (task as any).taskMetadata?.phase || null,
     };
   }
 
@@ -355,7 +357,7 @@ export class TasksService {
       }
     }
 
-    const { labelIds, assigneeIds, attachments, ...taskData } = dto;
+    const { labelIds, assigneeIds, attachments, phase, ...taskData } = dto;
 
     if (taskData.projectId) {
       const project = await this.prisma.project.findFirst({
@@ -377,12 +379,13 @@ export class TasksService {
       finalImageUrl = firstImage ? firstImage.url : (taskData.imageUrl || JSON.stringify(rawAttachments));
     }
 
+    const initialMetadata: any = {};
+    if (allAssigneeIds.length > 0) initialMetadata.assigneeIds = allAssigneeIds;
+    if (rawAttachments.length > 0) initialMetadata.attachments = rawAttachments;
+    if (phase && typeof phase === 'string' && phase.trim()) initialMetadata.phase = phase.trim();
     let metaSourceMessageId = null;
-    if (allAssigneeIds.length > 0 || rawAttachments.length > 0) {
-      metaSourceMessageId = 'meta:' + JSON.stringify({
-        assigneeIds: allAssigneeIds,
-        attachments: rawAttachments,
-      });
+    if (Object.keys(initialMetadata).length > 0) {
+      metaSourceMessageId = 'meta:' + JSON.stringify(initialMetadata);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -397,6 +400,7 @@ export class TasksService {
           creatorId,
           assigneeId: primaryAssigneeId,
           sourceMessageId: metaSourceMessageId,
+          taskMetadata: Object.keys(initialMetadata).length > 0 ? initialMetadata : {},
           imageUrl: finalImageUrl,
           dueDate: taskData.dueDate ? new Date(taskData.dueDate) : null,
           isRecurring: Boolean(taskData.isRecurring),
@@ -542,6 +546,7 @@ export class TasksService {
       isBlocked,
       blockedReason,
       nextAction,
+      phase,
       ...updateFields
     } = dto;
 
@@ -556,7 +561,8 @@ export class TasksService {
       completedAssigneeIds !== undefined ||
       isBlocked !== undefined ||
       blockedReason !== undefined ||
-      nextAction !== undefined
+      nextAction !== undefined ||
+      phase !== undefined
     ) {
       let metaObj: any = {};
       if (existing.taskMetadata && typeof existing.taskMetadata === 'object') {
@@ -594,6 +600,7 @@ export class TasksService {
       if (isBlocked !== undefined) metaObj.isBlocked = isBlocked;
       if (blockedReason !== undefined) metaObj.blockedReason = blockedReason;
       if (nextAction !== undefined) metaObj.nextAction = nextAction;
+      if (phase !== undefined) metaObj.phase = phase && typeof phase === 'string' && phase.trim() ? phase.trim() : null;
       if (updateFields.status === 'DONE') {
         const currentAssignees: string[] = Array.isArray(metaObj.assigneeIds)
           ? metaObj.assigneeIds
