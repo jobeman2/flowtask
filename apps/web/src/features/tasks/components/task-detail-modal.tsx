@@ -178,6 +178,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   React.useEffect(() => {
     if (!task) return;
 
+    const flowMetadata = task.taskMetadata && typeof task.taskMetadata === 'object' ? task.taskMetadata : {};
     setEditTitle(task.title || '');
     setEditDescription(task.description || '');
     setEditProjectId(task.projectId || '');
@@ -188,7 +189,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     setEditAssigneeIds(initialAssigneeIds);
     setEditPriority(task.priority || 'MEDIUM');
     setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
-    const flowMetadata = task.taskMetadata && typeof task.taskMetadata === 'object' ? task.taskMetadata : {};
     setIsBlocked(Boolean(flowMetadata.isBlocked));
     setBlockedReason(flowMetadata.blockedReason || '');
     setNextAction(flowMetadata.nextAction || '');

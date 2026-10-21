@@ -21,11 +21,9 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
-  Check,
   Circle,
   Clock,
   AlertCircle,
-  Sparkles,
   Trash2,
   Calendar,
 } from 'lucide-react';
