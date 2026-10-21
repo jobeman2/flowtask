@@ -9,6 +9,13 @@ interface AiTask {
   assigneeName: string;
 }
 
+const CANDIDATE_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-flash-lite-latest',
+  'gemini-3.8-flash',
+];
+
 export async function generateSprintPlan(
   prompt: string,
   members: Array<{ user: { id: string; name: string }; role: string }>
@@ -57,15 +64,34 @@ ${memberList}`;
     },
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
+  let lastError: Error | null = null;
+  let rawText = '';
 
-  if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
 
-  const data = (await res.json()) as any;
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`[Gemini Bot] Model ${model} HTTP ${res.status}: ${errText.slice(0, 100)}`);
+        continue;
+      }
+
+      const data = (await res.json()) as any;
+      rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (rawText) break;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Gemini Bot] Model ${model} fetch failed:`, err?.message || err);
+    }
+  }
+
+  if (!rawText) {
+    throw lastError || new Error('No Gemini model candidates responded successfully');
+  }
 
   let parsed: any[];
   try {

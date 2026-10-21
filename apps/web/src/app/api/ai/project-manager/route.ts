@@ -12,6 +12,13 @@ export interface ClassifiedTask {
   dueInDays: number;
 }
 
+const CANDIDATE_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-flash-lite-latest',
+  'gemini-3.8-flash',
+];
+
 export async function POST(req: NextRequest) {
   try {
     const { prompt, workspaceMembers = [] } = await req.json();
@@ -24,11 +31,17 @@ export async function POST(req: NextRequest) {
     const geminiKey = process.env.GEMINI_API_KEY;
 
     let tasks: ClassifiedTask[];
+    let engine = 'rules';
 
     if (geminiKey) {
-      tasks = await classifyWithGemini(cleanPrompt, workspaceMembers, geminiKey);
+      try {
+        tasks = await classifyWithGemini(cleanPrompt, workspaceMembers, geminiKey);
+        engine = 'gemini';
+      } catch (err: any) {
+        console.warn('[AI Project Manager] Gemini call failed, falling back to rules:', err?.message || err);
+        tasks = generateClassifiedTasks(cleanPrompt, workspaceMembers);
+      }
     } else {
-      // Fallback to rule-based classification when no key is configured
       tasks = generateClassifiedTasks(cleanPrompt, workspaceMembers);
     }
 
@@ -37,7 +50,7 @@ export async function POST(req: NextRequest) {
       prompt: cleanPrompt,
       taskCount: tasks.length,
       tasks,
-      engine: geminiKey ? 'gemini' : 'rules',
+      engine,
     });
   } catch (err: any) {
     console.error('[AI Project Manager]', err);
@@ -79,22 +92,38 @@ ${memberList}`;
     },
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }
-  );
+  let lastError: Error | null = null;
+  let rawText = '';
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error: ${res.status} — ${errText.slice(0, 200)}`);
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`[Gemini Route] Model ${model} returned HTTP ${res.status}: ${errText.slice(0, 120)}`);
+        continue;
+      }
+
+      const data = await res.json();
+      rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (rawText) break;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Gemini Route] Model ${model} fetch failed:`, err?.message || err);
+    }
   }
 
-  const data = await res.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  if (!rawText) {
+    throw lastError || new Error('No candidate Gemini model responded successfully');
+  }
 
   let parsed: any[];
   try {
@@ -133,7 +162,7 @@ ${memberList}`;
   });
 }
 
-// Rule-based fallback (used when GEMINI_API_KEY is not set)
+// Rule-based fallback (used when GEMINI_API_KEY is not set or API is unreachable)
 function generateClassifiedTasks(prompt: string, members: any[]): ClassifiedTask[] {
   const lower = prompt.toLowerCase();
   const tasks: ClassifiedTask[] = [];
