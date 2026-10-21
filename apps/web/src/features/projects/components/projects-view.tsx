@@ -609,7 +609,30 @@ function ProjectWorkspace({
   const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<'PHASES' | 'LIST' | 'BOARD'>(isInbox ? 'LIST' : 'PHASES');
+
+
+
+  // Phases derived from project description + tasks with phases
+  const projectPhases = useMemo(() => {
+    if (isInbox) return [];
+    const fromDesc = parseProjectPhases(project.description);
+    const fromTasks = projectTasks
+      .map((t: any) => t.phase || t.taskMetadata?.phase)
+      .filter((p: any) => typeof p === 'string' && p.trim()) as string[];
+    const combined = Array.from(new Set([...fromDesc, ...fromTasks]));
+    return combined;
+  }, [project.description, projectTasks, isInbox]);
+
+  const hasPhases = projectPhases.length > 0;
+  const [view, setView] = useState<'PHASES' | 'LIST' | 'BOARD'>(
+    !isInbox && hasPhases ? 'PHASES' : 'LIST'
+  );
+
+  React.useEffect(() => {
+    if (!hasPhases && view === 'PHASES') {
+      setView('LIST');
+    }
+  }, [hasPhases, view]);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
@@ -708,16 +731,7 @@ function ProjectWorkspace({
     },
   });
 
-  // Phases derived from project description + tasks with phases
-  const projectPhases = useMemo(() => {
-    if (isInbox) return [];
-    const fromDesc = parseProjectPhases(project.description);
-    const fromTasks = projectTasks
-      .map((t: any) => t.phase || t.taskMetadata?.phase)
-      .filter((p: any) => typeof p === 'string' && p.trim()) as string[];
-    const combined = Array.from(new Set([...fromDesc, ...fromTasks]));
-    return combined;
-  }, [project.description, projectTasks, isInbox]);
+
 
   const togglePhaseCollapse = (phase: string) => {
     triggerHaptic('light');
@@ -916,7 +930,7 @@ function ProjectWorkspace({
           </h3>
         </div>
         <div className="flex items-center gap-2">
-          {!isInbox && view === 'PHASES' && (
+          {!isInbox && hasPhases && view === 'PHASES' && (
             <button
               type="button"
               onClick={() => {
@@ -929,8 +943,21 @@ function ProjectWorkspace({
               <span>Add Phase</span>
             </button>
           )}
+          {!isInbox && !hasPhases && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setIsAddPhaseOpen(true);
+              }}
+              className="px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1 text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 bg-slate-100 dark:bg-slate-800 transition-all active:scale-95"
+            >
+              <Plus className="w-3 h-3 stroke-[2.5]" />
+              <span>Add Phases</span>
+            </button>
+          )}
           <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-            {!isInbox && (
+            {!isInbox && hasPhases && (
               <button
                 type="button"
                 title="Phases view (Linear style)"

@@ -21,11 +21,6 @@ import {
   Eye,
   Download,
   Layers,
-  Send,
-  Flag,
-  Target,
-  AlignLeft,
-  Clock,
 } from 'lucide-react';
 
 export interface AttachmentFile {
@@ -303,6 +298,18 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
   };
 
   const selectedProject = projects.find((p: any) => p.id === projectId);
+  const projectPhases = React.useMemo(() => {
+    if (!selectedProject?.description) return [];
+    const match = selectedProject.description.match(/<!--phases:(.*?)-->/);
+    if (!match) return [];
+    try {
+      const parsed = JSON.parse(match[1]);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [selectedProject]);
+  const hasPhases = projectPhases.length > 0 || Boolean(initialPhase) || Boolean(phase);
   const selectedMembers = members.filter((m: any) => assigneeIds.includes(m.userId));
 
   if (!isOpen) return null;
@@ -343,26 +350,6 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
           </div>
         )}
 
-        {/* Top Hero Banner Matching Design */}
-        <div className="relative overflow-hidden p-4 rounded-3xl bg-gradient-to-r from-blue-50/90 via-sky-50/50 to-indigo-50/80 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-blue-100/90 dark:border-blue-900/40 shadow-xs mb-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/30">
-              <Check className="w-6 h-6 stroke-[3]" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-extrabold tracking-wider uppercase text-blue-600 dark:text-blue-400">
-                CREATE ISSUE
-              </p>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
-                New task, new progress
-              </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                Add the details below to create a new issue and keep your team moving.
-              </p>
-            </div>
-          </div>
-        </div>
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -373,14 +360,9 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
         >
           {/* Task Name */}
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <FileText className="w-3.5 h-3.5" />
-              </span>
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                Task title
-              </label>
-            </div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Task title
+            </label>
             <input
               type="text"
               value={title}
@@ -404,19 +386,9 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
 
           {/* Description */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <AlignLeft className="w-3.5 h-3.5" />
-                </span>
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Description
-                </label>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400">
-                {description.length}/2000
-              </span>
-            </div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Description
+            </label>
             <textarea
               ref={descriptionInputRef}
               value={description}
@@ -434,21 +406,14 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
 
           {/* Project / Category - Modern Custom Select UI */}
           <div className="space-y-1 relative" ref={projectDropdownRef}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <Layers className="w-3.5 h-3.5" />
-                </span>
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Project
-                </label>
-              </div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span>Project</span>
               {selectedProject && (
                 <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
                   Selected
                 </span>
               )}
-            </div>
+            </label>
 
             <button
               type="button"
@@ -570,17 +535,13 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
           </div>
 
           {/* Phase / Milestone */}
-          {projectId && (
+          {projectId && hasPhases && (
             <div className="space-y-1.5 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <Target className="w-3.5 h-3.5" />
-                  </span>
-                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Phase / Milestone <span className="font-normal text-slate-400 text-[11px]">(optional)</span>
-                  </label>
-                </div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  Phase / Milestone <span className="font-normal text-slate-400">· optional</span>
+                </label>
                 {phase && (
                   <button
                     type="button"
@@ -604,7 +565,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
                 />
               </div>
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-                {['Phase 1: Foundation', 'Phase 2: Core Build', 'Phase 3: QA & Testing', 'Phase 4: Launch'].map((suggested) => (
+                {(projectPhases.length > 0 ? projectPhases : ['Phase 1: Foundation', 'Phase 2: Core Build', 'Phase 3: QA & Testing', 'Phase 4: Launch']).map((suggested) => (
                   <button
                     key={suggested}
                     type="button"
@@ -628,14 +589,9 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
           {/* Due Date & Quick Time Chips */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <Calendar className="w-3.5 h-3.5" />
-                </span>
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Due Date & Time
-                </label>
-              </div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Due Date & Time
+              </label>
               {dueDate && (
                 <button
                   type="button"
@@ -744,14 +700,9 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
 
           {/* Priority Pills */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <Flag className="w-3.5 h-3.5" />
-              </span>
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                Priority
-              </label>
-            </div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Priority
+            </label>
             <div className="grid grid-cols-4 gap-2">
               {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => {
                 const isSel = priority === p;
@@ -1105,10 +1056,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
               disabled={createMutation.isPending}
               className="w-full py-3 rounded-2xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              <span className="flex items-center justify-center gap-2">
-                <Send className="w-4 h-4 fill-white shrink-0" />
-                <span>{createMutation.isPending ? 'Creating…' : projectId ? 'Create issue' : 'Create task in Inbox'}</span>
-              </span>
+              {createMutation.isPending ? 'Creating…' : projectId ? 'Create issue' : 'Create task in Inbox'}
             </button>
           </div>
         </form>
