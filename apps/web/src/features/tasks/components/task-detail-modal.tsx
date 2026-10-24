@@ -836,19 +836,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide flex items-center gap-1">
-                      <Layers className="w-3 h-3 text-blue-500" />
-                      Phase / Milestone
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Phase 1: Foundation"
-                      value={editPhase}
-                      onChange={(e) => setEditPhase(e.target.value)}
-                      className="w-full px-2.5 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white focus:border-blue-500"
-                    />
-                  </div>
+
 
                   {/* Save Button */}
                   <button

@@ -18,14 +18,18 @@ import {
   Plus,
   Search,
   X,
-  Layers,
-  ChevronDown,
-  ChevronRight,
   Circle,
   Clock,
   AlertCircle,
-  Trash2,
   Calendar,
+  Table as TableIcon,
+  FileText,
+  Sparkles,
+  Users,
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  Check,
 } from 'lucide-react';
 import { TaskCard } from '../../tasks/components/task-card';
 import { KanbanView } from '../../tasks/components/kanban-view';
@@ -34,43 +38,45 @@ interface ProjectsViewProps {
   onSelectProject: (projectId: string | null) => void;
   selectedProjectId: string | null;
   onSelectTask: (taskId: string) => void;
-  onOpenCreate: (projectId?: string, phase?: string) => void;
+  onOpenCreate: (projectId?: string) => void;
   isOwnerOrAdmin: boolean;
 }
 
+const NOTION_EMOJIS = ['🎯', '🚀', '💻', '📱', '🎨', '📈', '⚡', '💡', '📝', '🛠️', '📦', '🔥', '📊', '🌐', '🛡️'];
+
 const PROJECT_TEMPLATES = {
   product: {
-    label: 'Product launch',
-    description: 'Plan and deliver a product release from scope through launch review.',
-    phases: ['Phase 1: Scope & Specs', 'Phase 2: Build & Core', 'Phase 3: QA & Polish', 'Phase 4: Launch'],
+    label: 'Product Roadmap',
+    emoji: '🚀',
+    description: 'Track roadmap features, UX design, core build, and launch readiness.',
     tasks: [
-      { title: 'Define launch goal and success metrics', phase: 'Phase 1: Scope & Specs' },
-      { title: 'Confirm scope and technical owners', phase: 'Phase 1: Scope & Specs' },
-      { title: 'Build core application features', phase: 'Phase 2: Build & Core' },
-      { title: 'Run end-to-end testing and bug triage', phase: 'Phase 3: QA & Polish' },
-      { title: 'Prepare launch communications and release', phase: 'Phase 4: Launch' },
+      { title: 'Define product scope & success metrics', status: 'TODO', priority: 'HIGH' },
+      { title: 'Design user flow and wireframes', status: 'IN_PROGRESS', priority: 'HIGH' },
+      { title: 'Build core application features & API', status: 'TODO', priority: 'URGENT' },
+      { title: 'Run end-to-end testing & bug triage', status: 'BACKLOG', priority: 'MEDIUM' },
+      { title: 'Prepare launch communications & release', status: 'BACKLOG', priority: 'MEDIUM' },
     ],
   },
   sprint: {
-    label: 'Sprint cycle',
-    description: 'Plan a focused delivery cycle, track active work, and review the outcome.',
-    phases: ['Sprint Backlog', 'Sprint In-Flight', 'Review & Retro'],
+    label: 'Sprint Cycle',
+    emoji: '⚡',
+    description: 'Plan focused sprint cycle work items, active tasks, and retrospective review.',
     tasks: [
-      { title: 'Refine sprint goals and backlog', phase: 'Sprint Backlog' },
-      { title: 'Execute sprint work items', phase: 'Sprint In-Flight' },
-      { title: 'Review completed deliverables', phase: 'Review & Retro' },
-      { title: 'Capture retrospective follow-ups', phase: 'Review & Retro' },
+      { title: 'Refine sprint goals and backlog', status: 'DONE', priority: 'HIGH' },
+      { title: 'Execute sprint core deliverables', status: 'IN_PROGRESS', priority: 'URGENT' },
+      { title: 'Code review and QA verification', status: 'TODO', priority: 'HIGH' },
+      { title: 'Sprint retrospective and follow-ups', status: 'BACKLOG', priority: 'LOW' },
     ],
   },
-  campaign: {
-    label: 'Marketing campaign',
-    description: 'Coordinate a campaign from brief to performance review.',
-    phases: ['Brief & Research', 'Asset Production', 'Campaign Distribution', 'Analytics Review'],
+  marketing: {
+    label: 'Marketing Campaign',
+    emoji: '📈',
+    description: 'Coordinate campaign deliverables from brief to social distribution and analytics.',
     tasks: [
-      { title: 'Write campaign brief & audience targeting', phase: 'Brief & Research' },
-      { title: 'Produce creative graphics & videos', phase: 'Asset Production' },
-      { title: 'Distribute campaign across channels', phase: 'Campaign Distribution' },
-      { title: 'Analyze campaign reach and conversion', phase: 'Analytics Review' },
+      { title: 'Write campaign brief & targeting', status: 'DONE', priority: 'HIGH' },
+      { title: 'Produce creative graphics & copy', status: 'IN_PROGRESS', priority: 'HIGH' },
+      { title: 'Distribute across social channels', status: 'TODO', priority: 'MEDIUM' },
+      { title: 'Review campaign reach and conversions', status: 'BACKLOG', priority: 'LOW' },
     ],
   },
 } as const;
@@ -78,27 +84,30 @@ const PROJECT_TEMPLATES = {
 type ProjectFilter = 'ALL' | 'ACTIVE' | 'PLANNED' | 'COMPLETED';
 const INBOX_PROJECT_ID = '__flowtask_inbox__';
 
-const PHASE_TAG_REGEX = /<!--phases:(.*?)-->/;
+const EMOJI_TAG_REGEX = /<!--emoji:(.*?)-->/;
 
-function parseProjectPhases(description?: string): string[] {
-  if (!description) return [];
-  const match = description.match(PHASE_TAG_REGEX);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[1]);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+function getProjectEmoji(name: string, description?: string): string {
+  if (description) {
+    const match = description.match(EMOJI_TAG_REGEX);
+    if (match && match[1]) return match[1];
   }
+  const emojiMatch = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+  if (emojiMatch) return emojiMatch[0];
+  const lower = name.toLowerCase();
+  if (lower.includes('launch') || lower.includes('product')) return '🚀';
+  if (lower.includes('design') || lower.includes('ui')) return '🎨';
+  if (lower.includes('dev') || lower.includes('api') || lower.includes('code')) return '💻';
+  if (lower.includes('market') || lower.includes('growth')) return '📈';
+  if (lower.includes('sprint')) return '⚡';
+  if (lower.includes('mobile') || lower.includes('app')) return '📱';
+  if (lower.includes('research') || lower.includes('doc')) return '📝';
+  if (lower.includes('qa') || lower.includes('test')) return '🛠️';
+  return '🎯';
 }
 
-function serializeProjectPhases(phases: string[], description?: string): string {
-  const cleanDesc = (description || '').replace(PHASE_TAG_REGEX, '').trim();
-  const validPhases = Array.from(new Set(phases.map((p) => p.trim()).filter(Boolean)));
-  if (validPhases.length === 0) return cleanDesc;
-  return cleanDesc
-    ? `${cleanDesc}\n<!--phases:${JSON.stringify(validPhases)}-->`
-    : `<!--phases:${JSON.stringify(validPhases)}-->`;
+function cleanProjectDescription(desc?: string): string {
+  if (!desc) return '';
+  return desc.replace(EMOJI_TAG_REGEX, '').replace(/<!--phases:(.*?)-->/, '').trim();
 }
 
 export function ProjectsView({
@@ -114,6 +123,7 @@ export function ProjectsView({
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedEmoji, setSelectedEmoji] = useState('🎯');
   const [color, setColor] = useState('#2563eb');
   const [templateId, setTemplateId] = useState<keyof typeof PROJECT_TEMPLATES | 'blank'>('blank');
   const [filter, setFilter] = useState<ProjectFilter>('ALL');
@@ -152,12 +162,12 @@ export function ProjectsView({
     mutationFn: async () => {
       if (!workspaceId || !name.trim()) throw new Error('Add a project name first.');
       const template = templateId === 'blank' ? null : PROJECT_TEMPLATES[templateId];
-      const initialPhases = template ? [...template.phases] : [];
-      const finalDescription = serializeProjectPhases(initialPhases, description.trim() || undefined);
+      const emoji = template ? template.emoji : selectedEmoji;
+      const descWithEmoji = `${cleanProjectDescription(description)}\n<!--emoji:${emoji}-->`.trim();
 
       const projectResult = await apiClient.createProject(workspaceId, {
         name: name.trim(),
-        description: finalDescription || undefined,
+        description: descWithEmoji || undefined,
         color,
       });
       if (projectResult.error || !projectResult.data?.id) {
@@ -166,17 +176,13 @@ export function ProjectsView({
 
       if (template) {
         for (const item of template.tasks) {
-          const taskResult = await apiClient.createTask({
+          await apiClient.createTask({
             workspaceId,
             projectId: projectResult.data.id,
             title: item.title,
-            phase: item.phase,
-            status: 'BACKLOG',
-            priority: 'MEDIUM',
+            status: item.status,
+            priority: item.priority as any,
           });
-          if (taskResult.error) {
-            throw new Error(`Project created, but a starter issue failed: ${taskResult.error}`);
-          }
         }
       }
       return projectResult.data;
@@ -189,15 +195,10 @@ export function ProjectsView({
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       setName('');
       setDescription('');
+      setSelectedEmoji('🎯');
       setTemplateId('blank');
       setIsCreating(false);
       onSelectProject(project.id);
-    },
-    onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
     },
   });
 
@@ -214,7 +215,8 @@ export function ProjectsView({
       const upcoming = projectTasks
         .filter((task: any) => task.dueDate && task.status !== 'DONE')
         .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-      return { project, projectTasks, completed, blocked, state, upcoming };
+      const emoji = getProjectEmoji(project.name, project.description);
+      return { project, projectTasks, completed, blocked, state, upcoming, emoji };
     });
   }, [projects, tasks]);
 
@@ -240,13 +242,15 @@ export function ProjectsView({
         project={{
           id: INBOX_PROJECT_ID,
           name: 'Inbox',
-          description: 'Unassigned tasks and Telegram captures waiting to be triaged.',
+          description: 'Unassigned tasks and quick captures waiting to be triaged.',
+          color: '#6366f1',
         }}
         projectTasks={inboxTasks}
         completed={inboxCompleted}
         blocked={inboxBlocked}
         state="ACTIVE"
         upcoming={inboxUpcoming}
+        emoji="📥"
         isInbox
         onBack={() => onSelectProject(null)}
         onSelectTask={onSelectTask}
@@ -269,12 +273,18 @@ export function ProjectsView({
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in font-sans">
+    <div className="space-y-4 animate-in fade-in font-sans pb-28">
+      {/* Workspace Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-base font-extrabold text-slate-900 dark:text-white">Projects</h2>
+          <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>Projects</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
+              {projects.length}
+            </span>
+          </h2>
           <p className="text-xs text-slate-400 font-medium">
-            Phased milestones, goals, and delivery progress
+            Notion-style workspace databases & roadmaps
           </p>
         </div>
         <button
@@ -290,6 +300,7 @@ export function ProjectsView({
         </button>
       </div>
 
+      {/* Create Project Sheet / Modal */}
       {isCreating && (
         <div
           className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm"
@@ -298,159 +309,180 @@ export function ProjectsView({
           }}
         >
           <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-project-title"
             onSubmit={(event) => {
               event.preventDefault();
-              if (name.trim() && !createProjectMutation.isPending) createProjectMutation.mutate();
+              createProjectMutation.mutate();
             }}
-            className="w-full max-w-md max-h-[calc(100dvh-0.75rem)] sm:max-h-[90dvh] rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/70 dark:border-slate-800 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/80 dark:border-slate-800 p-5 space-y-4 animate-in slide-in-from-bottom duration-200"
           >
-            <header className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                  Projects
+                  Workspace
                 </p>
-                <h3 id="new-project-title" className="text-base font-extrabold text-slate-900 dark:text-white">
-                  Create a project
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Set a goal and organize work into Linear-style phases.
-                </p>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">New Notion Project</h3>
               </div>
               <button
                 type="button"
-                aria-label="Close project form"
                 onClick={() => setIsCreating(false)}
-                className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
-            </header>
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="project-template" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Start from template
-                </label>
-                <select
-                  id="project-template"
-                  value={templateId}
-                  onChange={(event) => {
-                    const value = event.target.value as keyof typeof PROJECT_TEMPLATES | 'blank';
-                    setTemplateId(value);
-                    setDescription(value === 'blank' ? '' : PROJECT_TEMPLATES[value].description);
-                  }}
-                  className="w-full px-3.5 py-3 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500"
-                >
-                  <option value="blank">Blank project</option>
-                  {Object.entries(PROJECT_TEMPLATES).map(([key, template]) => (
-                    <option key={key} value={key}>
-                      {template.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-500">
-                  {templateId === 'blank'
-                    ? 'Start empty and add your own phases.'
-                    : `${PROJECT_TEMPLATES[templateId].phases.length} phases and ${PROJECT_TEMPLATES[templateId].tasks.length} starter issues will be organized.`}
-                </p>
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label htmlFor="project-name" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Project name
-                  </label>
-                  <input
-                    id="project-name"
-                    type="text"
-                    required
-                    placeholder="e.g. Mobile App V2"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-semibold"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="project-goal" className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Goal <span className="font-normal text-slate-400">· optional</span>
-                  </label>
-                  <textarea
-                    id="project-goal"
-                    rows={3}
-                    placeholder="What outcome should this project achieve?"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    className="w-full px-3.5 py-3 text-[16px] sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-slate-900 dark:text-white focus:border-blue-500 font-medium resize-y"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Project color</p>
-                <div className="flex items-center gap-3">
-                  {colorPalette.map((entry) => (
-                    <button
-                      key={entry}
-                      type="button"
-                      aria-label={`Use project color ${entry}`}
-                      aria-pressed={color === entry}
-                      onClick={() => setColor(entry)}
-                      className={`w-7 h-7 rounded-full transition-transform ${
-                        color === entry ? 'scale-110 ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900' : ''
-                      }`}
-                      style={{ backgroundColor: entry }}
-                    />
-                  ))}
-                </div>
-              </div>
-              {createProjectMutation.error && (
-                <p role="alert" className="text-xs text-rose-600 bg-rose-50 dark:bg-rose-950/30 rounded-xl p-3">
-                  {createProjectMutation.error.message}
-                </p>
-              )}
             </div>
-            <footer className="shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] backdrop-blur-md flex gap-2">
+
+            {/* Template Selector */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Start from template</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateId('blank');
+                    setSelectedEmoji('🎯');
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    templateId === 'blank'
+                      ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 dark:border-blue-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40'
+                  }`}
+                >
+                  <span className="text-sm">🎯 Blank Project</span>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Start fresh with empty database</p>
+                </button>
+                {(Object.entries(PROJECT_TEMPLATES) as [keyof typeof PROJECT_TEMPLATES, any][]).map(([key, t]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setTemplateId(key);
+                      setName(t.label);
+                      setDescription(t.description);
+                      setSelectedEmoji(t.emoji);
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      templateId === key
+                        ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 dark:border-blue-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40'
+                    }`}
+                  >
+                    <span className="text-sm">{t.emoji} {t.label}</span>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{t.tasks.length} starter tasks</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Emoji & Name */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Project icon & name</label>
+              <div className="flex gap-2">
+                <div className="relative group">
+                  <span className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl cursor-pointer border border-slate-200 dark:border-slate-700">
+                    {selectedEmoji}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Mobile App Redesign"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="flex-1 px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 font-bold text-slate-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              {/* Emoji quick pick bar */}
+              <div className="flex gap-1 overflow-x-auto no-scrollbar py-1">
+                {NOTION_EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    onClick={() => setSelectedEmoji(em)}
+                    className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-transform ${
+                      selectedEmoji === em
+                        ? 'bg-blue-100 dark:bg-blue-900/60 ring-2 ring-blue-500 scale-110'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Description / Goal */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Project goal & brief</label>
+              <textarea
+                placeholder="What is the shared outcome this project is delivering?"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={2}
+                className="w-full px-3.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-white resize-none"
+              />
+            </div>
+
+            {/* Color Accent */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Accent color</label>
+              <div className="flex gap-2">
+                {colorPalette.map((swatch) => (
+                  <button
+                    key={swatch}
+                    type="button"
+                    onClick={() => setColor(swatch)}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      color === swatch ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''
+                    }`}
+                    style={{ backgroundColor: swatch }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setIsCreating(false)}
-                className="px-4 py-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!name.trim() || createProjectMutation.isPending}
-                className="flex-1 px-4 py-3 rounded-xl text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md shadow-blue-500/20"
               >
-                {createProjectMutation.isPending
-                  ? 'Creating…'
-                  : templateId === 'blank'
-                  ? 'Create project'
-                  : `Create project + ${PROJECT_TEMPLATES[templateId].phases.length} phases`}
+                {createProjectMutation.isPending ? 'Creating…' : 'Create Project'}
               </button>
-            </footer>
+            </div>
           </form>
         </div>
       )}
 
+      {/* Search Bar */}
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search projects"
-          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500"
+          placeholder="Search projects..."
+          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs outline-none focus:border-blue-500 text-slate-900 dark:text-white"
         />
       </div>
+
+      {/* Filter Tabs */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
         {(['ALL', 'ACTIVE', 'PLANNED', 'COMPLETED'] as ProjectFilter[]).map((value) => (
           <button
             key={value}
             type="button"
             onClick={() => setFilter(value)}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               filter === value
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
@@ -459,76 +491,83 @@ export function ProjectsView({
         ))}
       </div>
 
+      {/* Notion-style Inbox Card */}
       <button
         type="button"
         onClick={() => onSelectProject(INBOX_PROJECT_ID)}
-        className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-dashed border-blue-200 dark:border-blue-900/70 bg-blue-50/60 dark:bg-blue-950/20 text-left hover:border-blue-400 transition-colors"
+        className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-dashed border-indigo-200 dark:border-indigo-900/70 bg-gradient-to-r from-indigo-50/50 via-blue-50/40 to-transparent dark:from-indigo-950/20 dark:via-blue-950/10 text-left hover:border-indigo-400 transition-colors group"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-            <InboxIcon className="w-4 h-4" />
+          <span className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-lg shadow-xs group-hover:scale-105 transition-transform">
+            📥
           </span>
-          <span className="min-w-0">
-            <span className="block text-xs font-extrabold text-slate-900 dark:text-white">Inbox</span>
+          <div className="min-w-0">
+            <span className="block text-xs font-extrabold text-slate-900 dark:text-white">Workspace Inbox</span>
             <span className="block text-[10px] text-slate-500 truncate">
-              Unassigned work and Telegram captures to triage
+              Unassigned tasks & quick captures waiting to be triaged
             </span>
-          </span>
+          </div>
         </div>
-        <span className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
-          <span className="px-2 py-1 rounded-full bg-white dark:bg-slate-900">{inboxTasks.length}</span>
+        <span className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+          <span className="px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 shadow-2xs font-extrabold">
+            {inboxTasks.length}
+          </span>
           <ArrowRight className="w-3.5 h-3.5" />
         </span>
       </button>
 
+      {/* Projects List / Grid */}
       {isLoading ? (
         <div className="py-8 text-center text-xs text-slate-400 animate-pulse">Loading projects…</div>
       ) : filteredProjects.length === 0 ? (
         <div className="py-10 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
           <Folder className="w-8 h-8 text-slate-300 mx-auto" />
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects in this view</p>
-          <p className="text-[11px] text-slate-400">Create a project or change your filters.</p>
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects found</p>
+          <p className="text-[11px] text-slate-400">Create your first Notion project to organize your team.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming }: any) => {
-            const isSelected = selectedProjectId === project.id;
+          {filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming, emoji }: any) => {
             const count = projectTasks.length;
             const progress = count ? Math.round((completed / count) * 100) : 0;
-            const phases = parseProjectPhases(project.description);
+            const cleanDesc = cleanProjectDescription(project.description);
 
             return (
               <article
                 key={project.id}
-                className={`p-4 rounded-2xl border bg-white dark:bg-slate-900 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] ${
-                  isSelected ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-slate-100 dark:border-slate-800'
-                }`}
+                onClick={() => {
+                  triggerHaptic('light');
+                  onSelectProject(project.id);
+                }}
+                className="group relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-[0_2px_12px_-2px_rgba(0,0,0,0.03)] hover:border-blue-400/60 dark:hover:border-blue-500/60 hover:shadow-md transition-all cursor-pointer p-4"
               >
+                {/* Top color strip */}
+                <div
+                  className="absolute top-0 left-0 right-0 h-1"
+                  style={{ backgroundColor: project.color || '#2563eb' }}
+                />
+
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className="w-1.5 h-11 rounded-full shrink-0"
-                      style={{ backgroundColor: project.color || '#2563eb' }}
-                    />
+                    <span className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                      {emoji}
+                    </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">{project.name}</h3>
-                        {phases.length > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80">
-                            <Layers className="w-3 h-3" />
-                            {phases.length} {phases.length === 1 ? 'phase' : 'phases'}
-                          </span>
-                        )}
+                        <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                          {project.name}
+                        </h3>
                       </div>
-                      {project.description && (
-                        <p className="text-xs text-slate-500 line-clamp-2 mt-1">
-                          {project.description.replace(PHASE_TAG_REGEX, '').trim()}
+                      {cleanDesc && (
+                        <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                          {cleanDesc}
                         </p>
                       )}
                     </div>
                   </div>
+
                   <span
-                    className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${
+                    className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       state === 'COMPLETED'
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                         : state === 'ACTIVE'
@@ -544,46 +583,37 @@ export function ProjectsView({
                     {state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}
                   </span>
                 </div>
-                <div className="mt-4 space-y-2">
+
+                {/* Progress Bar & Stats */}
+                <div className="mt-3.5 space-y-1.5">
                   <div className="flex justify-between text-[10px] font-semibold text-slate-500">
-                    <span>Issue progress</span>
+                    <span>Database items</span>
                     <span>
-                      {completed}/{count} complete · {progress}%
+                      {completed}/{count} done · {progress}%
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all"
+                      className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
                     <span>
                       {blocked > 0 ? (
                         <span className="text-amber-600 font-bold">{blocked} blocked</span>
                       ) : (
-                        `${count} ${count === 1 ? 'issue' : 'issues'}`
+                        `${count} ${count === 1 ? 'task' : 'tasks'}`
                       )}
                     </span>
                     {upcoming && (
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 text-slate-400">
                         <CalendarDays className="w-3 h-3" />
-                        Next due {new Date(upcoming.dueDate).toLocaleDateString()}
+                        Due {new Date(upcoming.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic('light');
-                    onSelectProject(project.id);
-                  }}
-                  className="w-full mt-3 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400"
-                >
-                  <span>Open project workspace</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
               </article>
             );
           })}
@@ -593,6 +623,9 @@ export function ProjectsView({
   );
 }
 
+/* =========================================================================================
+ * NOTION-STYLE PROJECT WORKSPACE
+ * ========================================================================================= */
 function ProjectWorkspace({
   project,
   projectTasks,
@@ -600,6 +633,7 @@ function ProjectWorkspace({
   blocked,
   state,
   upcoming,
+  emoji,
   onBack,
   onSelectTask,
   onOpenCreate,
@@ -610,44 +644,17 @@ function ProjectWorkspace({
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-
-
-  // Phases derived from project description + tasks with phases
-  const projectPhases = useMemo(() => {
-    if (isInbox) return [];
-    const fromDesc = parseProjectPhases(project.description);
-    const fromTasks = projectTasks
-      .map((t: any) => t.phase || t.taskMetadata?.phase)
-      .filter((p: any) => typeof p === 'string' && p.trim()) as string[];
-    const combined = Array.from(new Set([...fromDesc, ...fromTasks]));
-    return combined;
-  }, [project.description, projectTasks, isInbox]);
-
-  const hasPhases = projectPhases.length > 0;
-  const [view, setView] = useState<'PHASES' | 'LIST' | 'BOARD'>(
-    !isInbox && hasPhases ? 'PHASES' : 'LIST'
-  );
-
-  React.useEffect(() => {
-    if (!hasPhases && view === 'PHASES') {
-      setView('LIST');
-    }
-  }, [hasPhases, view]);
+  // Notion Database Views: TABLE | BOARD | LIST | OVERVIEW
+  const [activeView, setActiveView] = useState<'TABLE' | 'BOARD' | 'LIST' | 'OVERVIEW'>('TABLE');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [inlineTaskInput, setInlineTaskInput] = useState('');
 
-  // Linear Phase State
-  const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
-  const [isAddPhaseOpen, setIsAddPhaseOpen] = useState(false);
-  const [newPhaseName, setNewPhaseName] = useState('');
-  const [inlineTaskInput, setInlineTaskInput] = useState<Record<string, string>>({});
-
-  // Mutations
+  // Complete Task Mutation
   const completeMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      if (!workspaceId) throw new Error('No active workspace selected.');
-      const result = await apiClient.completeTask(taskId, workspaceId);
-      if (result.error) throw new Error(result.error);
+      if (!workspaceId) throw new Error('No workspace');
+      return apiClient.completeTask(taskId, workspaceId);
     },
     onSuccess: () => {
       triggerHaptic('medium');
@@ -657,19 +664,14 @@ function ProjectWorkspace({
     },
   });
 
-  const toggleStatusMutation = useMutation({
+  // Cycle Status Mutation
+  const cycleStatusMutation = useMutation({
     mutationFn: async ({ taskId, currentStatus }: { taskId: string; currentStatus: string }) => {
-      if (!workspaceId) throw new Error('No active workspace selected.');
-      const nextStatus =
-        currentStatus === 'DONE'
-          ? 'TODO'
-          : currentStatus === 'TODO'
-          ? 'IN_PROGRESS'
-          : currentStatus === 'IN_PROGRESS'
-          ? 'DONE'
-          : 'DONE';
-      const result = await apiClient.updateTask(taskId, workspaceId, { status: nextStatus });
-      if (result.error) throw new Error(result.error);
+      if (!workspaceId) throw new Error('No workspace');
+      const order = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
+      const nextIdx = (order.indexOf(currentStatus) + 1) % order.length;
+      const nextStatus = order[nextIdx] || 'TODO';
+      return apiClient.updateTask(taskId, workspaceId, { status: nextStatus });
     },
     onSuccess: () => {
       triggerHaptic('light');
@@ -679,852 +681,460 @@ function ProjectWorkspace({
     },
   });
 
-  const updatePhaseMutation = useMutation({
-    mutationFn: async ({ taskId, phase }: { taskId: string; phase: string | null }) => {
-      if (!workspaceId) throw new Error('No active workspace selected.');
-      const result = await apiClient.updateTask(taskId, workspaceId, { phase });
-      if (result.error) throw new Error(result.error);
-    },
-    onSuccess: () => {
-      triggerHaptic('light');
-      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
-      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
-    },
-  });
-
+  // Quick Create Task Mutation (Inline)
   const quickCreateTaskMutation = useMutation({
-    mutationFn: async ({ phase, title }: { phase?: string; title: string }) => {
+    mutationFn: async ({ title, status = 'TODO' }: { title: string; status?: string }) => {
       if (!workspaceId || !title.trim()) return;
-      const result = await apiClient.createTask({
+      return apiClient.createTask({
         workspaceId,
         projectId: isInbox ? undefined : project.id,
-        phase: phase || undefined,
         title: title.trim(),
-        status: 'TODO',
+        status,
         priority: 'MEDIUM',
       });
-      if (result.error) throw new Error(result.error);
-      return result.data;
     },
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
       triggerHaptic('medium');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
-      const phaseKey = vars.phase || '__none__';
-      setInlineTaskInput((prev) => ({ ...prev, [phaseKey]: '' }));
+      setInlineTaskInput('');
     },
   });
 
-  const savePhasesMutation = useMutation({
-    mutationFn: async (updatedPhases: string[]) => {
-      if (!workspaceId || isInbox) return;
-      const newDescription = serializeProjectPhases(updatedPhases, project.description);
-      const res = await apiClient.updateProject(project.id, workspaceId, { description: newDescription });
-      if (res.error) throw new Error(res.error);
-    },
-    onSuccess: () => {
-      triggerHaptic('medium');
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
-      setIsAddPhaseOpen(false);
-      setNewPhaseName('');
-    },
-  });
+  const visibleTasks = useMemo(() => {
+    return projectTasks.filter((task: any) => {
+      const assignees =
+        Array.isArray(task.assignees) && task.assignees.length > 0
+          ? task.assignees
+          : task.assignee
+          ? [task.assignee]
+          : [];
+      const assignedToMe = assignees.some((assignee: any) => assignee.id === user?.id) || task.assigneeId === user?.id;
+      const isUnassigned = assignees.length === 0 && !task.assigneeId;
+      return isUnassigned || assignedToMe || task.creatorId === user?.id || isOwnerOrAdmin;
+    });
+  }, [projectTasks, user, isOwnerOrAdmin]);
 
-
-
-  const togglePhaseCollapse = (phase: string) => {
-    triggerHaptic('light');
-    setCollapsedPhases((prev) => ({ ...prev, [phase]: !prev[phase] }));
-  };
-
-  const handleAddPhase = (phaseNameToAdd: string) => {
-    const trimmed = phaseNameToAdd.trim();
-    if (!trimmed || projectPhases.includes(trimmed)) return;
-    const nextList = [...projectPhases, trimmed];
-    savePhasesMutation.mutate(nextList);
-  };
-
-  const handleRemovePhase = (phaseToRemove: string) => {
-    const nextList = projectPhases.filter((p) => p !== phaseToRemove);
-    savePhasesMutation.mutate(nextList);
-  };
-
-  const visibleTasks = projectTasks.filter((task: any) => {
-    const assignees =
-      Array.isArray(task.assignees) && task.assignees.length > 0
-        ? task.assignees
-        : task.assignee
-        ? [task.assignee]
-        : [];
-    const assignedToMe = assignees.some((assignee: any) => assignee.id === user?.id) || task.assigneeId === user?.id;
-    const isUnassigned = assignees.length === 0 && !task.assigneeId;
-    return isUnassigned || assignedToMe || task.creatorId === user?.id || isOwnerOrAdmin;
-  });
-
-  const filteredTasks = visibleTasks.filter((task: any) => {
-    if (statusFilter !== 'ALL' && task.status !== statusFilter) return false;
-    if (search.trim() && !`${task.title || ''} ${task.description || ''}`.toLowerCase().includes(search.toLowerCase()))
-      return false;
-    return true;
-  });
+  const filteredTasks = useMemo(() => {
+    return visibleTasks.filter((task: any) => {
+      if (statusFilter !== 'ALL' && task.status !== statusFilter) return false;
+      if (search.trim() && !`${task.title || ''} ${task.description || ''}`.toLowerCase().includes(search.toLowerCase()))
+        return false;
+      return true;
+    });
+  }, [visibleTasks, statusFilter, search]);
 
   const progress = projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0;
-  const openCount = projectTasks.filter((task: any) => task.status !== 'DONE' && task.status !== 'CANCELLED').length;
-  const statusFilters = [
-    ['ALL', 'All issues'],
-    ['BACKLOG', 'Backlog'],
-    ['TODO', 'To do'],
-    ['IN_PROGRESS', 'In progress'],
-    ['IN_REVIEW', 'In review'],
-    ['DONE', 'Done'],
-  ];
-
-  // Group filtered tasks by phase
-  const tasksByPhase = useMemo(() => {
-    const map = new Map<string, any[]>();
-    for (const phase of projectPhases) {
-      map.set(phase, []);
-    }
-    const unphased: any[] = [];
-    for (const t of filteredTasks) {
-      const p = t.phase || t.taskMetadata?.phase;
-      if (p && map.has(p)) {
-        map.get(p)!.push(t);
-      } else if (p) {
-        if (!map.has(p)) map.set(p, []);
-        map.get(p)!.push(t);
-      } else {
-        unphased.push(t);
-      }
-    }
-    return { map, unphased };
-  }, [projectPhases, filteredTasks]);
-
-  const cleanDescription = (project.description || '').replace(PHASE_TAG_REGEX, '').trim();
+  const projectEmoji = emoji || getProjectEmoji(project.name, project.description);
+  const cleanDesc = cleanProjectDescription(project.description);
 
   return (
-    <div className="space-y-4 pb-24 animate-in fade-in font-sans">
+    <div className="space-y-4 pb-28 animate-in fade-in font-sans">
+      {/* Back button */}
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        All projects
+        <span>All projects</span>
       </button>
 
-      {/* Project Banner & Overall Progress */}
-      <section className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div
-              className="w-2 h-12 rounded-full shrink-0"
-              style={{ backgroundColor: project.color || '#2563eb' }}
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">{project.name}</h2>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isInbox
-                      ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300'
-                      : state === 'COMPLETED'
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                      : state === 'ACTIVE'
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                >
-                  {isInbox
-                    ? 'Needs triage'
-                    : state === 'COMPLETED'
-                    ? 'Completed'
+      {/* Notion Page Cover & Header */}
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+        {/* Decorative Cover Gradient */}
+        <div
+          className="h-20 w-full opacity-90 transition-all"
+          style={{
+            background: `linear-gradient(135deg, ${project.color || '#2563eb'} 0%, #1e1b4b 100%)`,
+          }}
+        />
+
+        <div className="p-4 pt-0 relative">
+          {/* Floating Emoji Icon */}
+          <div className="-mt-8 mb-2 flex items-center justify-between">
+            <span className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-4 border-white dark:border-slate-900 shadow-md flex items-center justify-center text-3xl shrink-0">
+              {projectEmoji}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => onOpenCreate(isInbox ? undefined : project.id)}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>{isInbox ? 'Capture task' : 'New task'}</span>
+            </button>
+          </div>
+
+          {/* Project Title & Status */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{project.name}</h1>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  state === 'COMPLETED'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                     : state === 'ACTIVE'
-                    ? 'In progress'
-                    : 'Planned'}
-                </span>
-                {!isInbox && projectPhases.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-200 dark:border-violet-800/80 flex items-center gap-1">
-                    <Layers className="w-3 h-3" />
-                    {projectPhases.length} {projectPhases.length === 1 ? 'Phase' : 'Phases'}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap">
-                {cleanDescription || 'Add a project goal to give the team a shared outcome to work toward.'}
-              </p>
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                {state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500 whitespace-pre-wrap leading-relaxed">
+              {cleanDesc || 'Project workspace database. Manage roadmaps, deliverables, and team execution.'}
+            </p>
+          </div>
+
+          {/* Notion Properties Bar */}
+          <div className="grid grid-cols-3 gap-2 border-t border-slate-100 dark:border-slate-800 mt-4 pt-3 text-[11px]">
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Progress</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">{progress}%</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Tasks</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">
+                {completed}/{projectTasks.length} done
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Blocked</span>
+              <span className={`font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
+                {blocked} blocked
+              </span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenCreate(isInbox ? undefined : project.id)}
-            className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            {isInbox ? 'Capture task' : 'New issue'}
-          </button>
-        </div>
 
-        <div className="grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800 pt-3">
-          {isInbox ? (
-            <>
-              <div>
-                <div className="text-[10px] text-slate-500">Open</div>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white">{openCount}</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">Blocked</div>
-                <div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
-                  {blocked}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">To triage</div>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white">{projectTasks.length}</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <div className="text-[10px] text-slate-500">Progress</div>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white">{progress}%</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">Issues</div>
-                <div className="text-sm font-extrabold text-slate-900 dark:text-white">
-                  {completed}/{projectTasks.length} done
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500">Blocked</div>
-                <div className={`text-sm font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
-                  {blocked}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {!isInbox && (
-          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          {/* Progress bar line */}
+          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-3">
             <div
-              className="h-full rounded-full transition-all"
+              className="h-full rounded-full transition-all duration-500"
               style={{ width: `${progress}%`, backgroundColor: project.color || '#2563eb' }}
             />
           </div>
-        )}
-        {upcoming && (
-          <div className="text-[10px] text-slate-500 inline-flex items-center gap-1">
-            <CalendarDays className="w-3 h-3" />
-            Next issue due {new Date(upcoming.dueDate).toLocaleDateString()}
-          </div>
-        )}
+        </div>
       </section>
 
-      {/* View Switcher: Phases (Linear) | List | Board */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-            Workspace <span className="text-slate-400 font-normal">({projectTasks.length})</span>
-          </h3>
+      {/* Notion Database Navigation Tabs */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveView('TABLE');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeView === 'TABLE'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <TableIcon className="w-3.5 h-3.5" />
+            <span>Table</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveView('BOARD');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeView === 'BOARD'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Board</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveView('LIST');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeView === 'LIST'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>List</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveView('OVERVIEW');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeView === 'OVERVIEW'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Docs</span>
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          {!isInbox && hasPhases && view === 'PHASES' && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setIsAddPhaseOpen(true);
-              }}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 bg-violet-50 hover:bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:hover:bg-violet-900/60 dark:text-violet-300 border border-violet-200/60 dark:border-violet-800/60 transition-all active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Add Phase</span>
-            </button>
-          )}
-          {!isInbox && !hasPhases && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setIsAddPhaseOpen(true);
-              }}
-              className="px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1 text-slate-500 hover:text-violet-600 dark:hover:text-violet-400 bg-slate-100 dark:bg-slate-800 transition-all active:scale-95"
-            >
-              <Plus className="w-3 h-3 stroke-[2.5]" />
-              <span>Add Phases</span>
-            </button>
-          )}
-          <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-            {!isInbox && hasPhases && (
-              <button
-                type="button"
-                title="Phases view (Linear style)"
-                onClick={() => setView('PHASES')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                  view === 'PHASES'
-                    ? 'bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Phases</span>
-              </button>
-            )}
-            <button
-              type="button"
-              title="List view"
-              onClick={() => setView('LIST')}
-              className={`p-1.5 rounded-lg transition-all ${
-                view === 'LIST'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              title="Board view"
-              onClick={() => setView('BOARD')}
-              className={`p-1.5 rounded-lg transition-all ${
-                view === 'BOARD'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+
+        <span className="text-xs font-bold text-slate-400 shrink-0">
+          {projectTasks.length} {projectTasks.length === 1 ? 'item' : 'items'}
+        </span>
       </div>
 
-      {/* Modal: Add New Phase */}
-      {isAddPhaseOpen && (
-        <div
-          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsAddPhaseOpen(false);
-          }}
-        >
-          <div className="w-full max-w-sm rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/80 dark:border-slate-800 p-5 space-y-4 animate-in slide-in-from-bottom duration-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400">
-                  <Layers className="w-4 h-4" />
-                </span>
-                <div>
-                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Add Project Phase</h4>
-                  <p className="text-[11px] text-slate-500">Group issues into a milestone or sprint</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddPhaseOpen(false)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Phase Name</label>
+      {/* 1. NOTION TABLE VIEW */}
+      {activeView === 'TABLE' && (
+        <div className="space-y-3">
+          {/* Quick Filters & Search */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
-                type="text"
-                autoFocus
-                placeholder="e.g. Phase 1: Foundation"
-                value={newPhaseName}
-                onChange={(e) => setNewPhaseName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (newPhaseName.trim()) handleAddPhase(newPhaseName);
-                  }
-                }}
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white focus:border-violet-500 font-semibold"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter table..."
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs outline-none focus:border-blue-500"
               />
             </div>
 
-            {/* Quick Templates */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Quick Suggestions</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  'Phase 1: Research & Scope',
-                  'Phase 2: Core Build',
-                  'Phase 3: QA & Testing',
-                  'Phase 4: Launch',
-                  'Sprint Planning',
-                  'Maintenance & Polish',
-                ].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic('light');
-                      handleAddPhase(preset);
-                    }}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-violet-50 hover:text-violet-700 dark:bg-slate-800 dark:hover:bg-violet-950 dark:hover:text-violet-300 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60 transition-all"
-                  >
-                    + {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsAddPhaseOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!newPhaseName.trim() || savePhasesMutation.isPending}
-                onClick={() => handleAddPhase(newPhaseName)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 transition-all shadow-sm"
-              >
-                {savePhasesMutation.isPending ? 'Adding…' : 'Create Phase'}
-              </button>
-            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-600 dark:text-slate-300 outline-none"
+            >
+              <option value="ALL">All Status</option>
+              <option value="TODO">To Do</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="DONE">Done</option>
+            </select>
           </div>
-        </div>
-      )}
 
-      {/* 1. LINEAR PHASES VIEW */}
-      {view === 'PHASES' && !isInbox && (
-        <div className="space-y-4">
-          {/* Empty state: No phases yet */}
-          {projectPhases.length === 0 && tasksByPhase.unphased.length === 0 && (
-            <div className="p-8 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-violet-200 dark:border-violet-900/60 space-y-3">
-              <span className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-400 flex items-center justify-center mx-auto">
-                <Layers className="w-6 h-6" />
-              </span>
-              <div className="space-y-1">
-                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                  Organize work into Linear-style Phases
-                </h4>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Break down your project into distinct delivery milestones with individual task tracking and progress bars.
-                </p>
-              </div>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const presets = ['Phase 1: Foundation', 'Phase 2: Core Build', 'Phase 3: QA & Testing', 'Phase 4: Launch'];
-                    savePhasesMutation.mutate(presets);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 shadow-sm"
-                >
-                  Generate 4 Standard Phases
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddPhaseOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800"
-                >
-                  + Custom Phase
-                </button>
-              </div>
+          {/* Table Container */}
+          <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 gap-2 p-3 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+              <div className="col-span-6 sm:col-span-5">Task Name</div>
+              <div className="col-span-3 sm:col-span-3">Status</div>
+              <div className="col-span-3 sm:col-span-2">Priority</div>
+              <div className="hidden sm:block sm:col-span-2">Due</div>
             </div>
-          )}
 
-          {/* Render each Phase Group */}
-          {projectPhases.map((phase) => {
-            const phaseTasks = tasksByPhase.map.get(phase) || [];
-            const isCollapsed = Boolean(collapsedPhases[phase]);
-            const completedInPhase = phaseTasks.filter((t) => t.status === 'DONE').length;
-            const phaseProgress = phaseTasks.length ? Math.round((completedInPhase / phaseTasks.length) * 100) : 0;
-            const allDone = phaseTasks.length > 0 && completedInPhase === phaseTasks.length;
-            const hasActive = phaseTasks.some((t) => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW');
-            const inlineValue = inlineTaskInput[phase] || '';
-
-            return (
-              <section
-                key={phase}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.03)] overflow-hidden transition-all"
-              >
-                {/* Linear Phase Header */}
-                <header className="p-3.5 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+            {/* Table Rows */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {filteredTasks.map((task: any) => {
+                const isDone = task.status === 'DONE';
+                return (
                   <div
-                    onClick={() => togglePhaseCollapse(phase)}
-                    className="flex items-center gap-2.5 min-w-0 cursor-pointer select-none"
+                    key={task.id}
+                    onClick={() => onSelectTask(task.id)}
+                    className="grid grid-cols-12 gap-2 p-3 items-center hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
                   >
-                    <button
-                      type="button"
-                      aria-label={isCollapsed ? 'Expand phase' : 'Collapse phase'}
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-transform"
-                    >
-                      {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                    <span className="p-1.5 rounded-lg bg-violet-100/70 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300">
-                      <Layers className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{phase}</h4>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                            allDone
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                              : hasActive
-                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
-                              : 'bg-slate-200/60 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300'
-                          }`}
-                        >
-                          {allDone ? 'Completed' : hasActive ? 'In progress' : 'Planned'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* Progress pill & Mini bar */}
-                    <div className="hidden sm:flex items-center gap-2">
-                      <div className="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-violet-600 transition-all duration-300"
-                          style={{ width: `${phaseProgress}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap">
-                        {completedInPhase}/{phaseTasks.length} ({phaseProgress}%)
+                    {/* Name + Checkbox */}
+                    <div className="col-span-6 sm:col-span-5 flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          completeMutation.mutate(task.id);
+                        }}
+                        className="shrink-0 text-slate-400 hover:text-emerald-500 transition-colors"
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
+                        ) : (
+                          <Circle className="w-4 h-4" />
+                        )}
+                      </button>
+                      <span
+                        className={`text-xs font-semibold truncate ${
+                          isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        {task.title}
                       </span>
                     </div>
 
-                    <span className="sm:hidden text-[10px] font-bold text-slate-500">
-                      {completedInPhase}/{phaseTasks.length}
-                    </span>
-
-                    {/* Quick Add Issue into this phase */}
-                    <button
-                      type="button"
-                      onClick={() => onOpenCreate(project.id, phase)}
-                      title={`Add issue to ${phase}`}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    </button>
-
-                    {/* Delete empty phase */}
-                    {phaseTasks.length === 0 && (
+                    {/* Status Pill (Clickable cycle) */}
+                    <div className="col-span-3 sm:col-span-3">
                       <button
                         type="button"
-                        onClick={() => handleRemovePhase(phase)}
-                        title="Remove empty phase"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </header>
-
-                {/* Phase Body: Linear Issue Rows */}
-                {!isCollapsed && (
-                  <div className="p-2 space-y-1.5">
-                    {phaseTasks.map((task) => (
-                      <LinearIssueRow
-                        key={task.id}
-                        task={task}
-                        availablePhases={projectPhases}
-                        onSelect={() => onSelectTask(task.id)}
-                        onToggleStatus={() =>
-                          toggleStatusMutation.mutate({ taskId: task.id, currentStatus: task.status })
-                        }
-                        onMovePhase={(newP) => updatePhaseMutation.mutate({ taskId: task.id, phase: newP })}
-                      />
-                    ))}
-
-                    {/* Quick Inline Issue Add for this phase */}
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (inlineValue.trim()) {
-                          quickCreateTaskMutation.mutate({ phase, title: inlineValue });
-                        }
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800 focus-within:border-violet-500 transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        placeholder={`Add issue to ${phase}... (Press Enter)`}
-                        value={inlineValue}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setInlineTaskInput((prev) => ({ ...prev, [phase]: val }));
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cycleStatusMutation.mutate({ taskId: task.id, currentStatus: task.status });
                         }}
-                        className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
-                      />
-                      {inlineValue.trim() && (
-                        <button
-                          type="submit"
-                          disabled={quickCreateTaskMutation.isPending}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-violet-600 hover:bg-violet-700 shrink-0 shadow-xs"
-                        >
-                          Add
-                        </button>
-                      )}
-                    </form>
-                  </div>
-                )}
-              </section>
-            );
-          })}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 ${
+                          task.status === 'DONE'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                            : task.status === 'IN_PROGRESS'
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                            : task.status === 'IN_REVIEW'
+                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span>{task.status.replace('_', ' ')}</span>
+                      </button>
+                    </div>
 
-          {/* Unassigned / Backlog tasks without a phase */}
-          {tasksByPhase.unphased.length > 0 && (
-            <section className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden">
-              <header className="p-3.5 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-                <div
-                  onClick={() => togglePhaseCollapse('__unassigned__')}
-                  className="flex items-center gap-2.5 min-w-0 cursor-pointer select-none"
-                >
-                  <button
-                    type="button"
-                    aria-label="Toggle unassigned section"
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                  >
-                    {collapsedPhases['__unassigned__'] ? (
-                      <ChevronRight className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                  <span className="p-1.5 rounded-lg bg-slate-200/70 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                    <CircleDot className="w-3.5 h-3.5" />
-                  </span>
-                  <div>
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
-                      Unscheduled / No Phase ({tasksByPhase.unphased.length})
-                    </h4>
-                  </div>
-                </div>
-                <span className="text-[10px] font-medium text-slate-400">
-                  Assign tasks to a phase using the row dropdown
-                </span>
-              </header>
+                    {/* Priority Tag */}
+                    <div className="col-span-3 sm:col-span-2">
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          task.priority === 'URGENT'
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                            : task.priority === 'HIGH'
+                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                            : task.priority === 'MEDIUM'
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                            : 'text-slate-400'
+                        }`}
+                      >
+                        {task.priority}
+                      </span>
+                    </div>
 
-              {!collapsedPhases['__unassigned__'] && (
-                <div className="p-2 space-y-1.5">
-                  {tasksByPhase.unphased.map((task) => (
-                    <LinearIssueRow
-                      key={task.id}
-                      task={task}
-                      availablePhases={projectPhases}
-                      onSelect={() => onSelectTask(task.id)}
-                      onToggleStatus={() =>
-                        toggleStatusMutation.mutate({ taskId: task.id, currentStatus: task.status })
-                      }
-                      onMovePhase={(newP) => updatePhaseMutation.mutate({ taskId: task.id, phase: newP })}
-                    />
-                  ))}
+                    {/* Due Date */}
+                    <div className="hidden sm:block sm:col-span-2 text-[10px] text-slate-400">
+                      {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredTasks.length === 0 && (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No tasks match this filter. Add one below!
                 </div>
               )}
-            </section>
-          )}
+            </div>
+
+            {/* Signature Notion Table: Inline + New Row */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (inlineTaskInput.trim()) {
+                  quickCreateTaskMutation.mutate({ title: inlineTaskInput.trim() });
+                }
+              }}
+              className="flex items-center gap-2 p-3 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800"
+            >
+              <Plus className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="+ Add task... (Press Enter)"
+                value={inlineTaskInput}
+                onChange={(e) => setInlineTaskInput(e.target.value)}
+                className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
+              />
+              {inlineTaskInput.trim() && (
+                <button
+                  type="submit"
+                  disabled={quickCreateTaskMutation.isPending}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 shrink-0 shadow-xs"
+                >
+                  Add
+                </button>
+              )}
+            </form>
+          </div>
         </div>
       )}
 
-      {/* 2. STANDARD LIST VIEW */}
-      {view === 'LIST' && (
-        <>
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search project issues"
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2.5 text-xs outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            {statusFilters.map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStatusFilter(value)}
-                className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
-                  statusFilter === value
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {filteredTasks.map((task: any) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                currentUserId={user?.id}
-                onSelect={onSelectTask}
-                onComplete={(taskId) => completeMutation.mutate(taskId)}
-                onToggleAssigneeDone={() => {}}
-                isCompleting={completeMutation.isPending}
-              />
-            ))}
-            {filteredTasks.length === 0 && (
-              <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-                {isInbox
-                  ? 'Inbox is clear. New Telegram captures without a project will show up here.'
-                  : 'No issues match this view. Add an issue to move the project forward.'}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* 3. KANBAN BOARD VIEW */}
-      {view === 'BOARD' && (
+      {/* 2. NOTION BOARD VIEW (KANBAN) */}
+      {activeView === 'BOARD' && (
         <KanbanView
           tasks={visibleTasks}
           onSelectTask={onSelectTask}
           onOpenCreate={() => onOpenCreate(isInbox ? undefined : project.id)}
         />
       )}
-    </div>
-  );
-}
 
-// Sleek Linear-style compact issue row
-function LinearIssueRow({
-  task,
-  availablePhases,
-  onSelect,
-  onToggleStatus,
-  onMovePhase,
-}: {
-  task: any;
-  availablePhases: string[];
-  onSelect: () => void;
-  onToggleStatus: () => void;
-  onMovePhase: (phase: string | null) => void;
-}) {
-  const isDone = task.status === 'DONE';
-  const isInProgress = task.status === 'IN_PROGRESS';
-  const isBacklog = task.status === 'BACKLOG';
+      {/* 3. NOTION LIST VIEW */}
+      {activeView === 'LIST' && (
+        <div className="space-y-2">
+          {filteredTasks.map((task: any) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              currentUserId={user?.id}
+              onSelect={onSelectTask}
+              onComplete={(taskId) => completeMutation.mutate(taskId)}
+              onToggleAssigneeDone={() => {}}
+              isCompleting={completeMutation.isPending}
+            />
+          ))}
 
-  const priorityColor =
-    task.priority === 'URGENT'
-      ? 'text-rose-600 dark:text-rose-400'
-      : task.priority === 'HIGH'
-      ? 'text-amber-500'
-      : task.priority === 'MEDIUM'
-      ? 'text-blue-500'
-      : 'text-slate-400';
-
-  const assignees =
-    Array.isArray(task.assignees) && task.assignees.length > 0
-      ? task.assignees
-      : task.assignee
-      ? [task.assignee]
-      : [];
-  const primaryAssignee = assignees[0];
-
-  return (
-    <div
-      onClick={onSelect}
-      className="group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900/90 hover:border-blue-400/50 dark:hover:border-blue-500/50 hover:shadow-xs transition-all cursor-pointer"
-    >
-      <div className="flex items-center gap-2.5 min-w-0">
-        {/* Status Toggle Button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus();
-          }}
-          className="shrink-0 p-0.5 rounded-full hover:scale-110 active:scale-95 transition-transform"
-          title={`Status: ${task.status}. Click to advance status.`}
-        >
-          {isDone ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
-          ) : isInProgress ? (
-            <Clock className="w-4 h-4 text-blue-500" />
-          ) : isBacklog ? (
-            <CircleDot className="w-4 h-4 text-slate-400" />
-          ) : (
-            <Circle className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+          {filteredTasks.length === 0 && (
+            <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+              No tasks in this list. Click "New task" to add work items.
+            </div>
           )}
-        </button>
+        </div>
+      )}
 
-        {/* Priority Icon */}
-        <span className={`shrink-0 ${priorityColor}`} title={`Priority: ${task.priority}`}>
-          {task.priority === 'URGENT' ? (
-            <AlertCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-          ) : (
-            <span className="flex items-end gap-0.5 h-3.5">
-              <span className="w-0.5 h-1.5 rounded-full bg-current" />
-              <span className={`w-0.5 rounded-full bg-current ${task.priority === 'LOW' ? 'h-1.5 opacity-30' : 'h-2.5'}`} />
-              <span
-                className={`w-0.5 rounded-full bg-current ${
-                  task.priority === 'HIGH' ? 'h-3.5' : 'h-1.5 opacity-30'
-                }`}
-              />
-            </span>
-          )}
-        </span>
+      {/* 4. NOTION DOCS / OVERVIEW VIEW */}
+      {activeView === 'OVERVIEW' && (
+        <section className="space-y-4">
+          <div className="p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                <FileText className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Project Specification</h3>
+                <p className="text-[11px] text-slate-400">Goals, deliverables, and team alignment</p>
+              </div>
+            </div>
 
-        {/* Issue Title & blocked badge */}
-        <span
-          className={`text-xs font-semibold truncate ${
-            isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
-          }`}
-        >
-          {task.title}
-        </span>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+              {cleanDesc || 'No project description added yet. Edit project properties to add a scope brief.'}
+            </div>
 
-        {task.taskMetadata?.isBlocked && (
-          <span className="shrink-0 px-1.5 py-0.2 rounded-md text-[9px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            Blocked
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-        {/* Due date */}
-        {task.dueDate && (
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-400">
-            <Calendar className="w-3 h-3" />
-            {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </span>
-        )}
-
-        {/* Assignee Avatar */}
-        {primaryAssignee ? (
-          <div
-            title={primaryAssignee.name}
-            className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[9px] font-extrabold flex items-center justify-center shrink-0 border border-white dark:border-slate-800 shadow-2xs"
-          >
-            {primaryAssignee.name?.slice(0, 2).toUpperCase() || 'U'}
+            {/* Key Deliverables Status */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Key Deliverables ({projectTasks.length})
+              </h4>
+              <div className="space-y-1.5">
+                {projectTasks.slice(0, 6).map((t: any) => (
+                  <div
+                    key={t.id}
+                    onClick={() => onSelectTask(t.id)}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-300 cursor-pointer text-xs"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {t.status === 'DONE' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
+                      <span className={`truncate font-semibold ${t.status === 'DONE' ? 'line-through text-slate-400' : ''}`}>
+                        {t.title}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 shrink-0 ml-2">
+                      {t.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        ) : null}
-
-        {/* Quick Phase Changer Dropdown */}
-        {availablePhases.length > 0 && (
-          <select
-            value={task.phase || task.taskMetadata?.phase || ''}
-            onChange={(e) => onMovePhase(e.target.value || null)}
-            className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 outline-none cursor-pointer hover:border-violet-400 transition-colors"
-            title="Move issue to another phase"
-          >
-            <option value="">No phase</option>
-            {availablePhases.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+        </section>
+      )}
     </div>
   );
 }

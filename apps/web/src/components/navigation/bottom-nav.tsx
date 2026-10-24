@@ -4,7 +4,7 @@ import React from 'react';
 import { useTelegram } from '../../hooks/use-telegram';
 import {
   Home,
-  CheckSquare,
+  FolderKanban,
   Plus,
   Users,
   User,
@@ -52,7 +52,7 @@ export function BottomNav({
           <span className="text-[10px] mt-0.5 tracking-tight">Home</span>
         </button>
 
-        {/* Tasks Tab */}
+        {/* Projects Tab */}
         <button
           type="button"
           onClick={() => handleTabClick('TASKS')}
@@ -62,8 +62,8 @@ export function BottomNav({
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold'
           }`}
         >
-          <CheckSquare className={`w-5 h-5 transition-transform ${activeTab === 'TASKS' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight">Tasks</span>
+          <FolderKanban className={`w-5 h-5 transition-transform ${activeTab === 'TASKS' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className="text-[10px] mt-0.5 tracking-tight">Projects</span>
         </button>
 
         {/* Center Floating Plus Button */}
