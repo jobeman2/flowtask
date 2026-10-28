@@ -6,6 +6,7 @@ import { apiClient } from '../../../lib/api-client';
 import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import { useNotifications } from '../../../providers/notification-provider';
+import { parseProjectMetadata } from '../../projects/components/projects-view';
 import {
   X,
   User,
@@ -298,6 +299,15 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
   };
 
   const selectedProject = projects.find((p: any) => p.id === projectId);
+  const selectedProjectMeta = React.useMemo(() => {
+    return parseProjectMetadata(selectedProject?.description, selectedProject?.name);
+  }, [selectedProject]);
+
+  React.useEffect(() => {
+    if (selectedProjectMeta.leadId && assigneeIds.length === 0) {
+      setAssigneeIds([selectedProjectMeta.leadId]);
+    }
+  }, [selectedProjectMeta.leadId]);
   const projectPhases = React.useMemo(() => {
     if (!selectedProject?.description) return [];
     const match = selectedProject.description.match(/<!--phases:(.*?)-->/);
@@ -816,6 +826,8 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
                       const isSelected = assigneeIds.includes(m.userId);
                       const name = m.user?.name || 'Teammate';
                       const tgUsername = m.user?.telegramAccount?.username ? `@${m.user.telegramAccount.username}` : '';
+                      const isLead = selectedProjectMeta.leadId === m.userId;
+                      const isProjectMember = selectedProjectMeta.memberIds?.includes(m.userId);
                       return (
                         <button
                           key={m.id}
@@ -836,7 +848,19 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
                               </div>
                             )}
                             <div className="min-w-0 text-left">
-                              <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{name}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{name}</p>
+                                {isLead && (
+                                  <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                                    👑 Lead
+                                  </span>
+                                )}
+                                {!isLead && isProjectMember && (
+                                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                                    Team
+                                  </span>
+                                )}
+                              </div>
                               {tgUsername && <p className="text-[10px] text-slate-400 truncate">{tgUsername}</p>}
                             </div>
                           </div>

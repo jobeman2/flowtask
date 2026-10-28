@@ -30,9 +30,16 @@ import {
   ChevronRight,
   MoreHorizontal,
   Check,
+  Crown,
+  Zap,
+  Flag,
+  UserCheck,
+  Tag,
 } from 'lucide-react';
 import { TaskCard } from '../../tasks/components/task-card';
 import { KanbanView } from '../../tasks/components/kanban-view';
+import { AiProjectManagerModal } from '../../ai/components/ai-project-manager-modal';
+import { ClickUpSyncModal } from '../../settings/components/clickup-sync-modal';
 
 interface ProjectsViewProps {
   onSelectProject: (projectId: string | null) => void;
@@ -42,57 +49,83 @@ interface ProjectsViewProps {
   isOwnerOrAdmin: boolean;
 }
 
-const NOTION_EMOJIS = ['🎯', '🚀', '💻', '📱', '🎨', '📈', '⚡', '💡', '📝', '🛠️', '📦', '🔥', '📊', '🌐', '🛡️'];
+export interface ProjectMetadata {
+  emoji?: string;
+  leadId?: string;
+  leadName?: string;
+  memberIds?: string[];
+  priority?: 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+  targetDate?: string;
+  status?: 'ACTIVE' | 'PLANNED' | 'COMPLETED' | 'ON_HOLD';
+  spaceName?: string;
+}
+
+const NOTION_EMOJIS = ['🎯', '🚀', '💻', '📱', '🎨', '📈', '⚡', '💡', '📝', '🛠️', '📦', '🔥', '📊', '🌐', '🛡️', '🤖'];
 
 const PROJECT_TEMPLATES = {
-  product: {
-    label: 'Product Roadmap',
-    emoji: '🚀',
-    description: 'Track roadmap features, UX design, core build, and launch readiness.',
-    tasks: [
-      { title: 'Define product scope & success metrics', status: 'TODO', priority: 'HIGH' },
-      { title: 'Design user flow and wireframes', status: 'IN_PROGRESS', priority: 'HIGH' },
-      { title: 'Build core application features & API', status: 'TODO', priority: 'URGENT' },
-      { title: 'Run end-to-end testing & bug triage', status: 'BACKLOG', priority: 'MEDIUM' },
-      { title: 'Prepare launch communications & release', status: 'BACKLOG', priority: 'MEDIUM' },
-    ],
-  },
   sprint: {
-    label: 'Sprint Cycle',
+    label: 'ClickUp Sprint Cycle',
     emoji: '⚡',
-    description: 'Plan focused sprint cycle work items, active tasks, and retrospective review.',
+    spaceName: 'Sprint Space',
+    priority: 'HIGH' as const,
+    description: 'Agile sprint cycle tracking active deliverables, code reviews, and QA verification.',
     tasks: [
       { title: 'Refine sprint goals and backlog', status: 'DONE', priority: 'HIGH' },
-      { title: 'Execute sprint core deliverables', status: 'IN_PROGRESS', priority: 'URGENT' },
-      { title: 'Code review and QA verification', status: 'TODO', priority: 'HIGH' },
-      { title: 'Sprint retrospective and follow-ups', status: 'BACKLOG', priority: 'LOW' },
+      { title: 'Implement core API endpoints & schema', status: 'IN_PROGRESS', priority: 'URGENT' },
+      { title: 'Frontend UI components & state hooks', status: 'TODO', priority: 'HIGH' },
+      { title: 'Run QA regression and bot sandbox checks', status: 'TODO', priority: 'MEDIUM' },
+      { title: 'Sprint retrospective and release review', status: 'TODO', priority: 'LOW' },
+    ],
+  },
+  product: {
+    label: 'Notion Product Roadmap',
+    emoji: '🚀',
+    spaceName: 'Product Wiki',
+    priority: 'HIGH' as const,
+    description: 'Track roadmap features, UX design, core build, and launch readiness.',
+    tasks: [
+      { title: 'Draft product specification document', status: 'DONE', priority: 'HIGH' },
+      { title: 'Design user flow and interactive wireframes', status: 'IN_PROGRESS', priority: 'HIGH' },
+      { title: 'Build core application features & database', status: 'TODO', priority: 'URGENT' },
+      { title: 'Security audit and permission testing', status: 'TODO', priority: 'HIGH' },
+      { title: 'Prepare launch communications & release pin', status: 'TODO', priority: 'MEDIUM' },
     ],
   },
   marketing: {
-    label: 'Marketing Campaign',
+    label: 'Growth Campaign',
     emoji: '📈',
+    spaceName: 'Growth Engine',
+    priority: 'MEDIUM' as const,
     description: 'Coordinate campaign deliverables from brief to social distribution and analytics.',
     tasks: [
-      { title: 'Write campaign brief & targeting', status: 'DONE', priority: 'HIGH' },
-      { title: 'Produce creative graphics & copy', status: 'IN_PROGRESS', priority: 'HIGH' },
-      { title: 'Distribute across social channels', status: 'TODO', priority: 'MEDIUM' },
-      { title: 'Review campaign reach and conversions', status: 'BACKLOG', priority: 'LOW' },
+      { title: 'Write campaign brief & target audience', status: 'DONE', priority: 'MEDIUM' },
+      { title: 'Produce creative graphics, banners & copy', status: 'IN_PROGRESS', priority: 'HIGH' },
+      { title: 'Broadcast Telegram community announcement', status: 'TODO', priority: 'URGENT' },
+      { title: 'Track conversion analytics and user signups', status: 'TODO', priority: 'MEDIUM' },
     ],
   },
 } as const;
 
-type ProjectFilter = 'ALL' | 'ACTIVE' | 'PLANNED' | 'COMPLETED';
+type ProjectFilter = 'ALL' | 'ASSIGNED_TO_ME' | 'ACTIVE' | 'PLANNED' | 'COMPLETED';
 const INBOX_PROJECT_ID = '__flowtask_inbox__';
 
+const META_TAG_REGEX = /<!--project-meta:(.*?)-->/;
 const EMOJI_TAG_REGEX = /<!--emoji:(.*?)-->/;
 
-function getProjectEmoji(name: string, description?: string): string {
+export function getProjectEmoji(name: string, description?: string): string {
   if (description) {
-    const match = description.match(EMOJI_TAG_REGEX);
-    if (match && match[1]) return match[1];
+    const metaMatch = description.match(META_TAG_REGEX);
+    if (metaMatch && metaMatch[1]) {
+      try {
+        const meta = JSON.parse(metaMatch[1]);
+        if (meta.emoji) return meta.emoji;
+      } catch {}
+    }
+    const emojiMatch = description.match(EMOJI_TAG_REGEX);
+    if (emojiMatch && emojiMatch[1]) return emojiMatch[1];
   }
-  const emojiMatch = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-  if (emojiMatch) return emojiMatch[0];
+  const match = name.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+  if (match) return match[0];
   const lower = name.toLowerCase();
   if (lower.includes('launch') || lower.includes('product')) return '🚀';
   if (lower.includes('design') || lower.includes('ui')) return '🎨';
@@ -105,9 +138,50 @@ function getProjectEmoji(name: string, description?: string): string {
   return '🎯';
 }
 
-function cleanProjectDescription(desc?: string): string {
+export function parseProjectMetadata(description?: string, projectName?: string): ProjectMetadata {
+  const result: ProjectMetadata = {
+    emoji: projectName ? getProjectEmoji(projectName, description) : '🎯',
+    memberIds: [],
+    priority: 'MEDIUM',
+    status: 'ACTIVE',
+  };
+
+  if (!description) return result;
+
+  const match = description.match(META_TAG_REGEX);
+  if (match && match[1]) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      return { ...result, ...parsed };
+    } catch {}
+  }
+
+  const emojiMatch = description.match(EMOJI_TAG_REGEX);
+  if (emojiMatch && emojiMatch[1]) {
+    result.emoji = emojiMatch[1];
+  }
+
+  return result;
+}
+
+export function serializeProjectDescription(cleanText: string, meta: ProjectMetadata): string {
+  const clean = cleanText
+    .replace(META_TAG_REGEX, '')
+    .replace(EMOJI_TAG_REGEX, '')
+    .replace(/<!--phases:(.*?)-->/, '')
+    .trim();
+
+  const metaTag = `<!--project-meta:${JSON.stringify(meta)}-->`;
+  return clean ? `${clean}\n${metaTag}` : metaTag;
+}
+
+export function cleanProjectDescription(desc?: string): string {
   if (!desc) return '';
-  return desc.replace(EMOJI_TAG_REGEX, '').replace(/<!--phases:(.*?)-->/, '').trim();
+  return desc
+    .replace(META_TAG_REGEX, '')
+    .replace(EMOJI_TAG_REGEX, '')
+    .replace(/<!--phases:(.*?)-->/, '')
+    .trim();
 }
 
 export function ProjectsView({
@@ -117,18 +191,43 @@ export function ProjectsView({
   onOpenCreate,
   isOwnerOrAdmin,
 }: ProjectsViewProps) {
-  const { workspaceId } = useAuth();
+  const { workspaceId, user } = useAuth();
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
+
+  // Create Project State
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState('🎯');
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [priority, setPriority] = useState<'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [targetDate, setTargetDate] = useState('');
   const [color, setColor] = useState('#2563eb');
   const [templateId, setTemplateId] = useState<keyof typeof PROJECT_TEMPLATES | 'blank'>('blank');
   const [filter, setFilter] = useState<ProjectFilter>('ALL');
   const [search, setSearch] = useState('');
 
+  // Fetch Workspace Members
+  const { data: members = [] } = useQuery({
+    queryKey: ['workspace-members', workspaceId],
+    queryFn: async () => {
+      if (!workspaceId) return [];
+      const res = await apiClient.getWorkspaceMembers(workspaceId);
+      return Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+    },
+    enabled: Boolean(workspaceId),
+  });
+
+  // Default lead to current user when creating
+  React.useEffect(() => {
+    if (user?.id && !selectedLeadId) {
+      setSelectedLeadId(user.id);
+    }
+  }, [user?.id, selectedLeadId]);
+
+  // Fetch Projects
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects', workspaceId],
     queryFn: async () => {
@@ -139,6 +238,7 @@ export function ProjectsView({
     enabled: Boolean(workspaceId),
   });
 
+  // Fetch Tasks
   const { data: tasks = [] } = useQuery({
     queryKey: ['project-issues-summary', workspaceId],
     queryFn: async () => {
@@ -158,20 +258,37 @@ export function ProjectsView({
     enabled: Boolean(workspaceId),
   });
 
+  // Create Project Mutation
   const createProjectMutation = useMutation({
     mutationFn: async () => {
       if (!workspaceId || !name.trim()) throw new Error('Add a project name first.');
       const template = templateId === 'blank' ? null : PROJECT_TEMPLATES[templateId];
       const emoji = template ? template.emoji : selectedEmoji;
-      const descWithEmoji = `${cleanProjectDescription(description)}\n<!--emoji:${emoji}-->`.trim();
+
+      const leadMember = members.find((m: any) => (m.userId || m.user?.id) === selectedLeadId);
+      const leadName = leadMember?.user?.name || leadMember?.name || user?.name || 'Lead';
+
+      const meta: ProjectMetadata = {
+        emoji,
+        leadId: selectedLeadId || user?.id,
+        leadName,
+        memberIds: selectedMemberIds.length > 0 ? selectedMemberIds : [user?.id || ''],
+        priority,
+        targetDate: targetDate || undefined,
+        status: 'ACTIVE',
+        spaceName: template ? template.spaceName : 'FlowTask Space',
+      };
+
+      const finalDescription = serializeProjectDescription(description.trim(), meta);
 
       const projectResult = await apiClient.createProject(workspaceId, {
         name: name.trim(),
-        description: descWithEmoji || undefined,
+        description: finalDescription,
         color,
       });
+
       if (projectResult.error || !projectResult.data?.id) {
-        throw new Error(projectResult.error || 'Could not create the project.');
+        throw new Error(projectResult.error || 'Could not create project.');
       }
 
       if (template) {
@@ -182,9 +299,11 @@ export function ProjectsView({
             title: item.title,
             status: item.status,
             priority: item.priority as any,
+            assigneeId: selectedLeadId || user?.id,
           });
         }
       }
+
       return projectResult.data;
     },
     onSuccess: (project: any) => {
@@ -196,6 +315,8 @@ export function ProjectsView({
       setName('');
       setDescription('');
       setSelectedEmoji('🎯');
+      setSelectedMemberIds([]);
+      setTargetDate('');
       setTemplateId('blank');
       setIsCreating(false);
       onSelectProject(project.id);
@@ -215,13 +336,21 @@ export function ProjectsView({
       const upcoming = projectTasks
         .filter((task: any) => task.dueDate && task.status !== 'DONE')
         .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-      const emoji = getProjectEmoji(project.name, project.description);
-      return { project, projectTasks, completed, blocked, state, upcoming, emoji };
+
+      const meta = parseProjectMetadata(project.description, project.name);
+      return { project, projectTasks, completed, blocked, state, upcoming, meta };
     });
   }, [projects, tasks]);
 
   const filteredProjects = projectRows.filter((row: any) => {
-    if (filter !== 'ALL' && row.state !== filter) return false;
+    if (filter === 'ASSIGNED_TO_ME') {
+      const isLead = row.meta.leadId === user?.id;
+      const isMember = (row.meta.memberIds || []).includes(user?.id);
+      if (!isLead && !isMember) return false;
+    } else if (filter !== 'ALL' && row.state !== filter) {
+      return false;
+    }
+
     return (
       !search.trim() ||
       `${row.project.name} ${row.project.description || ''}`.toLowerCase().includes(search.toLowerCase())
@@ -250,7 +379,8 @@ export function ProjectsView({
         blocked={inboxBlocked}
         state="ACTIVE"
         upcoming={inboxUpcoming}
-        emoji="📥"
+        meta={{ emoji: '📥', spaceName: 'Inbox Space' }}
+        members={members}
         isInbox
         onBack={() => onSelectProject(null)}
         onSelectTask={onSelectTask}
@@ -264,6 +394,7 @@ export function ProjectsView({
     return (
       <ProjectWorkspace
         {...selectedProject}
+        members={members}
         onBack={() => onSelectProject(null)}
         onSelectTask={onSelectTask}
         onOpenCreate={onOpenCreate}
@@ -278,13 +409,13 @@ export function ProjectsView({
       <div className="flex items-center justify-between px-1">
         <div>
           <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <span>Projects</span>
+            <span>Projects & Roadmaps</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
               {projects.length}
             </span>
           </h2>
           <p className="text-xs text-slate-400 font-medium">
-            Notion-style workspace databases & roadmaps
+            Notion pages & ClickUp-powered team workflows
           </p>
         </div>
         <button
@@ -300,7 +431,7 @@ export function ProjectsView({
         </button>
       </div>
 
-      {/* Create Project Sheet / Modal */}
+      {/* Create Project Modal (Notion + ClickUp Hybrid) */}
       {isCreating && (
         <div
           className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm"
@@ -313,14 +444,15 @@ export function ProjectsView({
               event.preventDefault();
               createProjectMutation.mutate();
             }}
-            className="w-full max-w-md rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/80 dark:border-slate-800 p-5 space-y-4 animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto no-scrollbar rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200/80 dark:border-slate-800 p-5 space-y-4 animate-in slide-in-from-bottom duration-200"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                  Workspace
-                </p>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">New Notion Project</h3>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  <Zap className="w-3 h-3" />
+                  Notion & ClickUp Workspace
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Create Project</h3>
               </div>
               <button
                 type="button"
@@ -333,7 +465,7 @@ export function ProjectsView({
 
             {/* Template Selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Start from template</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Choose template</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -348,8 +480,9 @@ export function ProjectsView({
                   }`}
                 >
                   <span className="text-sm">🎯 Blank Project</span>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Start fresh with empty database</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Custom database</p>
                 </button>
+
                 {(Object.entries(PROJECT_TEMPLATES) as [keyof typeof PROJECT_TEMPLATES, any][]).map(([key, t]) => (
                   <button
                     key={key}
@@ -359,6 +492,7 @@ export function ProjectsView({
                       setName(t.label);
                       setDescription(t.description);
                       setSelectedEmoji(t.emoji);
+                      setPriority(t.priority);
                     }}
                     className={`p-2.5 rounded-xl border text-left transition-all ${
                       templateId === key
@@ -367,21 +501,19 @@ export function ProjectsView({
                     }`}
                   >
                     <span className="text-sm">{t.emoji} {t.label}</span>
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{t.tasks.length} starter tasks</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{t.tasks.length} starter issues</p>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Emoji & Name */}
+            {/* Emoji & Project Name */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Project icon & name</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Icon & Project Name</label>
               <div className="flex gap-2">
-                <div className="relative group">
-                  <span className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl cursor-pointer border border-slate-200 dark:border-slate-700">
-                    {selectedEmoji}
-                  </span>
-                </div>
+                <span className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0 border border-slate-200 dark:border-slate-700">
+                  {selectedEmoji}
+                </span>
                 <input
                   type="text"
                   placeholder="e.g. Mobile App Redesign"
@@ -411,9 +543,111 @@ export function ProjectsView({
               </div>
             </div>
 
-            {/* Description / Goal */}
+            {/* Project Lead Assignment */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Project goal & brief</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-500" />
+                <span>Project Lead (Owner)</span>
+              </label>
+              <select
+                value={selectedLeadId}
+                onChange={(e) => setSelectedLeadId(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white font-semibold"
+              >
+                {members.map((m: any) => {
+                  const mId = m.userId || m.user?.id || m.id;
+                  const mName = m.user?.name || m.name || m.user?.username || 'Member';
+                  return (
+                    <option key={mId} value={mId}>
+                      {mName} ({m.role || 'MEMBER'})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Assigned Team Members Multi-Select */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Assign Team Members</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  {selectedMemberIds.length} assigned
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto no-scrollbar p-1 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                {members.map((m: any) => {
+                  const mId = m.userId || m.user?.id || m.id;
+                  const mName = m.user?.name || m.name || 'Member';
+                  const isSelected = selectedMemberIds.includes(mId);
+
+                  return (
+                    <button
+                      key={mId}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        if (isSelected) {
+                          setSelectedMemberIds((prev) => prev.filter((id) => id !== mId));
+                        } else {
+                          setSelectedMemberIds((prev) => [...prev, mId]);
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 text-[9px] font-extrabold flex items-center justify-center">
+                        {mName.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span>{mName}</span>
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ClickUp Priority & Target Due Date */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Flag className="w-3 h-3 text-rose-500" />
+                  <span>Priority</span>
+                </label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-slate-900 dark:text-white"
+                >
+                  <option value="URGENT">🔴 Urgent</option>
+                  <option value="HIGH">🟠 High</option>
+                  <option value="MEDIUM">🔵 Normal</option>
+                  <option value="LOW">⚪ Low</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-blue-500" />
+                  <span>Target Date</span>
+                </label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Description / Scope Brief */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Project Brief & Goals</label>
               <textarea
                 placeholder="What is the shared outcome this project is delivering?"
                 value={description}
@@ -425,7 +659,7 @@ export function ProjectsView({
 
             {/* Color Accent */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Accent color</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Theme Color</label>
               <div className="flex gap-2">
                 {colorPalette.map((swatch) => (
                   <button
@@ -468,30 +702,39 @@ export function ProjectsView({
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search projects..."
+          placeholder="Search projects, leads, or goals..."
           className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-9 pr-4 py-2 text-xs outline-none focus:border-blue-500 text-slate-900 dark:text-white"
         />
       </div>
 
       {/* Filter Tabs */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-        {(['ALL', 'ACTIVE', 'PLANNED', 'COMPLETED'] as ProjectFilter[]).map((value) => (
+        {[
+          ['ALL', 'All Projects'],
+          ['ASSIGNED_TO_ME', 'Assigned to Me'],
+          ['ACTIVE', 'In Progress'],
+          ['PLANNED', 'Planned'],
+          ['COMPLETED', 'Completed'],
+        ].map(([val, label]) => (
           <button
-            key={value}
+            key={val}
             type="button"
-            onClick={() => setFilter(value)}
+            onClick={() => {
+              triggerHaptic('light');
+              setFilter(val as ProjectFilter);
+            }}
             className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
-              filter === value
+              filter === val
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
-            {value === 'ALL' ? 'All projects' : value[0] + value.slice(1).toLowerCase()}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Notion-style Inbox Card */}
+      {/* Notion & ClickUp Workspace Inbox Card */}
       <button
         type="button"
         onClick={() => onSelectProject(INBOX_PROJECT_ID)}
@@ -516,21 +759,25 @@ export function ProjectsView({
         </span>
       </button>
 
-      {/* Projects List / Grid */}
+      {/* Projects Gallery */}
       {isLoading ? (
         <div className="py-8 text-center text-xs text-slate-400 animate-pulse">Loading projects…</div>
       ) : filteredProjects.length === 0 ? (
         <div className="py-10 text-center bg-white dark:bg-slate-900/60 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
           <Folder className="w-8 h-8 text-slate-300 mx-auto" />
           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No projects found</p>
-          <p className="text-[11px] text-slate-400">Create your first Notion project to organize your team.</p>
+          <p className="text-[11px] text-slate-400">Create a project and assign it to your team.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming, emoji }: any) => {
+          {filteredProjects.map(({ project, projectTasks, completed, blocked, state, upcoming, meta }: any) => {
             const count = projectTasks.length;
             const progress = count ? Math.round((completed / count) * 100) : 0;
             const cleanDesc = cleanProjectDescription(project.description);
+
+            // Find lead & member details
+            const leadMember = members.find((m: any) => (m.userId || m.user?.id) === meta.leadId);
+            const leadName = leadMember?.user?.name || meta.leadName || 'Lead';
 
             return (
               <article
@@ -550,14 +797,31 @@ export function ProjectsView({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     <span className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
-                      {emoji}
+                      {meta.emoji || '🎯'}
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
                           {project.name}
                         </h3>
+
+                        {/* ClickUp Priority Flag */}
+                        {meta.priority && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold inline-flex items-center gap-0.5 ${
+                              meta.priority === 'URGENT'
+                                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200'
+                                : meta.priority === 'HIGH'
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200'
+                                : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                            }`}
+                          >
+                            <Flag className="w-2.5 h-2.5" />
+                            {meta.priority}
+                          </span>
+                        )}
                       </div>
+
                       {cleanDesc && (
                         <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                           {cleanDesc}
@@ -584,8 +848,47 @@ export function ProjectsView({
                   </span>
                 </div>
 
+                {/* Team & Lead Assignment Row */}
+                <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold shrink-0">
+                      <Crown className="w-2.5 h-2.5 text-amber-600" />
+                      <span>{leadName}</span>
+                    </span>
+
+                    {/* Assigned Members avatars stack */}
+                    {meta.memberIds && meta.memberIds.length > 0 && (
+                      <div className="flex items-center -space-x-1 overflow-hidden">
+                        {meta.memberIds.slice(0, 3).map((mId: string, idx: number) => {
+                          const mInfo = members.find((m: any) => (m.userId || m.user?.id) === mId);
+                          const initials = (mInfo?.user?.name || mInfo?.name || 'M').slice(0, 2).toUpperCase();
+                          return (
+                            <div
+                              key={mId || idx}
+                              className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border border-white dark:border-slate-900 text-[8px] font-extrabold flex items-center justify-center shrink-0"
+                            >
+                              {initials}
+                            </div>
+                          );
+                        })}
+                        {meta.memberIds.length > 3 && (
+                          <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-white dark:border-slate-900 text-[8px] font-bold flex items-center justify-center shrink-0">
+                            +{meta.memberIds.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {meta.spaceName && (
+                    <span className="text-slate-400 font-semibold truncate max-w-[120px]">
+                      {meta.spaceName}
+                    </span>
+                  )}
+                </div>
+
                 {/* Progress Bar & Stats */}
-                <div className="mt-3.5 space-y-1.5">
+                <div className="mt-2.5 space-y-1.5">
                   <div className="flex justify-between text-[10px] font-semibold text-slate-500">
                     <span>Database items</span>
                     <span>
@@ -624,7 +927,7 @@ export function ProjectsView({
 }
 
 /* =========================================================================================
- * NOTION-STYLE PROJECT WORKSPACE
+ * NOTION + CLICKUP HYBRID PROJECT WORKSPACE
  * ========================================================================================= */
 function ProjectWorkspace({
   project,
@@ -633,7 +936,8 @@ function ProjectWorkspace({
   blocked,
   state,
   upcoming,
-  emoji,
+  meta = {},
+  members = [],
   onBack,
   onSelectTask,
   onOpenCreate,
@@ -649,8 +953,14 @@ function ProjectWorkspace({
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [inlineTaskInput, setInlineTaskInput] = useState('');
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isClickUpSyncOpen, setIsClickUpSyncOpen] = useState(false);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
-  // Complete Task Mutation
+  // Collapsible Status Groups in Table View (ClickUp Style)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Mutations
   const completeMutation = useMutation({
     mutationFn: async (taskId: string) => {
       if (!workspaceId) throw new Error('No workspace');
@@ -664,14 +974,10 @@ function ProjectWorkspace({
     },
   });
 
-  // Cycle Status Mutation
-  const cycleStatusMutation = useMutation({
-    mutationFn: async ({ taskId, currentStatus }: { taskId: string; currentStatus: string }) => {
+  const updateTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
       if (!workspaceId) throw new Error('No workspace');
-      const order = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
-      const nextIdx = (order.indexOf(currentStatus) + 1) % order.length;
-      const nextStatus = order[nextIdx] || 'TODO';
-      return apiClient.updateTask(taskId, workspaceId, { status: nextStatus });
+      return apiClient.updateTask(taskId, workspaceId, { status });
     },
     onSuccess: () => {
       triggerHaptic('light');
@@ -681,7 +987,6 @@ function ProjectWorkspace({
     },
   });
 
-  // Quick Create Task Mutation (Inline)
   const quickCreateTaskMutation = useMutation({
     mutationFn: async ({ title, status = 'TODO' }: { title: string; status?: string }) => {
       if (!workspaceId || !title.trim()) return;
@@ -691,6 +996,7 @@ function ProjectWorkspace({
         title: title.trim(),
         status,
         priority: 'MEDIUM',
+        assigneeId: meta.leadId || user?.id,
       });
     },
     onSuccess: () => {
@@ -699,6 +1005,21 @@ function ProjectWorkspace({
       queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
       setInlineTaskInput('');
+    },
+  });
+
+  // Update Project Members / Lead
+  const updateProjectMetaMutation = useMutation({
+    mutationFn: async (newMeta: Partial<ProjectMetadata>) => {
+      if (!workspaceId || isInbox) return;
+      const merged: ProjectMetadata = { ...meta, ...newMeta };
+      const newDesc = serializeProjectDescription(project.description || '', merged);
+      return apiClient.updateProject(project.id, workspaceId, { description: newDesc });
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      setIsAssignModalOpen(false);
     },
   });
 
@@ -726,20 +1047,80 @@ function ProjectWorkspace({
   }, [visibleTasks, statusFilter, search]);
 
   const progress = projectTasks.length ? Math.round((completed / projectTasks.length) * 100) : 0;
-  const projectEmoji = emoji || getProjectEmoji(project.name, project.description);
+  const projectEmoji = meta.emoji || getProjectEmoji(project.name, project.description);
   const cleanDesc = cleanProjectDescription(project.description);
+
+  // Group tasks by status for ClickUp-style table sections
+  const tasksByStatus = useMemo(() => {
+    const groups: Record<string, any[]> = {
+      TODO: [],
+      IN_PROGRESS: [],
+      IN_REVIEW: [],
+      DONE: [],
+    };
+    for (const t of filteredTasks) {
+      if (t.status === 'BACKLOG' || t.status === 'TODO') {
+        groups.TODO.push(t);
+      } else if (t.status === 'IN_PROGRESS') {
+        groups.IN_PROGRESS.push(t);
+      } else if (t.status === 'IN_REVIEW') {
+        groups.IN_REVIEW.push(t);
+      } else if (t.status === 'DONE') {
+        groups.DONE.push(t);
+      } else {
+        groups.TODO.push(t);
+      }
+    }
+    return groups;
+  }, [filteredTasks]);
+
+  const leadMember = members.find((m: any) => (m.userId || m.user?.id) === meta.leadId);
+  const leadName = leadMember?.user?.name || meta.leadName || 'Team Lead';
 
   return (
     <div className="space-y-4 pb-28 animate-in fade-in font-sans">
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>All projects</span>
-      </button>
+      {/* Top Navigation Row */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>All projects</span>
+        </button>
+
+        {/* Action Pills */}
+        <div className="flex items-center gap-1.5">
+          {!isInbox && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsAiModalOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800 flex items-center gap-1 hover:bg-violet-100 transition-all active:scale-95 shadow-2xs"
+              >
+                <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                <span>AI Planner</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsClickUpSyncOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1 hover:bg-slate-200 transition-all active:scale-95 shadow-2xs"
+              >
+                <Zap className="w-3 h-3 text-violet-500" />
+                <span>ClickUp</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Notion Page Cover & Header */}
       <section className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
@@ -752,23 +1133,36 @@ function ProjectWorkspace({
         />
 
         <div className="p-4 pt-0 relative">
-          {/* Floating Emoji Icon */}
+          {/* Floating Emoji Icon & Actions */}
           <div className="-mt-8 mb-2 flex items-center justify-between">
             <span className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border-4 border-white dark:border-slate-900 shadow-md flex items-center justify-center text-3xl shrink-0">
               {projectEmoji}
             </span>
 
-            <button
-              type="button"
-              onClick={() => onOpenCreate(isInbox ? undefined : project.id)}
-              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>{isInbox ? 'Capture task' : 'New task'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {!isInbox && (
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                >
+                  <Users className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Assign Team</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onOpenCreate(isInbox ? undefined : project.id)}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>{isInbox ? 'Capture task' : 'New task'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Project Title & Status */}
+          {/* Project Title & Badges */}
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{project.name}</h1>
@@ -783,6 +1177,13 @@ function ProjectWorkspace({
               >
                 {state === 'COMPLETED' ? 'Completed' : state === 'ACTIVE' ? 'In progress' : 'Planned'}
               </span>
+
+              {meta.priority && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 flex items-center gap-1">
+                  <Flag className="w-2.5 h-2.5" />
+                  {meta.priority}
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-slate-500 whitespace-pre-wrap leading-relaxed">
@@ -790,22 +1191,35 @@ function ProjectWorkspace({
             </p>
           </div>
 
-          {/* Notion Properties Bar */}
-          <div className="grid grid-cols-3 gap-2 border-t border-slate-100 dark:border-slate-800 mt-4 pt-3 text-[11px]">
+          {/* ClickUp + Notion Properties Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-100 dark:border-slate-800 mt-4 pt-3 text-[11px]">
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Progress</span>
-              <span className="font-extrabold text-slate-900 dark:text-white">{progress}%</span>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Tasks</span>
-              <span className="font-extrabold text-slate-900 dark:text-white">
-                {completed}/{projectTasks.length} done
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Lead</span>
+              <span className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1 truncate mt-0.5">
+                <Crown className="w-3 h-3 text-amber-500 shrink-0" />
+                <span className="truncate">{leadName}</span>
               </span>
             </div>
+
             <div>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Blocked</span>
-              <span className={`font-extrabold ${blocked ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}>
-                {blocked} blocked
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Team</span>
+              <span className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1 mt-0.5">
+                <Users className="w-3 h-3 text-blue-500 shrink-0" />
+                <span>{meta.memberIds?.length || 1} members</span>
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Progress</span>
+              <span className="font-extrabold text-slate-900 dark:text-white mt-0.5 block">
+                {completed}/{projectTasks.length} ({progress}%)
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Target Due</span>
+              <span className="font-extrabold text-slate-900 dark:text-white mt-0.5 block truncate">
+                {meta.targetDate ? new Date(meta.targetDate).toLocaleDateString() : 'Continuous'}
               </span>
             </div>
           </div>
@@ -889,13 +1303,13 @@ function ProjectWorkspace({
         </div>
 
         <span className="text-xs font-bold text-slate-400 shrink-0">
-          {projectTasks.length} {projectTasks.length === 1 ? 'item' : 'items'}
+          {projectTasks.length} {projectTasks.length === 1 ? 'task' : 'tasks'}
         </span>
       </div>
 
-      {/* 1. NOTION TABLE VIEW */}
+      {/* 1. NOTION + CLICKUP HYBRID TABLE VIEW */}
       {activeView === 'TABLE' && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {/* Quick Filters & Search */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -903,7 +1317,7 @@ function ProjectWorkspace({
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter table..."
+                placeholder="Filter tasks..."
                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs outline-none focus:border-blue-500"
               />
             </div>
@@ -913,7 +1327,7 @@ function ProjectWorkspace({
               onChange={(e) => setStatusFilter(e.target.value)}
               className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-600 dark:text-slate-300 outline-none"
             >
-              <option value="ALL">All Status</option>
+              <option value="ALL">All Statuses</option>
               <option value="TODO">To Do</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="IN_REVIEW">In Review</option>
@@ -921,135 +1335,184 @@ function ProjectWorkspace({
             </select>
           </div>
 
-          {/* Table Container */}
-          <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
-            {/* Table Header */}
-            <div className="grid grid-cols-12 gap-2 p-3 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-              <div className="col-span-6 sm:col-span-5">Task Name</div>
-              <div className="col-span-3 sm:col-span-3">Status</div>
-              <div className="col-span-3 sm:col-span-2">Priority</div>
-              <div className="hidden sm:block sm:col-span-2">Due</div>
-            </div>
+          {/* ClickUp Style Status Groups */}
+          {[
+            { key: 'TODO', label: 'TO DO', color: '#64748b', bg: 'bg-slate-100 dark:bg-slate-800' },
+            { key: 'IN_PROGRESS', label: 'IN PROGRESS', color: '#2563eb', bg: 'bg-blue-50 dark:bg-blue-950/40' },
+            { key: 'IN_REVIEW', label: 'IN REVIEW', color: '#d97706', bg: 'bg-amber-50 dark:bg-amber-950/40' },
+            { key: 'DONE', label: 'DONE', color: '#10b981', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+          ].map((group) => {
+            const groupTasks = tasksByStatus[group.key] || [];
+            const isCollapsed = Boolean(collapsedGroups[group.key]);
 
-            {/* Table Rows */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filteredTasks.map((task: any) => {
-                const isDone = task.status === 'DONE';
-                return (
-                  <div
-                    key={task.id}
-                    onClick={() => onSelectTask(task.id)}
-                    className="grid grid-cols-12 gap-2 p-3 items-center hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
-                  >
-                    {/* Name + Checkbox */}
-                    <div className="col-span-6 sm:col-span-5 flex items-center gap-2 min-w-0">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          completeMutation.mutate(task.id);
-                        }}
-                        className="shrink-0 text-slate-400 hover:text-emerald-500 transition-colors"
-                      >
-                        {isDone ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
-                        ) : (
-                          <Circle className="w-4 h-4" />
-                        )}
-                      </button>
-                      <span
-                        className={`text-xs font-semibold truncate ${
-                          isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
-                        }`}
-                      >
-                        {task.title}
-                      </span>
-                    </div>
-
-                    {/* Status Pill (Clickable cycle) */}
-                    <div className="col-span-3 sm:col-span-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cycleStatusMutation.mutate({ taskId: task.id, currentStatus: task.status });
-                        }}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 ${
-                          task.status === 'DONE'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                            : task.status === 'IN_PROGRESS'
-                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
-                            : task.status === 'IN_REVIEW'
-                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                        }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        <span>{task.status.replace('_', ' ')}</span>
-                      </button>
-                    </div>
-
-                    {/* Priority Tag */}
-                    <div className="col-span-3 sm:col-span-2">
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          task.priority === 'URGENT'
-                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
-                            : task.priority === 'HIGH'
-                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-                            : task.priority === 'MEDIUM'
-                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {task.priority}
-                      </span>
-                    </div>
-
-                    {/* Due Date */}
-                    <div className="hidden sm:block sm:col-span-2 text-[10px] text-slate-400">
-                      {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '—'}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {filteredTasks.length === 0 && (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  No tasks match this filter. Add one below!
-                </div>
-              )}
-            </div>
-
-            {/* Signature Notion Table: Inline + New Row */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (inlineTaskInput.trim()) {
-                  quickCreateTaskMutation.mutate({ title: inlineTaskInput.trim() });
-                }
-              }}
-              className="flex items-center gap-2 p-3 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800"
-            >
-              <Plus className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="+ Add task... (Press Enter)"
-                value={inlineTaskInput}
-                onChange={(e) => setInlineTaskInput(e.target.value)}
-                className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
-              />
-              {inlineTaskInput.trim() && (
-                <button
-                  type="submit"
-                  disabled={quickCreateTaskMutation.isPending}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 shrink-0 shadow-xs"
+            return (
+              <div
+                key={group.key}
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs"
+              >
+                {/* Group Header (ClickUp style) */}
+                <div
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }));
+                  }}
+                  className="flex items-center justify-between p-2.5 bg-slate-50/70 dark:bg-slate-800/50 cursor-pointer select-none border-b border-slate-100 dark:border-slate-800"
                 >
-                  Add
-                </button>
-              )}
-            </form>
-          </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="text-slate-400">
+                      {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    <span
+                      className="px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase text-white shadow-2xs"
+                      style={{ backgroundColor: group.color }}
+                    >
+                      {group.label}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-400">({groupTasks.length})</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenCreate(project.id);
+                    }}
+                    className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-200/50 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Group Rows */}
+                {!isCollapsed && (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {groupTasks.map((task: any) => {
+                      const isDone = task.status === 'DONE';
+                      const primaryAssignee = task.assignees?.[0] || task.assignee;
+
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => onSelectTask(task.id)}
+                          className="grid grid-cols-12 gap-2 p-3 items-center hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+                        >
+                          {/* Title + Checkbox */}
+                          <div className="col-span-6 sm:col-span-5 flex items-center gap-2 min-w-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                completeMutation.mutate(task.id);
+                              }}
+                              className="shrink-0 text-slate-400 hover:text-emerald-500 transition-colors"
+                            >
+                              {isDone ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
+                              ) : (
+                                <Circle className="w-4 h-4" />
+                              )}
+                            </button>
+                            <span
+                              className={`text-xs font-semibold truncate ${
+                                isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {task.title}
+                            </span>
+                          </div>
+
+                          {/* ClickUp Status Pill Selector */}
+                          <div className="col-span-3 sm:col-span-3" onClick={(e) => e.stopPropagation()}>
+                            <select
+                              value={task.status}
+                              onChange={(e) => updateTaskStatusMutation.mutate({ taskId: task.id, status: e.target.value })}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md outline-none cursor-pointer border ${
+                                task.status === 'DONE'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                  : task.status === 'IN_PROGRESS'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                                  : task.status === 'IN_REVIEW'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                              }`}
+                            >
+                              <option value="TODO">To Do</option>
+                              <option value="IN_PROGRESS">In Progress</option>
+                              <option value="IN_REVIEW">In Review</option>
+                              <option value="DONE">Done</option>
+                            </select>
+                          </div>
+
+                          {/* Priority Flag */}
+                          <div className="col-span-3 sm:col-span-2">
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 ${
+                                task.priority === 'URGENT'
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                                  : task.priority === 'HIGH'
+                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                                  : task.priority === 'MEDIUM'
+                                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              <Flag className="w-2.5 h-2.5" />
+                              {task.priority}
+                            </span>
+                          </div>
+
+                          {/* Assignee Avatar */}
+                          <div className="hidden sm:flex sm:col-span-2 items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                            {primaryAssignee ? (
+                              <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[8px] font-extrabold flex items-center justify-center shrink-0">
+                                {(primaryAssignee.name || 'U').slice(0, 2).toUpperCase()}
+                              </div>
+                            ) : null}
+                            <span className="truncate">{primaryAssignee?.name || 'Unassigned'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {groupTasks.length === 0 && (
+                      <div className="p-3 text-center text-[11px] text-slate-400 font-medium">
+                        No {group.label.toLowerCase()} tasks
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Signature Notion Table: Inline + Add Task Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (inlineTaskInput.trim()) {
+                quickCreateTaskMutation.mutate({ title: inlineTaskInput.trim() });
+              }
+            }}
+            className="flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs"
+          >
+            <Plus className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="+ Add new task to this project... (Press Enter)"
+              value={inlineTaskInput}
+              onChange={(e) => setInlineTaskInput(e.target.value)}
+              className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
+            />
+            {inlineTaskInput.trim() && (
+              <button
+                type="submit"
+                disabled={quickCreateTaskMutation.isPending}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 shrink-0 shadow-xs"
+              >
+                Add
+              </button>
+            )}
+          </form>
         </div>
       )}
 
@@ -1089,18 +1552,76 @@ function ProjectWorkspace({
       {activeView === 'OVERVIEW' && (
         <section className="space-y-4">
           <div className="p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                <FileText className="w-4 h-4" />
-              </span>
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Project Specification</h3>
-                <p className="text-[11px] text-slate-400">Goals, deliverables, and team alignment</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                  <FileText className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Project Specification & Team</h3>
+                  <p className="text-[11px] text-slate-400">Goals, ownership, and key deliverables</p>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(true)}
+                className="px-2.5 py-1 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950 dark:text-blue-400"
+              >
+                Edit Team
+              </button>
             </div>
 
+            {/* Scope Brief */}
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
               {cleanDesc || 'No project description added yet. Edit project properties to add a scope brief.'}
+            </div>
+
+            {/* Team Roles Section */}
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-blue-500" />
+                <span>Assigned Project Team</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Lead Card */}
+                <div className="p-3 rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="p-1.5 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                      <Crown className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{leadName}</p>
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">Project Lead</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Members */}
+                {(meta.memberIds || []).map((mId: string) => {
+                  const mInfo = members.find((m: any) => (m.userId || m.user?.id) === mId);
+                  const mName = mInfo?.user?.name || mInfo?.name || 'Teammate';
+                  const role = mInfo?.role || 'MEMBER';
+
+                  return (
+                    <div
+                      key={mId}
+                      className="p-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                          {mName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{mName}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Key Deliverables Status */}
@@ -1109,7 +1630,7 @@ function ProjectWorkspace({
                 Key Deliverables ({projectTasks.length})
               </h4>
               <div className="space-y-1.5">
-                {projectTasks.slice(0, 6).map((t: any) => (
+                {projectTasks.slice(0, 8).map((t: any) => (
                   <div
                     key={t.id}
                     onClick={() => onSelectTask(t.id)}
@@ -1135,6 +1656,123 @@ function ProjectWorkspace({
           </div>
         </section>
       )}
+
+      {/* Team Assignment Modal */}
+      {isAssignModalOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAssignModalOpen(false);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-t-[28px] sm:rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Assign Project Team</h3>
+                <p className="text-[11px] text-slate-500">Select project lead and team contributors</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Select Lead */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Crown className="w-3.5 h-3.5 text-amber-500" />
+                <span>Project Lead</span>
+              </label>
+              <select
+                value={meta.leadId || user?.id}
+                onChange={(e) => {
+                  const newLeadId = e.target.value;
+                  const newLead = members.find((m: any) => (m.userId || m.user?.id) === newLeadId);
+                  updateProjectMetaMutation.mutate({
+                    leadId: newLeadId,
+                    leadName: newLead?.user?.name || newLead?.name || 'Lead',
+                  });
+                }}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-semibold text-slate-900 dark:text-white"
+              >
+                {members.map((m: any) => {
+                  const mId = m.userId || m.user?.id || m.id;
+                  const mName = m.user?.name || m.name || 'Member';
+                  return (
+                    <option key={mId} value={mId}>
+                      {mName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Toggle Team Members */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-blue-500" />
+                <span>Assigned Contributors</span>
+              </label>
+              <div className="space-y-1 max-h-48 overflow-y-auto no-scrollbar p-1">
+                {members.map((m: any) => {
+                  const mId = m.userId || m.user?.id || m.id;
+                  const mName = m.user?.name || m.name || 'Member';
+                  const isAssigned = (meta.memberIds || []).includes(mId);
+
+                  return (
+                    <button
+                      key={mId}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        const nextIds = isAssigned
+                          ? (meta.memberIds || []).filter((id: string) => id !== mId)
+                          : [...(meta.memberIds || []), mId];
+                        updateProjectMetaMutation.mutate({ memberIds: nextIds });
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-bold transition-all ${
+                        isAssigned
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[9px] font-extrabold flex items-center justify-center">
+                          {mName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span>{mName}</span>
+                      </div>
+                      {isAssigned && <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAssignModalOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-extrabold text-xs"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Global Modals for AI and ClickUp */}
+      <AiProjectManagerModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+      />
+
+      <ClickUpSyncModal
+        isOpen={isClickUpSyncOpen}
+        onClose={() => setIsClickUpSyncOpen(false)}
+      />
     </div>
   );
 }
