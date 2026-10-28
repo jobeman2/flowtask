@@ -7,10 +7,8 @@ import { useAuth } from '../../../providers/telegram-provider';
 import { useTelegram } from '../../../hooks/use-telegram';
 import {
   ArrowLeft,
-  ArrowRight,
   CalendarDays,
   CheckCircle2,
-  CircleDot,
   Folder,
   Inbox as InboxIcon,
   LayoutGrid,
@@ -19,17 +17,13 @@ import {
   Search,
   X,
   Circle,
-  Clock,
-  Calendar,
   Table as TableIcon,
   FileText,
-  Users,
   ChevronDown,
   ChevronRight,
   Check,
   User,
 } from 'lucide-react';
-import { TaskCard } from '../../tasks/components/task-card';
 import { KanbanView } from '../../tasks/components/kanban-view';
 
 interface ProjectsViewProps {
@@ -605,7 +599,6 @@ function ProjectWorkspace({
   project,
   projectTasks,
   completed,
-  state,
   meta = {},
   members = [],
   onBack,
@@ -617,10 +610,17 @@ function ProjectWorkspace({
   const { triggerHaptic } = useTelegram();
   const queryClient = useQueryClient();
 
-  const [activeView, setActiveView] = useState<'LIST' | 'BOARD' | 'DOCS'>('LIST');
+  const [activeView, setActiveView] = useState<'TABLE' | 'LIST' | 'BOARD' | 'DOCS'>('LIST');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [inlineTaskInput, setInlineTaskInput] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editLeadId, setEditLeadId] = useState('');
+  const [editMemberIds, setEditMemberIds] = useState<string[]>([]);
+  const [editTargetDate, setEditTargetDate] = useState('');
 
   // Mutations
   const completeMutation = useMutation({
@@ -639,13 +639,57 @@ function ProjectWorkspace({
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
       if (!workspaceId) throw new Error('No workspace');
-      return apiClient.updateTask(taskId, workspaceId, { status });
+      const result = await apiClient.updateTask(taskId, workspaceId, { status });
+      if (result.error) throw new Error(result.error);
+      return result.data;
     },
     onSuccess: () => {
       triggerHaptic('light');
       queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
       queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+
+  const updateTaskPriorityMutation = useMutation({
+    mutationFn: async ({ taskId, priority }: { taskId: string; priority: string }) => {
+      if (!workspaceId) throw new Error('No workspace');
+      const result = await apiClient.updateTask(taskId, workspaceId, { priority });
+      if (result.error) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('light');
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['project-issues-summary', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['task-stats', workspaceId] });
+    },
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspaceId || isInbox) throw new Error('Project editing is unavailable.');
+      if (!editName.trim()) throw new Error('Add a project name first.');
+
+      const leadMember = members.find((m: any) => (m.userId || m.user?.id || m.id) === editLeadId);
+      const nextMeta: ProjectMetadata = {
+        ...meta,
+        leadId: editLeadId || undefined,
+        leadName: leadMember?.user?.name || leadMember?.name || user?.name || 'Team Lead',
+        memberIds: editMemberIds,
+        targetDate: editTargetDate || undefined,
+      };
+      const result = await apiClient.updateProject(project.id, workspaceId, {
+        name: editName.trim(),
+        description: serializeProjectDescription(editDescription.trim(), nextMeta),
+      });
+      if (result.error) throw new Error(result.error);
+      return result.data;
+    },
+    onSuccess: () => {
+      triggerHaptic('medium');
+      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      setIsEditingProject(false);
     },
   });
 
@@ -686,15 +730,15 @@ function ProjectWorkspace({
   // Group tasks by status (Only show groups that have tasks)
   const groupedTasks = useMemo(() => {
     const map: Record<string, any[]> = {
+      BACKLOG: [],
       TODO: [],
       IN_PROGRESS: [],
       IN_REVIEW: [],
       DONE: [],
+      CANCELLED: [],
     };
     for (const t of filteredTasks) {
-      if (t.status === 'DONE') map.DONE.push(t);
-      else if (t.status === 'IN_PROGRESS') map.IN_PROGRESS.push(t);
-      else if (t.status === 'IN_REVIEW') map.IN_REVIEW.push(t);
+      if (map[t.status]) map[t.status].push(t);
       else map.TODO.push(t);
     }
     return map;
@@ -754,9 +798,25 @@ function ProjectWorkspace({
         </div>
       </div>
 
-      {/* Views Switcher: List | Board | Docs */}
+      {/* Views Switcher: Table | List | Board | Overview */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('light');
+              setActiveView('TABLE');
+            }}
+            className={`flex shrink-0 items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeView === 'TABLE'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <TableIcon className="w-3.5 h-3.5" />
+            <span>Table</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -770,7 +830,7 @@ function ProjectWorkspace({
             }`}
           >
             <List className="w-3.5 h-3.5" />
-            <span>Tasks</span>
+            <span>List</span>
           </button>
 
           <button
@@ -811,7 +871,179 @@ function ProjectWorkspace({
         </span>
       </div>
 
-      {/* 1. CLEAN TASKS LIST (BLUE/SLATE THEME, NO EMPTY BOXES) */}
+      {/* 1. PROJECT TABLE: editable task status and priority properties */}
+      {activeView === 'TABLE' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search project tasks..."
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs outline-none focus:border-blue-500"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-600 dark:text-slate-300 outline-none"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="BACKLOG">Backlog</option>
+              <option value="TODO">To Do</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="DONE">Done</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+          {(updateTaskStatusMutation.error || updateTaskPriorityMutation.error) && (
+            <p role="alert" className="text-[11px] text-red-600 dark:text-red-400">
+              {(updateTaskStatusMutation.error || updateTaskPriorityMutation.error) instanceof Error
+                ? (updateTaskStatusMutation.error || updateTaskPriorityMutation.error)?.message
+                : 'Could not update task.'}
+            </p>
+          )}
+
+          {filteredTasks.length === 0 ? (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+              <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No tasks match this view</p>
+              <button
+                type="button"
+                onClick={() => onOpenCreate(isInbox ? undefined : project.id)}
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + Add a task
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { key: 'BACKLOG', label: 'Backlog', items: groupedTasks.BACKLOG },
+                { key: 'TODO', label: 'To Do', items: groupedTasks.TODO },
+                { key: 'IN_PROGRESS', label: 'In Progress', items: groupedTasks.IN_PROGRESS },
+                { key: 'IN_REVIEW', label: 'In Review', items: groupedTasks.IN_REVIEW },
+                { key: 'DONE', label: 'Completed', items: groupedTasks.DONE },
+                { key: 'CANCELLED', label: 'Cancelled', items: groupedTasks.CANCELLED },
+              ]
+                .filter((group) => group.items.length > 0)
+                .map((group) => {
+                  const isCollapsed = Boolean(collapsedGroups[group.key]);
+                  return (
+                    <section key={group.key} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedGroups((previous) => ({ ...previous, [group.key]: !previous[group.key] }))}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-left bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800"
+                      >
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{group.label}</span>
+                        <span className="text-[10px] font-semibold text-slate-400">{group.items.length}</span>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[620px]">
+                            <div className="grid grid-cols-[minmax(190px,1fr)_112px_104px_112px_100px] gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                              <span>Task</span><span>Status</span><span>Priority</span><span>Assignee</span><span>Due date</span>
+                            </div>
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                              {group.items.map((task: any) => {
+                                const assignee = task.assignees?.[0] || task.assignee;
+                                return (
+                                  <div
+                                    key={task.id}
+                                    onClick={() => onSelectTask(task.id)}
+                                    className="grid grid-cols-[minmax(190px,1fr)_112px_104px_112px_100px] gap-2 items-center px-3 py-2.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <button
+                                        type="button"
+                                        aria-label={task.status === 'DONE' ? 'Task completed' : 'Complete task'}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          completeMutation.mutate(task.id);
+                                        }}
+                                        className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors"
+                                      >
+                                        {task.status === 'DONE' ? <CheckCircle2 className="w-4 h-4 text-blue-600" /> : <Circle className="w-4 h-4" />}
+                                      </button>
+                                      <span className={`text-xs font-semibold truncate ${task.status === 'DONE' ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                                        {task.title}
+                                      </span>
+                                    </div>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <select
+                                        aria-label={`Status for ${task.title}`}
+                                        value={task.status}
+                                        onChange={(e) => updateTaskStatusMutation.mutate({ taskId: task.id, status: e.target.value })}
+                                        className="w-full text-[10px] font-bold px-1.5 py-1 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 outline-none"
+                                      >
+                                        <option value="BACKLOG">Backlog</option>
+                                        <option value="TODO">To Do</option>
+                                        <option value="IN_PROGRESS">In Progress</option>
+                                        <option value="IN_REVIEW">In Review</option>
+                                        <option value="DONE">Done</option>
+                                        <option value="CANCELLED">Cancelled</option>
+                                      </select>
+                                    </div>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <select
+                                        aria-label={`Priority for ${task.title}`}
+                                        value={task.priority || 'MEDIUM'}
+                                        onChange={(e) => updateTaskPriorityMutation.mutate({ taskId: task.id, priority: e.target.value })}
+                                        className="w-full text-[10px] font-bold px-1.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 outline-none"
+                                      >
+                                        <option value="URGENT">Urgent</option>
+                                        <option value="HIGH">High</option>
+                                        <option value="MEDIUM">Medium</option>
+                                        <option value="LOW">Low</option>
+                                        <option value="NONE">None</option>
+                                      </select>
+                                    </div>
+                                    <span className="text-[11px] text-slate-600 dark:text-slate-300 truncate" title={assignee?.name || 'Unassigned'}>
+                                      {assignee?.name || 'Unassigned'}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 truncate">
+                                      {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No date'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+            </div>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (inlineTaskInput.trim()) quickCreateTaskMutation.mutate({ title: inlineTaskInput.trim() });
+            }}
+            className="flex items-center gap-2 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl"
+          >
+            <Plus className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Add a task to this project..."
+              value={inlineTaskInput}
+              onChange={(e) => setInlineTaskInput(e.target.value)}
+              className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none font-medium"
+            />
+            {inlineTaskInput.trim() && (
+              <button type="submit" disabled={quickCreateTaskMutation.isPending} className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 shrink-0">
+                Add
+              </button>
+            )}
+          </form>
+        </div>
+      )}
+
+      {/* 2. CLEAN TASKS LIST (BLUE/SLATE THEME, NO EMPTY BOXES) */}
       {activeView === 'LIST' && (
         <div className="space-y-3">
           {/* Filter Bar */}
@@ -832,10 +1064,12 @@ function ProjectWorkspace({
               className="text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-600 dark:text-slate-300 outline-none"
             >
               <option value="ALL">All Statuses</option>
+              <option value="BACKLOG">Backlog</option>
               <option value="TODO">To Do</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="IN_REVIEW">In Review</option>
               <option value="DONE">Done</option>
+              <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
 
@@ -854,10 +1088,12 @@ function ProjectWorkspace({
           ) : (
             <div className="space-y-4">
               {[
+                { key: 'BACKLOG', label: 'Backlog', items: groupedTasks.BACKLOG },
                 { key: 'TODO', label: 'To Do', items: groupedTasks.TODO },
                 { key: 'IN_PROGRESS', label: 'In Progress', items: groupedTasks.IN_PROGRESS },
                 { key: 'IN_REVIEW', label: 'In Review', items: groupedTasks.IN_REVIEW },
                 { key: 'DONE', label: 'Completed', items: groupedTasks.DONE },
+                { key: 'CANCELLED', label: 'Cancelled', items: groupedTasks.CANCELLED },
               ]
                 .filter((group) => group.items.length > 0)
                 .map((group) => (
@@ -917,10 +1153,12 @@ function ProjectWorkspace({
                                 }
                                 className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 outline-none cursor-pointer"
                               >
+                                <option value="BACKLOG">Backlog</option>
                                 <option value="TODO">To Do</option>
                                 <option value="IN_PROGRESS">In Progress</option>
                                 <option value="IN_REVIEW">In Review</option>
                                 <option value="DONE">Done</option>
+                                <option value="CANCELLED">Cancelled</option>
                               </select>
 
                               {/* Assignee Avatar */}
@@ -973,7 +1211,7 @@ function ProjectWorkspace({
         </div>
       )}
 
-      {/* 2. BOARD VIEW (KANBAN) */}
+      {/* 3. BOARD VIEW (KANBAN) */}
       {activeView === 'BOARD' && (
         <KanbanView
           tasks={filteredTasks}
@@ -982,28 +1220,148 @@ function ProjectWorkspace({
         />
       )}
 
-      {/* 3. DOCS / OVERVIEW VIEW */}
+      {/* 4. DOCS / OVERVIEW VIEW */}
       {activeView === 'DOCS' && (
         <section className="space-y-3">
           <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              Project Brief
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {cleanDesc || 'No project description added yet.'}
-            </p>
-
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-                Project Ownership
-              </h4>
-              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                <User className="w-4 h-4 text-blue-600" />
-                <span>
-                  <strong>Lead:</strong> {leadName}
-                </span>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Project brief</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Goals, ownership, and target date</p>
               </div>
+              {!isInbox && !isEditingProject && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditName(project.name || '');
+                    setEditDescription(cleanDesc);
+                    setEditLeadId(meta.leadId || user?.id || '');
+                    setEditMemberIds(meta.memberIds || []);
+                    setEditTargetDate(meta.targetDate ? new Date(meta.targetDate).toISOString().slice(0, 10) : '');
+                    updateProjectMutation.reset();
+                    setIsEditingProject(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60"
+                >
+                  Edit details
+                </button>
+              )}
             </div>
+
+            {isEditingProject ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateProjectMutation.mutate();
+                }}
+                className="space-y-3 pt-1"
+              >
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Project name</span>
+                  <input
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    required
+                    maxLength={120}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Project brief</span>
+                  <textarea
+                    value={editDescription}
+                    onChange={(event) => setEditDescription(event.target.value)}
+                    rows={4}
+                    placeholder="What is this project delivering?"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-white resize-y"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Project lead</span>
+                    <select
+                      value={editLeadId}
+                      onChange={(event) => setEditLeadId(event.target.value)}
+                      className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                    >
+                      {members.map((member: any) => {
+                        const memberId = member.userId || member.user?.id || member.id;
+                        const memberName = member.user?.name || member.name || member.user?.username || 'Member';
+                        return <option key={memberId} value={memberId}>{memberName}</option>;
+                      })}
+                    </select>
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Target date</span>
+                    <input
+                      type="date"
+                      value={editTargetDate}
+                      onChange={(event) => setEditTargetDate(event.target.value)}
+                      className="w-full px-2.5 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-slate-900 dark:text-white"
+                    />
+                  </label>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Project team</span>
+                    <span className="text-[10px] text-slate-400">{editMemberIds.length} selected</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {members.map((member: any) => {
+                      const memberId = member.userId || member.user?.id || member.id;
+                      const memberName = member.user?.name || member.name || 'Member';
+                      const selected = editMemberIds.includes(memberId);
+                      return (
+                        <button
+                          key={memberId}
+                          type="button"
+                          onClick={() => setEditMemberIds((previous) => selected ? previous.filter((id) => id !== memberId) : [...previous, memberId])}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-semibold border ${selected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
+                        >
+                          {memberName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {updateProjectMutation.error && (
+                  <p role="alert" className="text-[11px] text-red-600 dark:text-red-400">
+                    {updateProjectMutation.error instanceof Error ? updateProjectMutation.error.message : 'Could not update project.'}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => setIsEditingProject(false)} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">Cancel</button>
+                  <button type="submit" disabled={!editName.trim() || updateProjectMutation.isPending} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+                    {updateProjectMutation.isPending ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  {cleanDesc || 'No project description added yet.'}
+                </p>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Project team</h4>
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <User className="w-4 h-4 text-blue-600" />
+                    <span><strong>Lead:</strong> {leadName}</span>
+                  </div>
+                  {(meta.memberIds || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(meta.memberIds || []).map((memberId: string) => {
+                        const member = members.find((item: any) => (item.userId || item.user?.id || item.id) === memberId);
+                        const memberName = member?.user?.name || member?.name || 'Member';
+                        return <span key={memberId} className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-600 dark:text-slate-300">{memberName}</span>;
+                      })}
+                    </div>
+                  )}
+                  {meta.targetDate && (
+                    <div className="text-xs text-slate-600 dark:text-slate-300"><strong>Target:</strong> {new Date(meta.targetDate).toLocaleDateString()}</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </section>
       )}
