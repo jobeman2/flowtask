@@ -172,7 +172,7 @@ export default function HomePage() {
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
             }`}
           >
-            <Sparkles className="w-3 h-3 fill-amber-400 text-amber-500" />
+            
             <span>{isUpgraded ? planCode : 'Free Plan'}</span>
           </button>
         </div>
