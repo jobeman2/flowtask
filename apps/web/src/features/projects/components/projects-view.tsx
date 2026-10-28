@@ -695,8 +695,9 @@ function ProjectWorkspace({
 
   const quickCreateTaskMutation = useMutation({
     mutationFn: async ({ title, status = 'TODO' }: { title: string; status?: string }) => {
-      if (!workspaceId || !title.trim()) return;
-      return apiClient.createTask({
+      if (!workspaceId) throw new Error('No active workspace selected.');
+      if (!title.trim()) throw new Error('Enter a task name first.');
+      const result = await apiClient.createTask({
         workspaceId,
         projectId: isInbox ? undefined : project.id,
         title: title.trim(),
@@ -704,6 +705,8 @@ function ProjectWorkspace({
         priority: 'MEDIUM',
         assigneeId: meta.leadId || user?.id,
       });
+      if (result.error) throw new Error(result.error);
+      return result.data;
     },
     onSuccess: () => {
       triggerHaptic('medium');
@@ -1036,10 +1039,15 @@ function ProjectWorkspace({
             />
             {inlineTaskInput.trim() && (
               <button type="submit" disabled={quickCreateTaskMutation.isPending} className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 shrink-0">
-                Add
+                {quickCreateTaskMutation.isPending ? 'Adding…' : 'Add'}
               </button>
             )}
           </form>
+          {quickCreateTaskMutation.error && (
+            <p role="alert" className="text-[11px] text-red-600 dark:text-red-400 px-1">
+              {quickCreateTaskMutation.error instanceof Error ? quickCreateTaskMutation.error.message : 'Could not create task.'}
+            </p>
+          )}
         </div>
       )}
 

@@ -62,6 +62,7 @@ export default function HomePage() {
         } else if (isCreateOpen) {
           setIsCreateOpen(false);
           setCreateTaskProjectId(undefined);
+          setCreateTaskPhase(undefined);
         } else if (isPricingOpen) {
           setIsPricingOpen(false);
         } else if (isNotificationsOpen) {
@@ -193,7 +194,7 @@ export default function HomePage() {
         {activeNav === 'HOME' && (
           <HomeView
             onSelectTask={(id) => setSelectedTaskId(id)}
-            onOpenCreate={() => setIsCreateOpen(true)}
+            onOpenCreate={() => { setCreateTaskProjectId(undefined); setCreateTaskPhase(undefined); setIsCreateOpen(true); }}
             onNavigateTasks={() => setActiveNav('TASKS')}
           />
         )}
@@ -214,11 +215,12 @@ export default function HomePage() {
       <BottomNav
         activeTab={activeNav}
         onTabChange={(tab) => setActiveNav(tab)}
-        onOpenCreate={() => setIsCreateOpen(true)}
+        onOpenCreate={() => { setCreateTaskProjectId(undefined); setCreateTaskPhase(undefined); setIsCreateOpen(true); }}
       />
 
       {/* 4. Global Modals & Sheets */}
       <CreateTaskSheet
+        key={isCreateOpen ? `open:${createTaskProjectId || 'inbox'}:${createTaskPhase || ''}` : 'closed'}
         isOpen={isCreateOpen}
         initialProjectId={createTaskProjectId}
         initialPhase={createTaskPhase}

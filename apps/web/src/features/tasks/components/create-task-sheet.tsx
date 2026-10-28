@@ -21,7 +21,6 @@ import {
   Calendar,
   Eye,
   Download,
-  Layers,
 } from 'lucide-react';
 
 export interface AttachmentFile {
@@ -97,7 +96,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
   const [dueDate, setDueDate] = useState('');
   const [selectedQuickChip, setSelectedQuickChip] = useState<'today' | 'tomorrow' | 'in2days' | 'nextWeek' | 'custom' | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>(initialProjectId || '');
   const [phase, setPhase] = useState<string>('');
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<AttachmentFile | null>(null);
@@ -300,7 +299,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
 
   const selectedProject = projects.find((p: any) => p.id === projectId);
   const selectedProjectMeta = React.useMemo(() => {
-    return parseProjectMetadata(selectedProject?.description, selectedProject?.name);
+    return parseProjectMetadata(selectedProject?.description);
   }, [selectedProject]);
 
   React.useEffect(() => {
@@ -308,18 +307,6 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
       setAssigneeIds([selectedProjectMeta.leadId]);
     }
   }, [selectedProjectMeta.leadId]);
-  const projectPhases = React.useMemo(() => {
-    if (!selectedProject?.description) return [];
-    const match = selectedProject.description.match(/<!--phases:(.*?)-->/);
-    if (!match) return [];
-    try {
-      const parsed = JSON.parse(match[1]);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }, [selectedProject]);
-  const hasPhases = projectPhases.length > 0 || Boolean(initialPhase) || Boolean(phase);
   const selectedMembers = members.filter((m: any) => assigneeIds.includes(m.userId));
 
   if (!isOpen) return null;

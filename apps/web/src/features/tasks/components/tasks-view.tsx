@@ -204,11 +204,19 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
       )}
 
       {activeView === 'BOARD' && (
-        <KanbanView tasks={filteredTasks} onSelectTask={onSelectTask} onOpenCreate={onOpenCreate} />
+        <KanbanView
+          tasks={filteredTasks}
+          onSelectTask={onSelectTask}
+          onOpenCreate={() => onOpenCreate(selectedProjectId || undefined)}
+        />
       )}
 
       {activeView === 'CALENDAR' && (
-        <CalendarView tasks={tasks} onSelectTask={onSelectTask} onOpenCreate={onOpenCreate} />
+        <CalendarView
+          tasks={filteredTasks}
+          onSelectTask={onSelectTask}
+          onOpenCreate={() => onOpenCreate(selectedProjectId || undefined)}
+        />
       )}
 
       {activeView === 'LIST' && (
@@ -313,7 +321,7 @@ export function TasksView({ onSelectTask, onOpenCreate }: TasksViewProps) {
                 </p>
                 <button
                   type="button"
-                  onClick={() => onOpenCreate()}
+                  onClick={() => onOpenCreate(selectedProjectId || undefined)}
                   className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   + Create a new task
