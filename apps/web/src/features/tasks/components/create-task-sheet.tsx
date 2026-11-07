@@ -839,7 +839,7 @@ export function CreateTaskSheet({ isOpen, onClose, initialProjectId, initialPhas
                                 <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{name}</p>
                                 {isLead && (
                                   <span className="px-1 py-0.2 rounded text-[9px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
-                                    👑 Lead
+                                    Lead
                                   </span>
                                 )}
                                 {!isLead && isProjectMember && (

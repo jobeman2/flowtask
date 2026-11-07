@@ -10,11 +10,7 @@ import {
   Plus,
   Clock,
   Calendar,
-  Sparkles,
-  Flame,
-  CheckCircle2,
-  Video,
-  Zap,
+  CheckCircle2, CheckSquare, Video,
   FileText,
 } from 'lucide-react';
 import { TaskCard, parseTaskMeta } from '../../tasks/components/task-card';
@@ -129,7 +125,8 @@ export function HomeView({
         ? t.assignees
         : (t.assignee ? [t.assignee] : []);
       const isAssignedToMe = assignees.some((a: any) => a.id === user.id) || t.assigneeId === user.id;
-      return isAssignedToMe;
+      const isCreatedByMeUnassigned = (t.creatorId === user.id || t.userId === user.id) && !t.assigneeId && assignees.length === 0;
+      return isAssignedToMe || isCreatedByMeUnassigned;
     });
   }, [tasks, user?.id]);
 
@@ -151,7 +148,7 @@ export function HomeView({
   const activeFocusMeta = activeFocusTask ? parseTaskMeta(activeFocusTask) : null;
 
   return (
-    <div className="space-y-5 pb-32 animate-in fade-in duration-300 font-sans">
+    <div className="space-y-5 pb-36 animate-in fade-in duration-300 font-sans">
       {/* 1. Hero Focus Card — Blue brand palette (softer than full saturation) */}
       <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-xl shadow-blue-600/25 border border-blue-400/20">
         {/* Subtle decorative glow */}
@@ -163,7 +160,7 @@ export function HomeView({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/15 text-[10px] font-bold tracking-wider uppercase text-blue-100 border border-white/10">
-                <Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-200" />
                 <span>Daily Focus</span>
               </span>
               <h2 className="text-xl font-extrabold tracking-tight mt-1.5 leading-tight text-white">
@@ -188,10 +185,6 @@ export function HomeView({
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300">
                   {activeFocusMeta.isMeeting ? (
                     <><Video className="w-3 h-3 text-blue-300 shrink-0" /><span className="text-blue-200">Next Meeting</span></>
-                  ) : activeFocusMeta.isClickUp ? (
-                    <><Zap className="w-3 h-3 text-violet-300 shrink-0 fill-violet-300" /><span className="text-violet-200">ClickUp Task</span></>
-                  ) : activeFocusMeta.isNotion ? (
-                    <><FileText className="w-3 h-3 text-slate-300 shrink-0" /><span className="text-slate-200">Notion Task</span></>
                   ) : (
                     <><Clock className="w-3 h-3 text-sky-300 shrink-0" /><span className="text-sky-200">Current Task</span></>
                   )}
@@ -241,7 +234,7 @@ export function HomeView({
       <div className="grid grid-cols-3 gap-2.5">
         <div onClick={onNavigateTasks} className="bg-white dark:bg-slate-900/90 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.04)] cursor-pointer hover:border-blue-200 transition-all active:scale-98">
           <div className="w-7 h-7 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
-            <Flame className="w-4 h-4" />
+            <CheckSquare className="w-4 h-4" />
           </div>
           <div className="text-xl font-black text-slate-900 dark:text-white leading-none">{metrics.active}</div>
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">Active Tasks</div>

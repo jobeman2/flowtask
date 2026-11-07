@@ -748,7 +748,7 @@ function ProjectWorkspace({
   }, [filteredTasks]);
 
   return (
-    <div className="space-y-3.5 pb-28 animate-in fade-in font-sans">
+    <div className="space-y-3.5 pb-36 animate-in fade-in font-sans">
       {/* Top Bar: Back & Add Task */}
       <div className="flex items-center justify-between">
         <button

@@ -7,9 +7,7 @@ import {
   Calendar,
   Video,
   Mic,
-  ExternalLink,
-  Bot,
-  CheckSquare,
+  ExternalLink, CheckSquare,
   Zap,
   FileText,
   AlertTriangle,
@@ -329,10 +327,12 @@ export function TaskCard({
             : meta.isNotion
             ? 'bg-slate-600 dark:bg-slate-400'
             : task.priority === 'URGENT' || dueInfo?.isAlert
-            ? 'bg-rose-500'
+            ? 'bg-blue-700'
             : task.priority === 'HIGH'
-            ? 'bg-orange-500'
-            : 'bg-blue-500'
+            ? 'bg-blue-600'
+            : task.priority === 'MEDIUM'
+            ? 'bg-blue-400'
+            : 'bg-slate-400'
         }`}
       />
 
@@ -536,26 +536,7 @@ export function TaskCard({
               </span>
             )}
 
-            {meta.isClickUp && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-violet-50 dark:bg-violet-950/70 text-violet-700 dark:text-violet-300 border border-violet-200/80 dark:border-violet-800/80 shadow-2xs">
-                <Zap className="w-2.5 h-2.5 text-violet-600 dark:text-violet-400 fill-violet-500" />
-                <span>ClickUp</span>
-              </span>
-            )}
-
-            {meta.isNotion && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <FileText className="w-2.5 h-2.5 text-slate-600 dark:text-slate-300" />
-                <span>Notion</span>
-              </span>
-            )}
-
-            {meta.isAi && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs">
-                <Bot className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-300" />
-                <span>Flow AI</span>
-              </span>
-            )}
+            
 
             {(task.priority === 'URGENT' || dueInfo?.isAlert) && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-2xs">
@@ -565,7 +546,7 @@ export function TaskCard({
             )}
 
             {/* Project Tag */}
-            {!meta.isMeeting && !meta.isClickUp && !meta.isNotion && (
+            {!meta.isMeeting && (
               <span
                 className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md"
                 style={{

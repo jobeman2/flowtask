@@ -8,9 +8,7 @@ import { useTelegram } from '../../../hooks/use-telegram';
 import {
   Clock,
   User,
-  Plus,
-  Bot,
-} from 'lucide-react';
+  Plus, } from 'lucide-react';
 
 interface KanbanViewProps {
   tasks: any[];
@@ -71,9 +69,9 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
     {
       id: 'IN_REVIEW',
       label: 'In Review',
-      dotColor: 'bg-amber-500',
-      bgLight: 'bg-amber-50/40 dark:bg-amber-950/20',
-      borderLight: 'border-amber-200/80 dark:border-amber-900/40',
+      dotColor: 'bg-sky-500',
+      bgLight: 'bg-sky-50/40 dark:bg-sky-950/20',
+      borderLight: 'border-sky-200/80 dark:border-sky-900/40',
       nextStatus: 'DONE',
       nextLabel: 'Mark Done ✓',
     },
@@ -190,12 +188,7 @@ export function KanbanView({ tasks, onSelectTask, onOpenCreate }: KanbanViewProp
                             {projectTag}
                           </span>
 
-                          {isAiGenerated && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center gap-0.5 shadow-2xs">
-                              <Bot className="w-2.5 h-2.5" />
-                              <span>Flow AI</span>
-                            </span>
-                          )}
+                          
                         </div>
 
                         <span className={`w-2 h-2 rounded-full ring-2 ${getPriorityDot(task.priority)}`} />

@@ -17,7 +17,7 @@ import { ToastContainer } from '../components/notifications/toast-container';
 import { NotificationsModal } from '../components/notifications/notifications-modal';
 import { useNotifications } from '../providers/notification-provider';
 import { useTelegram } from '../hooks/use-telegram';
-import { Sparkles, Bell } from 'lucide-react';
+import { Layers, Bell } from 'lucide-react';
 
 export default function HomePage() {
   const { user, workspaceId, setWorkspaceId, error, subscription, isLoading } = useAuth();
@@ -99,7 +99,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-6 space-y-5">
         <div className="w-16 h-16 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-xs">
-          <Sparkles className="w-8 h-8" />
+          <Layers className="w-8 h-8" />
         </div>
         <div className="space-y-2 max-w-sm">
           <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">

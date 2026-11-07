@@ -10,8 +10,6 @@ import {
   Search,
   UserPlus,
   X,
-  Bot,
-  Sparkles,
   RefreshCw,
   Users,
   Copy,
@@ -402,37 +400,7 @@ export function TeamView() {
 
           {/* Members List */}
           <div className="space-y-2.5">
-            {/* 🤖 Permanent Virtual AI Copilot Member */}
-            <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-pink-50/50 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-pink-950/20 rounded-2xl p-3.5 border border-purple-200/80 dark:border-purple-800/60 shadow-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center font-bold shadow-md shadow-purple-500/20">
-                    <Bot className="w-5 h-5" />
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                      Flow AI
-                    </h4>
-                    <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  </div>
-                  <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 truncate">
-                    @flowtaskmanager_bot • Autonomous PM
-                  </p>
-                </div>
-              </div>
-
-              <div className="shrink-0">
-                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs">
-                  AI Copilot
-                </span>
-              </div>
-            </div>
-
-            {/* Human Team Members */}
+            {/* Workspace Team Members */}
             {filteredMembers.map((member: any) => {
               const isOwner = member.role === 'OWNER';
               const isAdmin = member.role === 'ADMIN';

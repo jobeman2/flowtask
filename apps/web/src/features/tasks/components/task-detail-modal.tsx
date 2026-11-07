@@ -362,7 +362,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const isOwnerOrAdmin = userRole === 'OWNER' || userRole === 'ADMIN';
   const isCreator = Boolean(task?.creatorId && task.creatorId === user?.id);
   const canDeleteTask = isOwnerOrAdmin || isCreator;
-  const canEditTask = isOwnerOrAdmin || isCreator;
+  const isAssigned = allAssignees.some((a: any) => a.id === user?.id) || task?.assigneeId === user?.id;
+  const canEditTask = isOwnerOrAdmin || isCreator || isAssigned;
 
   // Workspace Members for Assignee selection
   const { data: members = [] } = useQuery({
@@ -872,24 +873,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         Meeting {meta.platform ? `(${meta.platform})` : ''}
                       </span>
                     )}
-                    {meta.isClickUp && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-                        <Zap className="w-3 h-3" />
-                        ClickUp {meta.clickUpSpace ? `(${meta.clickUpSpace})` : ''}
-                      </span>
-                    )}
-                    {meta.isNotion && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 flex items-center gap-1">
-                        <FileText className="w-3 h-3" />
-                        Notion
-                      </span>
-                    )}
-                    {meta.isAi && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        Flow AI
-                      </span>
-                    )}
+                    
                   </div>
                   <h3 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
                     {meta.cleanTitle || task.title}
@@ -907,12 +891,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: projectColor }} />
                       {projectTag}
                     </span>
-                    {(task.phase || (task.taskMetadata as any)?.phase) && (
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
-                        <Layers className="w-3 h-3 text-violet-500" />
-                        {task.phase || (task.taskMetadata as any)?.phase}
-                      </span>
-                    )}
+                    
                   </div>
                   {telegramSource?.provider === 'telegram' && (
                     <a
@@ -947,7 +926,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                         type="button"
                         onClick={() => {
                           // Only creator or admin can move to IN_REVIEW or DONE
-                          if ((st.id === 'IN_REVIEW' || st.id === 'DONE') && !isCreator && !isOwnerOrAdmin) {
+                          if ((st.id === 'IN_REVIEW' || st.id === 'DONE') && !isCreator && !isOwnerOrAdmin && !isAssigned) {
                             triggerHaptic('heavy');
                             alert('Only the task creator or workspace admin can move a task to Review or Done.');
                             return;
