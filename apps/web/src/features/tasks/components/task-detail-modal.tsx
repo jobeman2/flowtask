@@ -362,6 +362,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const isOwnerOrAdmin = userRole === 'OWNER' || userRole === 'ADMIN';
   const isCreator = Boolean(task?.creatorId && task.creatorId === user?.id);
   const canDeleteTask = isOwnerOrAdmin || isCreator;
+  const allAssignees: any[] = Array.isArray(task?.assignees) && task.assignees.length > 0
+    ? task.assignees
+    : (task?.assignee ? [task.assignee] : []);
+  const currentAssigneeIds = allAssignees.map((a: any) => a.id);
   const isAssigned = allAssignees.some((a: any) => a.id === user?.id) || task?.assigneeId === user?.id;
   const canEditTask = isOwnerOrAdmin || isCreator || isAssigned;
 
@@ -620,10 +624,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     ? task.description.replace(/^-\s*\[[ xX]\]\s*.+$/gm, '').trim() || task.description
     : null;
 
-  const allAssignees: any[] = Array.isArray(task?.assignees) && task.assignees.length > 0
-    ? task.assignees
-    : (task?.assignee ? [task.assignee] : []);
-  const currentAssigneeIds = allAssignees.map((a: any) => a.id);
+// assignees defined above
 
   const completedUserIds: string[] = Array.isArray(task?.completedAssigneeIds)
     ? task.completedAssigneeIds
