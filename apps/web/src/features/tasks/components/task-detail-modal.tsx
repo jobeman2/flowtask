@@ -593,7 +593,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     addCommentMutation.mutate(finalContent);
   };
 
-  const commentsList = (task?.comments || []).map((c: any) => {
+  const taskCommentsList = (task?.comments || []).map((c: any) => {
     let rawText = c.content || '';
     let replyMeta: { id: string; author: string } | null = null;
     const match = rawText.match(/^\[replyTo:([^|\]]+)\|([^\]]+)\]\s*/);
@@ -1439,17 +1439,17 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     </h4>
                   </div>
                   <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                    {commentsList.length}
+                    {taskCommentsList.length}
                   </span>
                 </div>
 
                 <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
-                  {commentsList.length === 0 ? (
+                  {taskCommentsList.length === 0 ? (
                     <div className="p-3 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 font-medium">
                       No comments or updates yet.
                     </div>
                   ) : (
-                    commentsList.map((c: any) => {
+                    taskCommentsList.map((c: any) => {
                       const isAuthor = Boolean(user?.id && (c.authorId === user.id || c.user === user.name));
                       const canDelete = isAuthor || isOwnerOrAdmin;
                       const isBeingEdited = editingCommentId === c.id;

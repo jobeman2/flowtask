@@ -3,18 +3,32 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/telegram-provider';
 import { useLiveEvents } from '../hooks/use-live-events';
+import dynamic from 'next/dynamic';
 import { WorkspaceSwitcher } from '../features/workspaces/components/workspace-switcher';
-import { PricingModal } from '../features/billing/components/pricing-modal';
 import { BottomNav, NavTab } from '../components/navigation/bottom-nav';
 import { HomeView } from '../features/home/components/home-view';
 import { TasksView } from '../features/tasks/components/tasks-view';
 import { TeamView } from '../features/team/components/team-view';
 import { MoreView } from '../features/more/components/more-view';
-import { CreateTaskSheet } from '../features/tasks/components/create-task-sheet';
-import { TaskDetailModal } from '../features/tasks/components/task-detail-modal';
 import { PendingInvitationsBanner } from '../features/workspaces/components/pending-invitations';
-import { ToastContainer } from '../components/notifications/toast-container';
-import { NotificationsModal } from '../components/notifications/notifications-modal';
+
+// Dynamically import heavy modals to isolate bundle chunks and prevent TDZ collisions
+const TaskDetailModal = dynamic(
+  () => import('../features/tasks/components/task-detail-modal').then((mod) => mod.TaskDetailModal),
+  { ssr: false }
+);
+const CreateTaskSheet = dynamic(
+  () => import('../features/tasks/components/create-task-sheet').then((mod) => mod.CreateTaskSheet),
+  { ssr: false }
+);
+const PricingModal = dynamic(
+  () => import('../features/billing/components/pricing-modal').then((mod) => mod.PricingModal),
+  { ssr: false }
+);
+const NotificationsModal = dynamic(
+  () => import('../components/notifications/notifications-modal').then((mod) => mod.NotificationsModal),
+  { ssr: false }
+);
 import { useNotifications } from '../providers/notification-provider';
 import { useTelegram } from '../hooks/use-telegram';
 import { Layers, Bell } from 'lucide-react';
@@ -237,8 +251,7 @@ export default function HomePage() {
         onClose={() => setIsPricingOpen(false)}
       />
 
-      {/* 5. Notification Toast & Drawer */}
-      <ToastContainer />
+      {/* 5. Notification Drawer */}
       <NotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
